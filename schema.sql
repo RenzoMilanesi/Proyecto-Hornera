@@ -1,0 +1,471 @@
+-- ============================================================
+--  HORNERA — Liquidación mensual a propietarios
+--  Esquema físico (DDL) v1 — SQLite 3.37+ (tablas STRICT)
+-- ============================================================
+--  Convenciones (las de Roble):
+--   - snake_case, singular, sin acentos. PK `id INTEGER PRIMARY KEY`.
+--   - FK `<entidad>_id` con ON DELETE explícito e índice propio.
+--   - Importes: INTEGER en CENTAVOS con signo (+ ingreso / − egreso).
+--     Cada importe tiene dos columnas: `_ars` y `_usd`, como en el Excel.
+--   - Tasas y cotizaciones: REAL (no son plata; el resultado se redondea a centavos).
+--   - Fechas: TEXT ISO 'YYYY-MM-DD' / 'YYYY-MM-DD HH:MM:SS'.
+--   - Booleanos 0/1 con CHECK. Enumerados TEXT con CHECK IN.
+--   - Catálogos: baja lógica `activo = 0`. Transaccionales: `estado = 'anulado'`.
+--   - Saldos de cuentas y de deptos con período abierto: vistas v_*.
+--     Excepción deliberada: la liquidación de un período CERRADO se guarda
+--     como snapshot (decisión "mes congelado"), igual que Roble guarda el
+--     precio histórico en una venta.
+-- ============================================================
+
+PRAGMA foreign_keys = ON;
+
+-- ------------------------------------------------------------
+--  CATÁLOGOS
+-- ------------------------------------------------------------
+
+-- Hoja Propiedades, columnas E, N, O, P, Q. Una misma persona puede tener
+-- varios deptos (Olivera: OVL y BAL; Bergonzi: GUE, ALV, ESP; Martinez: CAF, RIO, MAPU).
+CREATE TABLE propietario (
+    id                 INTEGER PRIMARY KEY,
+    nombre             TEXT    NOT NULL,          -- "Olivera, Griselda Beatriz / Escalada, Anibal Omar"
+    documento          TEXT,                       -- texto libre: hoy viene "DNI N°16.719.412 / ..."
+    cuit               TEXT,
+    categoria_fiscal   TEXT    CHECK (categoria_fiscal IN ('RM','RI','CF','EX','NI')),  -- NI = "No inf."
+    cbu                TEXT,                       -- CBU/CVU; NULL = no informado
+    es_hornera         INTEGER NOT NULL DEFAULT 0 CHECK (es_hornera IN (0,1)),  -- SFE: CBU "Nosotros"
+    mails              TEXT,                       -- separados por ';' (como en el Excel)
+    activo             INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1))
+) STRICT;
+
+-- Hoja Propiedades. Los códigos especiales HOR / INT / CAN / PRUE NO son deptos:
+-- INT pasa a ser movimiento.depto_id = NULL (gasto de la empresa).
+CREATE TABLE depto (
+    id                        INTEGER PRIMARY KEY,
+    codigo                    TEXT    NOT NULL,   -- OVL, BAL, ... (= "Nombre interno del alojamiento" en Stays)
+    nombre                    TEXT    NOT NULL,   -- Hornera Lagos
+    direccion                 TEXT,
+    tipologia                 TEXT    CHECK (tipologia IN ('monoambiente','1 dormitorio','2 dormitorios','3 dormitorios')),
+    estado                    TEXT    NOT NULL DEFAULT 'activo'
+                              CHECK (estado IN ('potencial','proximo','activo','pausado','finalizado')),
+    propietario_id            INTEGER NOT NULL,
+    comision_pct              REAL    NOT NULL DEFAULT 0.20 CHECK (comision_pct BETWEEN 0 AND 1),
+    tipo_administracion       TEXT    NOT NULL DEFAULT 'integral',
+    horas_limpieza_prom       REAL,               -- informativo (col. J)
+    -- Overrides de tarifa: NULL = usar el parámetro global del período.
+    tarifa_base_override      INTEGER,            -- centavos ARS por reserva
+    adicional_huesped_override INTEGER,           -- centavos ARS por par de huéspedes extra
+    cm_fee_usd_override       INTEGER,            -- centavos USD por mes (conexión channel manager)
+    -- Identificadores externos
+    stays_listing_id          TEXT,               -- "ID interno del anuncio" en Stays
+    id_alquiler_argentina     TEXT,
+    id_booking                TEXT,
+    id_alohar                 TEXT,
+    CONSTRAINT uq_depto_codigo UNIQUE (codigo),
+    CONSTRAINT fk_depto_propietario FOREIGN KEY (propietario_id)
+        REFERENCES propietario(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) STRICT;
+CREATE INDEX ix_depto_propietario ON depto(propietario_id);
+
+-- Hoja Plataformas. `nombre_stays` es el texto de la columna "Canal" de Stays.
+CREATE TABLE plataforma (
+    id               INTEGER PRIMARY KEY,
+    nombre_stays     TEXT    NOT NULL,            -- "API airbnb"
+    nombre           TEXT    NOT NULL,            -- "Airbnb"
+    codigo           TEXT    NOT NULL,            -- A, B, D, Q, V, G, T, P, W, H
+    gestiona_pago    INTEGER NOT NULL CHECK (gestiona_pago IN (0,1)),
+    comision_pct     REAL    NOT NULL DEFAULT 0 CHECK (comision_pct BETWEEN 0 AND 1),
+    activo           INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)),
+    CONSTRAINT uq_plataforma_nombre_stays UNIQUE (nombre_stays)
+) STRICT;
+
+-- Deptos donde una plataforma le paga directo al propietario (co-host Airbnb:
+-- ALV, GUE, R64, AND). Reemplaza la lista fija de 3-Union_Reservas_Cuentas.PY.
+CREATE TABLE depto_pago_directo (
+    depto_id         INTEGER NOT NULL,
+    plataforma_id    INTEGER NOT NULL,
+    CONSTRAINT pk_depto_pago_directo PRIMARY KEY (depto_id, plataforma_id),
+    CONSTRAINT fk_dpd_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_dpd_plataforma FOREIGN KEY (plataforma_id) REFERENCES plataforma(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) STRICT, WITHOUT ROWID;
+CREATE INDEX ix_dpd_plataforma ON depto_pago_directo(plataforma_id);
+
+-- Cuentas de la empresa (Listas col. B): Galicia A, Mercadopago L, Efectivo USD...
+CREATE TABLE cuenta (
+    id          INTEGER PRIMARY KEY,
+    nombre      TEXT    NOT NULL,
+    moneda      TEXT    NOT NULL CHECK (moneda IN ('ARS','USD')),
+    activo      INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)),
+    CONSTRAINT uq_cuenta_nombre UNIQUE (nombre)
+) STRICT;
+
+-- Medios de pago de Stays (/finance/payment-providers) mapeados a una cuenta.
+CREATE TABLE medio_pago (
+    id                 INTEGER PRIMARY KEY,
+    stays_id           TEXT    NOT NULL,          -- _id
+    nombre             TEXT    NOT NULL,          -- internalName ("Mercado Pago Lau")
+    tipo_stays         TEXT    NOT NULL,          -- type (mercadopago, paypal, user...)
+    moneda             TEXT    NOT NULL CHECK (moneda IN ('ARS','USD')),
+    descuenta_comision INTEGER NOT NULL DEFAULT 0 CHECK (descuenta_comision IN (0,1)),  -- MP y PayPal: neto = val − tax
+    cuenta_id          INTEGER,                   -- NULL = sin mapear (la sync lo avisa)
+    activo             INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)),
+    CONSTRAINT uq_medio_pago_stays UNIQUE (stays_id),
+    CONSTRAINT fk_medio_pago_cuenta FOREIGN KEY (cuenta_id) REFERENCES cuenta(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) STRICT;
+CREATE INDEX ix_medio_pago_cuenta ON medio_pago(cuenta_id);
+
+-- Conceptos de movimiento (Listas col. C y A). `grupo` = rubro contable de la empresa.
+CREATE TABLE concepto (
+    id          INTEGER PRIMARY KEY,
+    nombre      TEXT    NOT NULL,                 -- EPE, Expensas, Cerrajería, Viáticos...
+    grupo       TEXT,                             -- Gastos Administración, Honorarios, Impuestos...
+    activo      INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)),
+    CONSTRAINT uq_concepto_nombre UNIQUE (nombre)
+) STRICT;
+
+-- ------------------------------------------------------------
+--  PERÍODO (hoja Datos balance)
+-- ------------------------------------------------------------
+
+CREATE TABLE periodo (
+    id                       INTEGER PRIMARY KEY,
+    mes                      TEXT    NOT NULL CHECK (mes GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]'),  -- '2026-04'
+    fecha_inicio             TEXT    NOT NULL,    -- 2026-04-01
+    fecha_cierre_reservas    TEXT    NOT NULL,    -- 2026-05-01 (exclusivo, prorrateo de noches)
+    fecha_corte_gastos       TEXT    NOT NULL,
+    fecha_pago               TEXT    NOT NULL,
+    -- Tipo de cambio: dólar cripto (automático) con override manual.
+    usd_cotizacion           REAL,                -- 1490
+    usd_cotizacion_fuente    TEXT    CHECK (usd_cotizacion_fuente IN ('api','manual')),
+    usd_descuento_pct        REAL    NOT NULL DEFAULT 0.06,
+    -- Parámetros de tarifa (centavos ARS). La UI los propone desde costo_hora_limpieza.
+    costo_hora_limpieza      INTEGER NOT NULL,    -- B13 "Costo hora Vale"
+    servicio_limpieza        INTEGER NOT NULL,    -- B8 = B13 × 1,4
+    servicio_lavanderia      INTEGER NOT NULL,    -- B9
+    prestamo_blanqueria      INTEGER NOT NULL,    -- B10
+    gestion_operativa        INTEGER NOT NULL,    -- B11
+    mantenimiento            INTEGER NOT NULL,    -- B12
+    tarifa_base              INTEGER NOT NULL,    -- B15 = 2·limp + 2·lav + 2·gest + mant
+    adicional_huesped        INTEGER NOT NULL,    -- B16, por cada par de huéspedes extra
+    noches_tramo_1           INTEGER NOT NULL DEFAULT 10,   -- A17
+    cargo_tramo_1            INTEGER NOT NULL,              -- B17
+    noches_tramo_2           INTEGER NOT NULL DEFAULT 28,   -- A18
+    cargo_tramo_2            INTEGER NOT NULL,              -- B18
+    cm_fee_usd               INTEGER NOT NULL,    -- centavos USD por depto/mes
+    estado                   TEXT    NOT NULL DEFAULT 'abierto' CHECK (estado IN ('abierto','cerrado')),
+    cerrado_en               TEXT,
+    CONSTRAINT uq_periodo_mes UNIQUE (mes),
+    CONSTRAINT ck_periodo_fechas CHECK (fecha_inicio < fecha_cierre_reservas)
+) STRICT;
+
+-- ------------------------------------------------------------
+--  DATOS DE STAYS (se pisan al re-sincronizar; los campos ajuste_* no)
+-- ------------------------------------------------------------
+
+CREATE TABLE reserva (
+    id                          INTEGER PRIMARY KEY,
+    codigo                      TEXT    NOT NULL,   -- "Reserva" en Stays (PI08J)
+    stays_id                    TEXT,               -- _idreserve de los pagos
+    depto_id                    INTEGER NOT NULL,
+    plataforma_id               INTEGER,            -- NULL = "Carga Agente" sin canal
+    codigo_ota                  TEXT,
+    llegada                     TEXT    NOT NULL,
+    salida                      TEXT    NOT NULL,
+    huespedes                   INTEGER NOT NULL DEFAULT 1,
+    estado_stays                TEXT,               -- "Estatus de reserva"
+    moneda                      TEXT    NOT NULL CHECK (moneda IN ('ARS','USD')),
+    total_factura               INTEGER,            -- "Total de factura de hospedaje" (centavos en `moneda`)
+    forward_fee_all             INTEGER,            -- "Total Forward Fee All" (Adelanto Tarifario)
+    precio_compra               INTEGER,            -- "Precio de compra" = cobro directo propietario
+    tasa_propietario_airbnb     INTEGER,            -- "Tasa del propietario: API airbnb"
+    cargo_limpieza              INTEGER,            -- "Cargos: Tasa de Limpieza"
+    tasa_propietario_limpieza   INTEGER,
+    huesped_nombre              TEXT,
+    huesped_doc_tipo            TEXT    CHECK (huesped_doc_tipo IN ('DNI','Pasaporte','Otro')),
+    huesped_doc_numero          TEXT,
+    raw_json                    TEXT    NOT NULL,   -- fila completa de Stays, para no perder columnas
+    sincronizada_en             TEXT    NOT NULL,
+    -- Ajustes manuales (pestañas 🖊 del Excel). La sync NO los toca.
+    ajuste_ars                  INTEGER NOT NULL DEFAULT 0,  -- "Corrección pago ARS"
+    ajuste_usd                  INTEGER NOT NULL DEFAULT 0,
+    ajuste_comision_ars         INTEGER NOT NULL DEFAULT 0,  -- corrige la comisión OTA calculada
+    ajuste_comision_usd         INTEGER NOT NULL DEFAULT 0,
+    observacion                 TEXT,
+    excluida                    INTEGER NOT NULL DEFAULT 0 CHECK (excluida IN (0,1)),  -- sacar de la liquidación sin borrar
+    CONSTRAINT uq_reserva_codigo UNIQUE (codigo),
+    CONSTRAINT ck_reserva_fechas CHECK (llegada <= salida),
+    CONSTRAINT fk_reserva_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_reserva_plataforma FOREIGN KEY (plataforma_id) REFERENCES plataforma(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) STRICT;
+CREATE INDEX ix_reserva_depto ON reserva(depto_id);
+CREATE INDEX ix_reserva_plataforma ON reserva(plataforma_id);
+CREATE INDEX ix_reserva_fechas ON reserva(llegada, salida);
+
+-- Pagos de Stays (/booking/reservations/{id}/payments).
+CREATE TABLE pago (
+    id               INTEGER PRIMARY KEY,
+    stays_id         TEXT    NOT NULL,           -- _id
+    reserva_id       INTEGER NOT NULL,
+    -- NOT NULL: la sync da de alta el medio si no existe (consultando
+    -- /finance/payment-providers sin filtrar por activos), así nunca falta la moneda.
+    medio_pago_id    INTEGER NOT NULL,
+    tipo             TEXT    NOT NULL CHECK (tipo IN ('credit','debit')),
+    estado           TEXT    NOT NULL,           -- completed / pending / ...
+    descripcion      TEXT,                       -- name ("res. fee API airbnb")
+    importe          INTEGER NOT NULL,           -- _f_val, centavos en la moneda del medio
+    comision         INTEGER,                    -- _f_tax; NULL en MP/PayPal = falta cargar ("ADD MP TAX")
+    fecha_pago       TEXT,
+    raw_json         TEXT    NOT NULL,
+    CONSTRAINT uq_pago_stays UNIQUE (stays_id),
+    CONSTRAINT fk_pago_reserva FOREIGN KEY (reserva_id) REFERENCES reserva(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_pago_medio FOREIGN KEY (medio_pago_id) REFERENCES medio_pago(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) STRICT;
+CREATE INDEX ix_pago_reserva ON pago(reserva_id);
+CREATE INDEX ix_pago_medio ON pago(medio_pago_id);
+
+CREATE TABLE sincronizacion (
+    id            INTEGER PRIMARY KEY,
+    periodo_id    INTEGER NOT NULL,
+    iniciada_en   TEXT    NOT NULL,
+    terminada_en  TEXT,
+    resultado     TEXT    CHECK (resultado IN ('ok','con_avisos','error')),
+    reservas      INTEGER,
+    pagos         INTEGER,
+    avisos_json   TEXT,                          -- medios sin mapear, comisiones faltantes, deptos desconocidos
+    CONSTRAINT fk_sync_periodo FOREIGN KEY (periodo_id) REFERENCES periodo(id) ON DELETE CASCADE ON UPDATE CASCADE
+) STRICT;
+CREATE INDEX ix_sync_periodo ON sincronizacion(periodo_id);
+
+-- Noches en que el depto no se alquila (B24 "No disponible" de la hoja por
+-- depto, "Noches no disp" del Checklist). `hasta` es exclusivo, como `salida`.
+CREATE TABLE bloqueo (
+    id          INTEGER PRIMARY KEY,
+    depto_id    INTEGER NOT NULL,
+    desde       TEXT    NOT NULL,
+    hasta       TEXT    NOT NULL,
+    motivo      TEXT,
+    estado      TEXT    NOT NULL DEFAULT 'vigente' CHECK (estado IN ('vigente','anulado')),
+    CONSTRAINT ck_bloqueo_fechas CHECK (desde < hasta),
+    CONSTRAINT fk_bloqueo_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) STRICT;
+CREATE INDEX ix_bloqueo_depto ON bloqueo(depto_id, desde);
+
+-- ------------------------------------------------------------
+--  MOVIMIENTOS (reemplaza CORRIENTE y Cont Interna)
+-- ------------------------------------------------------------
+-- Un movimiento se imputa a un depto (o a la empresa si depto_id es NULL)
+-- y, si mueve plata real, a una cuenta. Las transferencias entre cuentas
+-- son dos movimientos con el mismo `transferencia_grupo`.
+
+CREATE TABLE movimiento (
+    id                   INTEGER PRIMARY KEY,
+    periodo_id           INTEGER NOT NULL,       -- período de liquidación al que se imputa
+    fecha                TEXT    NOT NULL,
+    depto_id             INTEGER,                -- NULL = empresa (código INT del Excel)
+    tipo                 TEXT    NOT NULL CHECK (tipo IN (
+                            'gasto',               -- EPE, expensas, ferretería...
+                            'ingreso',             -- otros ingresos del depto/empresa
+                            'pre_liquidacion',     -- adelanto al propietario
+                            'liquidacion',         -- pago del saldo (lo genera "marcar pagado")
+                            'pago_directo',        -- cobro directo del propietario por plataforma
+                            'saldo_inicial',       -- arrastre al migrar
+                            'transferencia',       -- entre cuentas propias
+                            'ajuste')),
+    concepto_id          INTEGER,
+    detalle              TEXT,
+    importe_ars          INTEGER NOT NULL DEFAULT 0,
+    importe_usd          INTEGER NOT NULL DEFAULT 0,
+    cuenta_id            INTEGER,                -- NULL = no mueve caja (ej. pago directo, saldo inicial de depto)
+    transferencia_grupo  INTEGER,
+    estado               TEXT    NOT NULL DEFAULT 'vigente' CHECK (estado IN ('vigente','anulado')),
+    creado_en            TEXT    NOT NULL,
+    CONSTRAINT ck_mov_importe CHECK (importe_ars <> 0 OR importe_usd <> 0),
+    CONSTRAINT fk_mov_periodo FOREIGN KEY (periodo_id) REFERENCES periodo(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_mov_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_mov_concepto FOREIGN KEY (concepto_id) REFERENCES concepto(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_mov_cuenta FOREIGN KEY (cuenta_id) REFERENCES cuenta(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) STRICT;
+CREATE INDEX ix_mov_periodo ON movimiento(periodo_id);
+CREATE INDEX ix_mov_depto ON movimiento(depto_id);
+CREATE INDEX ix_mov_concepto ON movimiento(concepto_id);
+CREATE INDEX ix_mov_cuenta ON movimiento(cuenta_id);
+
+-- Período cerrado = congelado. Única excepción: tipo 'liquidacion', porque el
+-- pago al propietario se hace después del cierre (fecha_pago) y se imputa al
+-- período que liquida. El saldo_anterior del mes siguiente es entonces
+-- liquidacion.saldo_final + los movimientos 'liquidacion' de ese período.
+CREATE TRIGGER tr_mov_periodo_cerrado_ins BEFORE INSERT ON movimiento
+WHEN NEW.tipo <> 'liquidacion'
+ AND (SELECT estado FROM periodo WHERE id = NEW.periodo_id) = 'cerrado'
+BEGIN
+    SELECT RAISE(ABORT, 'periodo cerrado: reabrirlo para cargar movimientos');
+END;
+
+CREATE TRIGGER tr_mov_periodo_cerrado_upd BEFORE UPDATE ON movimiento
+WHEN (OLD.tipo <> 'liquidacion' AND (SELECT estado FROM periodo WHERE id = OLD.periodo_id) = 'cerrado')
+  OR (NEW.tipo <> 'liquidacion' AND (SELECT estado FROM periodo WHERE id = NEW.periodo_id) = 'cerrado')
+BEGIN
+    SELECT RAISE(ABORT, 'periodo cerrado: reabrirlo para modificar movimientos');
+END;
+
+CREATE TRIGGER tr_mov_periodo_cerrado_del BEFORE DELETE ON movimiento
+WHEN (SELECT estado FROM periodo WHERE id = OLD.periodo_id) = 'cerrado'
+BEGIN
+    SELECT RAISE(ABORT, 'periodo cerrado: los movimientos no se borran');
+END;
+
+-- Un movimiento con cuenta solo puede tener importe en la moneda de esa cuenta
+-- (si no, v_saldo_cuenta lo ignoraría). Compra/venta de USD = 'transferencia'
+-- en dos movimientos: uno sale de la cuenta ARS y otro entra a la cuenta USD.
+CREATE TRIGGER tr_mov_moneda_cuenta_ins BEFORE INSERT ON movimiento
+WHEN NEW.cuenta_id IS NOT NULL AND (
+     ((SELECT moneda FROM cuenta WHERE id = NEW.cuenta_id) = 'ARS' AND NEW.importe_usd <> 0)
+  OR ((SELECT moneda FROM cuenta WHERE id = NEW.cuenta_id) = 'USD' AND NEW.importe_ars <> 0))
+BEGIN
+    SELECT RAISE(ABORT, 'el importe no coincide con la moneda de la cuenta');
+END;
+
+CREATE TRIGGER tr_mov_moneda_cuenta_upd BEFORE UPDATE ON movimiento
+WHEN NEW.cuenta_id IS NOT NULL AND (
+     ((SELECT moneda FROM cuenta WHERE id = NEW.cuenta_id) = 'ARS' AND NEW.importe_usd <> 0)
+  OR ((SELECT moneda FROM cuenta WHERE id = NEW.cuenta_id) = 'USD' AND NEW.importe_ars <> 0))
+BEGIN
+    SELECT RAISE(ABORT, 'el importe no coincide con la moneda de la cuenta');
+END;
+
+-- ------------------------------------------------------------
+--  LIQUIDACIÓN (snapshot al cerrar el período)
+-- ------------------------------------------------------------
+-- Con el período abierto, la liquidación se calcula en memoria (servicio TS).
+-- Al cerrar se persiste aquí; reabrir borra estas filas y vuelve a calcular.
+
+CREATE TABLE liquidacion (
+    id                     INTEGER PRIMARY KEY,
+    periodo_id             INTEGER NOT NULL,
+    depto_id               INTEGER NOT NULL,
+    cambio                 REAL    NOT NULL,     -- cotización × (1 − descuento)
+    comision_pct           REAL    NOT NULL,
+    noches_disponibles     INTEGER NOT NULL,
+    noches_no_disponibles  INTEGER NOT NULL DEFAULT 0,
+    noches_ocupadas        INTEGER NOT NULL,
+    noches_propietario     INTEGER NOT NULL DEFAULT 0,  -- "Ocupado cliente" (reservas NP)
+    cant_reservas          INTEGER NOT NULL,
+    ingresos_ars           INTEGER NOT NULL,     -- prorrateados al período
+    ingresos_usd           INTEGER NOT NULL,
+    costos_operativos      INTEGER NOT NULL,     -- tarifa reserva prorrateada (ARS)
+    comisiones_ars         INTEGER NOT NULL,
+    comisiones_usd         INTEGER NOT NULL,
+    bruto                  INTEGER NOT NULL,     -- ARS + USD × cambio
+    honorarios             INTEGER NOT NULL,     -- redondeado a centenas, como el Excel
+    saldo_anterior_ars     INTEGER NOT NULL,
+    saldo_anterior_usd     INTEGER NOT NULL,
+    movimientos_ars        INTEGER NOT NULL,
+    movimientos_usd        INTEGER NOT NULL,
+    conversion_ars         INTEGER NOT NULL,     -- fila "Cambio moneda"
+    saldo_final            INTEGER NOT NULL,     -- ARS, a transferir (>0) o deuda del propietario (<0)
+    movimiento_pago_id     INTEGER,              -- se completa al marcar "pagado"
+    pdf_path               TEXT,
+    calculada_en           TEXT    NOT NULL,
+    CONSTRAINT uq_liq_periodo_depto UNIQUE (periodo_id, depto_id),
+    CONSTRAINT fk_liq_periodo FOREIGN KEY (periodo_id) REFERENCES periodo(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_liq_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_liq_mov_pago FOREIGN KEY (movimiento_pago_id) REFERENCES movimiento(id) ON DELETE SET NULL ON UPDATE CASCADE
+) STRICT;
+CREATE INDEX ix_liq_depto ON liquidacion(depto_id);
+CREATE INDEX ix_liq_mov_pago ON liquidacion(movimiento_pago_id);
+
+-- Reabrir borra las liquidaciones del período para recalcular. Una ya pagada
+-- no se puede borrar: primero se anula su movimiento de pago (eso libera el
+-- vínculo, ver trigger siguiente). Evita perder el pago y pagar dos veces.
+CREATE TRIGGER tr_liq_pagada_del BEFORE DELETE ON liquidacion
+WHEN OLD.movimiento_pago_id IS NOT NULL
+BEGIN
+    SELECT RAISE(ABORT, 'liquidacion pagada: anular el pago antes de recalcular');
+END;
+
+CREATE TRIGGER tr_mov_anulado_libera_liq AFTER UPDATE OF estado ON movimiento
+WHEN NEW.estado = 'anulado'
+BEGIN
+    UPDATE liquidacion SET movimiento_pago_id = NULL WHERE movimiento_pago_id = NEW.id;
+END;
+
+-- Detalle de reservas del PDF (tabla "Detalle reservas" de la hoja por depto).
+CREATE TABLE liquidacion_reserva (
+    liquidacion_id         INTEGER NOT NULL,
+    reserva_id             INTEGER NOT NULL,
+    codigo_interno         TEXT    NOT NULL,     -- 260329OVL1X10NW  DIV
+    noches_totales         INTEGER NOT NULL,
+    noches_periodo         INTEGER NOT NULL,
+    importe_ars            INTEGER NOT NULL,     -- recibido (con ajuste)
+    importe_periodo_ars    INTEGER NOT NULL,
+    importe_usd            INTEGER NOT NULL,
+    importe_periodo_usd    INTEGER NOT NULL,
+    tarifa                 INTEGER NOT NULL,
+    tarifa_periodo         INTEGER NOT NULL,
+    comision_ars           INTEGER NOT NULL,
+    comision_usd           INTEGER NOT NULL,
+    pago_plataforma_usd    INTEGER NOT NULL DEFAULT 0,
+    CONSTRAINT pk_liq_reserva PRIMARY KEY (liquidacion_id, reserva_id),
+    CONSTRAINT fk_lr_liq FOREIGN KEY (liquidacion_id) REFERENCES liquidacion(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_lr_reserva FOREIGN KEY (reserva_id) REFERENCES reserva(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) STRICT, WITHOUT ROWID;
+CREATE INDEX ix_lr_reserva ON liquidacion_reserva(reserva_id);
+
+-- Histórico previo al sistema (hojas OCUPACION y Resumen, 12/2021 en adelante).
+-- Desde el primer cierre en el sistema, el histórico sale de `liquidacion`.
+CREATE TABLE historico_mensual (
+    depto_id          INTEGER NOT NULL,
+    mes               TEXT    NOT NULL CHECK (mes GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]'),
+    noches_ocupadas   INTEGER,
+    bruto             INTEGER,
+    honorarios        INTEGER,
+    saldo             INTEGER,
+    CONSTRAINT pk_historico PRIMARY KEY (depto_id, mes),
+    CONSTRAINT fk_hist_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) STRICT, WITHOUT ROWID;
+
+-- ------------------------------------------------------------
+--  AUDITORÍA Y CONFIGURACIÓN
+-- ------------------------------------------------------------
+
+CREATE TABLE auditoria (
+    id          INTEGER PRIMARY KEY,
+    fecha       TEXT    NOT NULL,
+    pc          TEXT    NOT NULL,                -- sin login: nombre del equipo (servidor/terminal)
+    tabla       TEXT    NOT NULL,
+    registro_id INTEGER,
+    accion      TEXT    NOT NULL CHECK (accion IN ('alta','modificacion','anulacion','cierre','reapertura')),
+    antes_json  TEXT,
+    despues_json TEXT
+) STRICT;
+CREATE INDEX ix_auditoria_registro ON auditoria(tabla, registro_id);
+
+-- Clave/valor: carpeta de backup, URL de Stays, etc. Las credenciales de Stays
+-- NO van aquí: se guardan cifradas con safeStorage de Electron.
+CREATE TABLE configuracion (
+    clave  TEXT PRIMARY KEY,
+    valor  TEXT NOT NULL
+) STRICT, WITHOUT ROWID;
+
+-- ------------------------------------------------------------
+--  VISTAS
+-- ------------------------------------------------------------
+
+CREATE VIEW v_saldo_cuenta AS
+SELECT c.id AS cuenta_id, c.nombre, c.moneda,
+       COALESCE(SUM(CASE c.moneda WHEN 'ARS' THEN m.importe_ars ELSE m.importe_usd END), 0) AS saldo
+FROM cuenta c
+LEFT JOIN movimiento m ON m.cuenta_id = c.id AND m.estado = 'vigente'
+GROUP BY c.id;
+
+-- Pagos de Stays que entran en la liquidación (mismas reglas que el script 3):
+-- sin débitos, sin pendientes, sin "res. fee" / "Res. Security Deposit".
+CREATE VIEW v_pago_liquidable AS
+SELECT p.*, mp.moneda,
+       CASE WHEN mp.descuenta_comision = 1 THEN p.importe - COALESCE(p.comision, 0) ELSE p.importe END AS importe_neto,
+       (mp.descuenta_comision = 1 AND COALESCE(p.comision, 0) = 0) AS falta_comision
+FROM pago p
+JOIN medio_pago mp ON mp.id = p.medio_pago_id
+WHERE p.tipo <> 'debit'
+  AND p.estado <> 'pending'
+  AND NOT (lower(COALESCE(p.descripcion, '')) LIKE 'res. fee%'
+        OR lower(COALESCE(p.descripcion, '')) LIKE '%res. security deposit%');

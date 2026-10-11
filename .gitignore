@@ -1,0 +1,15 @@
+# Datos reales: propietarios, huéspedes y credenciales. Nunca al repo.
+Archivos Originales/
+.env
+.env.*
+*.db
+*.db-*
+*.xlsx
+*.xls
+*.csv
+
+# Build y dependencias
+node_modules/
+dist/
+release/
+.venv/
