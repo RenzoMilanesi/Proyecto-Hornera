@@ -39,7 +39,7 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - **Login:** ninguno.
 - **Convenciones de Roble:** importes en centavos INTEGER, fechas ISO, bajas lógicas, saldos por vistas `v_*`, capa repos.
 - **PDF:** `printToPDF` de Electron (patrón `HojaImpresion`).
-- **Backups:** mecanismo de Roble (al cerrar, 15 copias, con `VACUUM INTO`) con carpeta de destino configurable (Drive/OneDrive) en `configuracion.backup.carpeta`.
+- **Backups:** como Roble pero al cerrar, al apagar Windows y cada 6 h con la app abierta; se conservan 60 copias (unas 2 semanas en el peor caso), con `VACUUM INTO`, con carpeta de destino configurable (Drive/OneDrive) en `configuracion.backup.carpeta`.
 
 ## Pendiente
 - Cambiar la contraseña de Stays: está en el historial git de `LMilanesi/balances-hornera`.

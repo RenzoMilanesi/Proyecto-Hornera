@@ -12,6 +12,7 @@ const PUERTO = 4310;
 // ponytail: solo 127.0.0.1 hasta el modo servidor/terminal (fase 5), que escucha en la LAN con emparejamiento.
 const HOST = '127.0.0.1';
 const RAIZ = join(import.meta.dirname, '..');
+const BACKUP_CADA_MS = 6 * 60 * 60 * 1000;
 
 async function iniciar() {
   const db = abrirDb(join(app.getPath('userData'), 'hornera.db'));
@@ -27,18 +28,27 @@ async function iniciar() {
   }
   await new Promise<void>((ok, error) => http.once('error', error).listen(PUERTO, HOST, ok));
 
-  // Backup al salir. En Windows, apagar o cerrar sesión con la app abierta no
-  // emite before-quit sino session-end; ahí sin diálogo, que trabaría el apagado.
-  let cerrado = false;
-  const cerrar = (avisar: boolean) => {
-    if (cerrado) return;
-    cerrado = true;
+  const backup = (avisar: boolean) => {
     try {
       respaldar(db, join(app.getPath('userData'), 'backups'));
     } catch (e) {
       if (avisar) dialog.showErrorBox('Copia de seguridad', String(e instanceof Error ? e.message : e));
       else console.error(e);
     }
+  };
+
+  // Backup periódico, por si la PC se corta sin cerrar la app (luz, botón).
+  // Sin diálogo: un aviso cada 6 h con la carpeta caída molesta más de lo que ayuda.
+  const periodico = setInterval(() => backup(false), BACKUP_CADA_MS);
+
+  // Backup al salir. En Windows, apagar o cerrar sesión con la app abierta no
+  // emite before-quit sino session-end; ahí sin diálogo, que trabaría el apagado.
+  let cerrado = false;
+  const cerrar = (avisar: boolean) => {
+    if (cerrado) return;
+    cerrado = true;
+    clearInterval(periodico);
+    backup(avisar);
     db.close();
   };
   app.on('before-quit', () => cerrar(true));

@@ -1,9 +1,10 @@
-// Copia de seguridad como Roble: una copia por cierre, se conservan las últimas 15.
+// Copia de seguridad: al cerrar y cada 6 h con la app abierta. Se conservan las últimas 60
+// (unas 2 semanas aunque la app quede abierta día y noche).
 import type { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-export const MAX_BACKUPS = 15;
+export const MAX_BACKUPS = 60;
 
 export function hacerBackup(db: DatabaseSync, carpeta: string, ahora = new Date()): string {
   mkdirSync(carpeta, { recursive: true });
