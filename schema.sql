@@ -34,6 +34,12 @@ CREATE TABLE propietario (
     cbu                TEXT,                       -- CBU/CVU; NULL = no informado
     es_hornera         INTEGER NOT NULL DEFAULT 0 CHECK (es_hornera IN (0,1)),  -- SFE: CBU "Nosotros"
     mails              TEXT,                       -- separados por ';' (como en el Excel)
+    -- Moneda en la que cierra el saldo (fila "Cambio moneda"). ARS: el USD se
+    -- pasa a ARS (la mayoría). USD: el ARS se pasa a USD (Benedetti, Richard,
+    -- Ozerio, Bessone en abril 2026), a cambio / (1 − comision_cobro_usd_pct);
+    -- R64 usa 0,04 (¿Payoneer?).
+    moneda_liquidacion     TEXT NOT NULL DEFAULT 'ARS' CHECK (moneda_liquidacion IN ('ARS','USD')),
+    comision_cobro_usd_pct REAL NOT NULL DEFAULT 0 CHECK (comision_cobro_usd_pct >= 0 AND comision_cobro_usd_pct < 1),
     activo             INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1))
 ) STRICT;
 
