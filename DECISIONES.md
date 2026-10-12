@@ -30,14 +30,16 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - **Validación:** correr en paralelo con el Excel durante 1-2 meses.
 
 ## Técnico
-- **Desktop** como Roble: Electron + React/Vite + Express + SQLite (better-sqlite3). Proyecto nuevo, se copia de Roble solo lo que sirva.
+- **Desktop** como Roble: Electron + React/Vite + Express + SQLite. Proyecto nuevo, se copia de Roble solo lo que sirva.
+- **SQLite con `node:sqlite`** (incluido en Node/Electron) en vez de `better-sqlite3`: sin módulo nativo ni `electron-rebuild`. Electron corre los `.ts` directo (type stripping); solo Vite compila la interfaz. `tsc` se usa únicamente para chequear tipos.
+- **Una sola API HTTP** (Express) para la ventana local y, en la fase 5, para las terminales. En desarrollo Vite corre dentro del mismo Express.
 - **TypeScript** en todo.
 - **UI:** Ant Design.
 - **Red:** servidor/terminal como Roble (HTTP + WS + mDNS en LAN), con emparejamiento de terminales.
 - **Login:** ninguno.
 - **Convenciones de Roble:** importes en centavos INTEGER, fechas ISO, bajas lógicas, saldos por vistas `v_*`, capa repos.
 - **PDF:** `printToPDF` de Electron (patrón `HojaImpresion`).
-- **Backups:** mecanismo de Roble (al cerrar, 15 copias) con carpeta de destino configurable (Drive/OneDrive).
+- **Backups:** mecanismo de Roble (al cerrar, 15 copias, con `VACUUM INTO`) con carpeta de destino configurable (Drive/OneDrive) en `configuracion.backup.carpeta`.
 
 ## Pendiente
 - Cambiar la contraseña de Stays: está en el historial git de `LMilanesi/balances-hornera`.

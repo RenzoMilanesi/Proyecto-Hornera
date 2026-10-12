@@ -49,8 +49,8 @@ varios fixes es **un** minor.
 
 Editar `"version"` en `package.json`, en el **mismo commit** que el código.
 
-Nunca escribir el número en el código de la UI: se usa `__APP_VERSION__`,
-que Vite inyecta desde `package.json`.
+Nunca escribir el número en el código: la UI la pide a `/api/estado`, que
+la toma de `package.json` con `app.getVersion()` de Electron.
 
 ## 3 — Docs que acompañan
 

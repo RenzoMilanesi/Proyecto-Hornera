@@ -1,0 +1,18 @@
+{
+  // Solo chequeo de tipos: Node/Electron corren el .ts directo (type stripping) y Vite compila src/.
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": ["server", "electron", "src", "vite.config.ts"]
+}
