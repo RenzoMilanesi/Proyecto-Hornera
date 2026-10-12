@@ -26,12 +26,9 @@ git diff --stat
 
 | Archivos tocados | Bump |
 |---|---|
-| `src/`, `electron/`, `server/`, `tests/`, `schema.sql`, `package.json` (deps) | **Sí** |
-| Solo `docs/`, `plans/`, `.claude/`, `README`, `DECISIONES.md`, `ROADMAP.md`, `.gitignore` | No |
+| `src/`, `electron/`, `server/` (incluye los `*.test.ts`), `schema.sql`, `schema.check.mjs`, `package.json` (deps) | **Sí** |
+| Solo `plans/`, `.claude/`, `CLAUDE.md`, `DECISIONES.md`, `ROADMAP.md`, `.gitignore` | No |
 | Mezcla de código y docs | Sí (manda el código) |
-
-Mientras no exista `package.json` (antes del scaffold), no hay bump: el
-primer commit con `package.json` arranca en **`0.1.0`**.
 
 **¿Qué número sube?** Ante la duda, el más bajo.
 
@@ -56,17 +53,16 @@ la toma de `package.json` con `app.getVersion()` de Electron.
 
 - **Feature o cierre de plan** → actualizar `ROADMAP.md`. No hay features
   sin roadmap.
-- **Cambio de modelo de datos** → `schema.sql` + su migración + 
-  `schema.check.mjs` (o los tests que lo reemplacen), los tres juntos.
+- **Cambio de modelo de datos** → `schema.sql` + su migración en `server/db.ts`
+  (`MIGRACIONES`) + `schema.check.mjs`, los tres juntos.
 - **Decisión de producto o técnica nueva** → `DECISIONES.md`.
 - Si se cerró un plan de `plans/`, marcarlo como hecho en `plans/README.md`.
 
 ## 4 — Verificación
 
-Cuando exista el hook de pre-commit (lint + tests rápidos), **no duplicarlos
-antes de commitear**. Si el hook falla, se arregla la causa — nunca
-`--no-verify`. Mientras no exista, correr a mano lo que haya
-(`node schema.check.mjs`, tests) antes de commitear.
+El hook de pre-commit (`.githooks/pre-commit`, se activa con `npm install`)
+corre `npm run typecheck` y `npm test`: **no duplicarlos antes de commitear**.
+No hay lint. Si el hook falla, se arregla la causa — nunca `--no-verify`.
 
 ## 5 — Mensaje de commit
 
@@ -110,7 +106,7 @@ commitear, revisar que `git status` no muestre nada de eso.
 ## Checklist rápida
 
 ```
-[ ] ¿Toca código? → bump en package.json (o 0.1.0 si es el primero)
+[ ] ¿Toca código? → bump en package.json
 [ ] ¿major / minor / patch? → tabla de arriba, ante la duda el más bajo
 [ ] ¿Feature? → ROADMAP.md actualizado
 [ ] ¿Toca datos? → schema.sql + migración + check sincronizados

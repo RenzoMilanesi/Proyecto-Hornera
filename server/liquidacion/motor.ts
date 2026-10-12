@@ -47,7 +47,7 @@ export interface Importe { ars: Centavos; usd: Centavos }
 export interface EntradaLiquidacion {
   periodo: ParametrosPeriodo;
   depto: ConfigDepto;
-  reservas: ReservaEntrada[];
+  reservas: ReservaEntrada[];          // ya filtradas con la regla de server/periodo.ts
   comisiones: Importe;                 // OTAs/agentes/CM, positivas [NO COMISIONABLES E/F]
   movimientos: Importe[];              // saldo anterior + CORRIENTE, con signo. SIN los pagos de liquidación
 }

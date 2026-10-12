@@ -13,7 +13,14 @@ export function hacerBackup(db: DatabaseSync, carpeta: string, ahora = new Date(
   const destino = join(carpeta, `hornera-${sello}.db`);
   db.prepare('VACUUM INTO ?').run(destino); // copia consistente aunque haya WAL
   const viejos = readdirSync(carpeta).filter((f) => /^hornera-.*\.db$/.test(f)).sort().slice(0, -MAX_BACKUPS);
-  for (const f of viejos) rmSync(join(carpeta, f));
+  // Si no se puede borrar una copia vieja (Drive la tiene bloqueada), la nueva igual quedó hecha.
+  for (const f of viejos) {
+    try {
+      rmSync(join(carpeta, f));
+    } catch (e) {
+      console.error(`No se pudo borrar el backup viejo ${f}:`, e instanceof Error ? e.message : e);
+    }
+  }
   return destino;
 }
 
@@ -24,6 +31,8 @@ export function respaldar(db: DatabaseSync, porDefecto: string): string {
   const fila = db.prepare(`SELECT valor FROM configuracion WHERE clave = 'backup.carpeta'`).get() as { valor: string } | undefined;
   const carpeta = fila?.valor || porDefecto;
   try {
+    // Una carpeta de otra PC de la red (ruta UNC, \\servidor\carpeta) haría que Windows se conecte a ella.
+    if (carpeta.startsWith('\\\\') || carpeta.startsWith('//')) throw new Error('no se usan carpetas de otras PCs de la red');
     return hacerBackup(db, carpeta);
   } catch (e) {
     if (carpeta === porDefecto) throw e;

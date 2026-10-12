@@ -1,6 +1,6 @@
 // Proceso principal: abre la base, levanta la API y muestra la ventana.
 // En desarrollo, Vite corre como middleware del mismo Express (un solo puerto, con HMR).
-import { app, BrowserWindow, dialog, safeStorage } from 'electron';
+import { app, BrowserWindow, dialog, safeStorage, session } from 'electron';
 import express from 'express';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -78,6 +78,11 @@ async function iniciar() {
 
   const ventana = new BrowserWindow({ width: 1280, height: 800, title: 'Hornera', autoHideMenuBar: true });
   ventana.on('session-end', () => cerrar(false)); // evento de ventana, solo Windows
+  // La ventana solo muestra la app: sin ventanas nuevas, sin navegar a otros sitios, sin permisos.
+  const origen = `http://${HOST}:${PUERTO}`;
+  ventana.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  ventana.webContents.on('will-navigate', (e, url) => { if (new URL(url).origin !== origen) e.preventDefault(); });
+  session.defaultSession.setPermissionRequestHandler((_wc, _permiso, responder) => responder(false));
   ventana.maximize();
   await ventana.loadURL(`http://${HOST}:${PUERTO}`);
 }

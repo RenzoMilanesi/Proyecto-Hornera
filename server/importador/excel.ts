@@ -38,7 +38,7 @@ const CATEGORIAS = new Set(['RM', 'RI', 'CF', 'EX']);
 
 const num = (h: Hoja, ref: string): number => (typeof h[ref]?.v === 'number' ? h[ref].v : 0);
 const txt = (h: Hoja, ref: string): string => (h[ref]?.v == null ? '' : String(h[ref].v).trim());
-const fecha = (serial: number) => new Date(Date.UTC(1899, 11, 30) + Math.round(serial) * DIA).toISOString().slice(0, 10);
+const fecha = (serial: number) => new Date(Date.UTC(1899, 11, 30) + Math.floor(serial) * DIA).toISOString().slice(0, 10);
 const dias = (desde: string, hasta: string) => Math.round((Date.parse(hasta) - Date.parse(desde)) / DIA);
 const c = (pesos: number) => Math.round(pesos * 100); // pesos → centavos
 const sinAcentos = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -79,12 +79,21 @@ export function importarExcel(db: DatabaseSync, contenido: Buffer, ahora = new D
   const inicio = fecha(num(dbal, 'B1'));
   const cierre = fecha(num(dbal, 'B2'));
   const mes = inicio.slice(0, 7);
-  if (db.prepare('SELECT 1 FROM periodo WHERE mes = ?').get(mes)) {
-    throw new Error(`El período ${mes} ya está importado.`);
+  if (!/^20\d\d-\d\d-01$/.test(inicio) || cierre <= inicio || !/^20\d\d-/.test(cierre)) {
+    throw new Error(`"Datos balance" no tiene fechas válidas en B1 (liquidación mes) y B2 (cierre reservas): ${txt(dbal, 'B1') || 'vacía'} / ${txt(dbal, 'B2') || 'vacía'}.`);
+  }
+  // Un período abierto sin movimientos es el que creó "traer mes" de Stays: el Excel se importa encima.
+  const existente = db.prepare(`
+    SELECT id, estado, EXISTS (SELECT 1 FROM movimiento m WHERE m.periodo_id = p.id) AS con_movimientos
+    FROM periodo p WHERE mes = ?`).get(mes) as { id: number; estado: string; con_movimientos: number } | undefined;
+  if (existente?.estado === 'cerrado') throw new Error(`El período ${mes} ya está importado (cerrado).`);
+  if (existente?.con_movimientos) {
+    throw new Error(`El período ${mes} está abierto en la app y ya tiene movimientos cargados: no se puede importar el Excel encima.`);
   }
   // Solo el export más nuevo actualiza maestros e histórico: los meses anteriores
-  // llegan después de abril 2026 y no deben pisar datos más recientes.
-  const ultimo = (db.prepare('SELECT max(mes) AS m FROM periodo').get() as { m: string | null }).m;
+  // llegan después de abril 2026 y no deben pisar datos más recientes. Cuentan solo
+  // los meses cerrados: los que crea "traer mes" están abiertos.
+  const ultimo = (db.prepare(`SELECT max(mes) AS m FROM periodo WHERE estado = 'cerrado'`).get() as { m: string | null }).m;
   const actualizar = ultimo === null || mes > ultimo ? 1 : 0;
 
   const avisos: string[] = [];
@@ -140,8 +149,10 @@ export function importarExcel(db: DatabaseSync, contenido: Buffer, ahora = new D
       INSERT INTO propietario(nombre, documento, cuit, categoria_fiscal, cbu, es_hornera, mails, moneda_liquidacion, comision_cobro_usd_pct)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
     const cambiarPropietario = db.prepare(`
-      UPDATE propietario SET documento = ?, cuit = ?, categoria_fiscal = ?, cbu = ?, es_hornera = ?, mails = ?,
-        moneda_liquidacion = ?, comision_cobro_usd_pct = ? WHERE id = ?`);
+      UPDATE propietario SET documento = ?, cuit = ?, categoria_fiscal = ?, cbu = ?, es_hornera = ?, mails = ? WHERE id = ?`);
+    // La moneda de liquidación sale solo de las hojas de depto (fila "Cambio moneda"): un depto
+    // sin hoja (finalizado, pausado) no sabe en qué moneda liquida su propietario.
+    const cambiarMoneda = db.prepare('UPDATE propietario SET moneda_liquidacion = ?, comision_cobro_usd_pct = ? WHERE id = ?');
     const altaDepto = db.prepare(`
       INSERT INTO depto(codigo, nombre, direccion, tipologia, estado, propietario_id, comision_pct, tipo_administracion,
         horas_limpieza_prom, id_alquiler_argentina, id_booking, id_alohar)
@@ -152,7 +163,7 @@ export function importarExcel(db: DatabaseSync, contenido: Buffer, ahora = new D
         horas_limpieza_prom = excluded.horas_limpieza_prom, id_alquiler_argentina = excluded.id_alquiler_argentina,
         id_booking = excluded.id_booking, id_alohar = excluded.id_alohar WHERE ?`);
 
-    const propietariosVistos = new Map<string, { id: number; moneda: string; depto: string }>();
+    const propietariosVistos = new Map<string, { id: number; nuevo: boolean; moneda?: string; depto?: string }>();
     const deptoIds = new Map<string, number>();
     for (let f = 2; f <= ultimaFila(props); f++) {
       const codigo = txt(props, `A${f}`);
@@ -166,7 +177,6 @@ export function importarExcel(db: DatabaseSync, contenido: Buffer, ahora = new D
       const cbuTexto = txt(props, `Q${f}`);
       const esHornera = cbuTexto === 'Nosotros' ? 1 : 0;
       const categoria = txt(props, `O${f}`);
-      const { moneda, recargo } = hojasDepto.has(codigo) ? monedaDeHoja(hojasDepto.get(codigo)!) : { moneda: 'ARS', recargo: 0 };
       const datos = [
         documento, txt(props, `N${f}`) || null,
         CATEGORIAS.has(categoria) ? categoria : categoria === 'No inf.' ? 'NI' : null,
@@ -176,13 +186,22 @@ export function importarExcel(db: DatabaseSync, contenido: Buffer, ahora = new D
       let prop = propietariosVistos.get(nombre);
       if (!prop) {
         const existente = buscarPropietario.get(nombre) as { id: number } | undefined;
-        const id = existente
-          ? (actualizar && cambiarPropietario.run(...datos, moneda, recargo, existente.id), existente.id)
-          : Number(altaPropietario.run(nombre, ...datos, moneda, recargo).lastInsertRowid);
-        prop = { id, moneda, depto: codigo };
+        if (existente && actualizar) cambiarPropietario.run(...datos, existente.id);
+        prop = existente
+          ? { id: existente.id, nuevo: false }
+          : { id: Number(altaPropietario.run(nombre, ...datos, 'ARS', 0).lastInsertRowid), nuevo: true };
         propietariosVistos.set(nombre, prop);
-      } else if (hojasDepto.has(codigo) && prop.moneda !== moneda) {
-        avisos.push(`Depto ${codigo}: liquida en ${moneda} pero ${prop.depto}, del mismo propietario, en ${prop.moneda}. Queda ${prop.moneda}.`);
+      }
+      const hojaDepto = hojasDepto.get(codigo);
+      if (hojaDepto) {
+        const { moneda, recargo } = monedaDeHoja(hojaDepto);
+        if (!prop.moneda) {
+          prop.moneda = moneda;
+          prop.depto = codigo;
+          if (actualizar || prop.nuevo) cambiarMoneda.run(moneda, recargo, prop.id);
+        } else if (prop.moneda !== moneda) {
+          avisos.push(`Depto ${codigo}: liquida en ${moneda} pero ${prop.depto}, del mismo propietario, en ${prop.moneda}. Queda ${prop.moneda}.`);
+        }
       }
 
       const estado = sinAcentos(txt(props, `C${f}`).toLowerCase());
@@ -204,17 +223,29 @@ export function importarExcel(db: DatabaseSync, contenido: Buffer, ahora = new D
     }
 
     // ---- Período (Datos balance)
-    const periodoId = Number(db.prepare(`
+    const { id: periodoId } = db.prepare(`
       INSERT INTO periodo(mes, fecha_inicio, fecha_cierre_reservas, fecha_corte_gastos, fecha_pago,
         usd_cotizacion, usd_cotizacion_fuente, usd_descuento_pct, costo_hora_limpieza, servicio_limpieza,
         servicio_lavanderia, prestamo_blanqueria, gestion_operativa, mantenimiento, tarifa_base, adicional_huesped,
         noches_tramo_1, cargo_tramo_1, noches_tramo_2, cargo_tramo_2, cm_fee_usd)
-      VALUES (?, ?, ?, ?, ?, ?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      VALUES (?, ?, ?, ?, ?, ?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(mes) DO UPDATE SET fecha_inicio = excluded.fecha_inicio,
+        fecha_cierre_reservas = excluded.fecha_cierre_reservas, fecha_corte_gastos = excluded.fecha_corte_gastos,
+        fecha_pago = excluded.fecha_pago, usd_cotizacion = excluded.usd_cotizacion,
+        usd_cotizacion_fuente = excluded.usd_cotizacion_fuente, usd_descuento_pct = excluded.usd_descuento_pct,
+        costo_hora_limpieza = excluded.costo_hora_limpieza, servicio_limpieza = excluded.servicio_limpieza,
+        servicio_lavanderia = excluded.servicio_lavanderia, prestamo_blanqueria = excluded.prestamo_blanqueria,
+        gestion_operativa = excluded.gestion_operativa, mantenimiento = excluded.mantenimiento,
+        tarifa_base = excluded.tarifa_base, adicional_huesped = excluded.adicional_huesped,
+        noches_tramo_1 = excluded.noches_tramo_1, cargo_tramo_1 = excluded.cargo_tramo_1,
+        noches_tramo_2 = excluded.noches_tramo_2, cargo_tramo_2 = excluded.cargo_tramo_2, cm_fee_usd = excluded.cm_fee_usd
+      RETURNING id`).get(
       mes, inicio, cierre, fecha(num(dbal, 'B3')), fecha(num(dbal, 'B4')),
       num(dbal, 'B5'), num(dbal, 'A6'), c(num(dbal, 'B13')), c(num(dbal, 'B8')),
       c(num(dbal, 'B9')), c(num(dbal, 'B10')), c(num(dbal, 'B11')), c(num(dbal, 'B12')), c(num(dbal, 'B15')), c(num(dbal, 'B16')),
       num(dbal, 'A17'), c(num(dbal, 'B17')), num(dbal, 'A18'), c(num(dbal, 'B18')), c(num(dbal, 'B7')),
-    ).lastInsertRowid);
+    ) as { id: number };
+    if (existente) avisos.push(`El período ${mes} estaba abierto (creado al traer de Stays): se completó con los parámetros del Excel y quedó cerrado.`);
 
     // ---- Movimientos (CORRIENTE). Sin cuenta: el Excel no registra de qué cuenta sale cada uno.
     const altaMovimiento = db.prepare(`
@@ -324,7 +355,7 @@ export function importarExcel(db: DatabaseSync, contenido: Buffer, ahora = new D
       .run(creadoEn, hostname(), periodoId, JSON.stringify({ importacion: 'excel', ...reporte }));
     db.exec('COMMIT');
   } catch (e) {
-    db.exec('ROLLBACK');
+    if (db.isTransaction) db.exec('ROLLBACK');
     throw e;
   }
   return reporte;

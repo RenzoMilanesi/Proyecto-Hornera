@@ -36,7 +36,7 @@ export interface ClienteStays {
 export function crearClienteStays({ usuario, clave }: Credenciales, base = URL_STAYS): ClienteStays {
   const auth = 'Basic ' + Buffer.from(`${usuario}:${clave}`).toString('base64');
   const pedir = async (ruta: string) => {
-    const res = await fetch(`${base}/${ruta}`, { headers: { Authorization: auth }, signal: AbortSignal.timeout(60_000) });
+    const res = await fetch(`${base}/${ruta}`, { headers: { Authorization: auth }, redirect: 'error', signal: AbortSignal.timeout(60_000) });
     if (res.status === 401 || res.status === 403) throw new Error('Stays rechazó el usuario o la clave.');
     if (!res.ok) throw new Error(`Stays respondió ${res.status} en ${ruta.split('?')[0]}: ${(await res.text()).slice(0, 200)}`);
     return res;

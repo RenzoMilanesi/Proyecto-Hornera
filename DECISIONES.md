@@ -14,7 +14,7 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - **Movimientos:** formulario completo que reemplaza `CORRIENTE`. Cada movimiento lleva depto (o INT), fecha, concepto, ARS/USD y **cuenta**; el sistema calcula el saldo de cada cuenta.
 - **Medios de pago de Stays → cuenta de la empresa:** tabla de mapeo (p. ej. "Mercado Pago Lau" → Mercadopago L).
 - **Moneda:** igual que el Excel. Bruto = ARS + USD × cambio; honorarios y costos en ARS. Al cierre, el saldo se convierte a la **moneda de liquidación del propietario**: ARS (USD × cambio, la mayoría) o USD (ARS ÷ cambio, con un recargo opcional, p. ej. 4 % en R64). Se descubrió al reproducir abril: 5 deptos cierran en USD.
-- **Motor de liquidación:** `server/liquidacion/motor.ts`, función pura. Reproduce las 24 hojas de abril 2026 al centavo, salvo RIO y AND, que tienen costos editados a mano en el Excel.
+- **Motor de liquidación:** `server/liquidacion/motor.ts`, función pura. Reproduce las 24 hojas de abril 2026 al centavo, salvo RIO y AND, que tienen costos editados a mano en el Excel. La regresión (`server/liquidacion/regresion.test.ts`) arma la entrada del motor con lo que guarda el importador, que es el camino de la fase 5.
 - **Tipo de cambio:** se trae automático (dólar cripto) menos el % configurable (hoy 6 %), con override manual.
 - **Tarifa por reserva:** la fórmula del Excel, con parámetros globales por período y override opcional por depto. Se prorratea por las noches del período.
 - **Comisiones OTAs/agentes/CM:** se calculan automáticamente por reserva con el % de cada plataforma más el fee de CM por depto; se pueden ajustar a mano.
@@ -29,8 +29,8 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - Solo está abril 2026; los demás meses llegan en unos días. El importador debe servir para cualquier mes exportado.
 - **Validación:** correr en paralelo con el Excel durante 1-2 meses.
 - **Importador** (`server/importador/excel.ts`, pantalla "Importar Excel"), validado con abril 2026:
-  - Maestros (propietarios, deptos, plataformas, cuentas, conceptos): alta o actualización; el Excel manda hasta que lo reemplace la app. Un propietario se identifica por el nombre del "Facturante". Solo el mes más nuevo importado actualiza maestros e histórico; uno anterior solo agrega lo que falte.
-  - El mes del export entra **cerrado**, con sus movimientos de CORRIENTE y un snapshot de la liquidación de cada depto tomado de su hoja (no recalculado). El saldo de arrastre del mes siguiente sale de ese snapshot. Importar dos veces el mismo mes se rechaza.
+  - Maestros (propietarios, deptos, plataformas, cuentas, conceptos): alta o actualización; el Excel manda hasta que lo reemplace la app. Un propietario se identifica por el nombre del "Facturante". Solo un mes posterior al último mes cerrado actualiza maestros e histórico; uno anterior solo agrega lo que falte. La moneda de liquidación del propietario sale solo de las hojas de depto (un depto sin hoja no la define).
+  - El mes del export entra **cerrado**, con sus movimientos de CORRIENTE y un snapshot de la liquidación de cada depto tomado de su hoja (no recalculado). El saldo de arrastre del mes siguiente sale de ese snapshot. Un mes ya cerrado no se vuelve a importar. Si el mes está abierto porque se trajo de Stays y no tiene movimientos cargados, el Excel se importa encima y lo cierra; si tiene movimientos, se rechaza.
   - Los movimientos entran **sin cuenta**: el Excel no registra de qué cuenta sale cada uno. Los saldos iniciales de las cuentas se cargan al empezar a usar la app.
   - Histórico: solo noches ocupadas por mes (hoja OCUPACION, 12/2021 a 10/2024; después no se actualizó). La hoja Resumen no tiene histórico real.
   - No se importa: deptos sin facturante (JAI, SAR), la columna "FONDO / ACUMULADO" de CORRIENTE (fondo de reserva de CNG), la hoja NO COMISIONABLES ni las reservas (vienen de Stays, fase 4).
@@ -40,10 +40,10 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 ## Stays ("traer mes", `server/stays/`)
 - Reemplaza los scripts 0 a 2 de `balances-hornera`, con sus mismas reglas: reservas por llegada, por salida (corrida un día) e incluidas; entra la que tiene noches en el período o llega en él (cancelaciones de 0 noches). Reserva sin canal = "Carga Agente".
 - Primero se baja todo y después se escribe en una transacción: si la red falla no queda nada a medias. Cada intento queda en `sincronizacion` (también los fallidos).
-- Se puede repetir: no pisa los ajustes manuales de la reserva ni la moneda, la comisión y la cuenta de los medios de pago editados en la app. Las reservas del período que Stays ya no devuelve se borran (con aviso), salvo las que ya están en una liquidación cerrada. Si el export viene vacío no se borra nada.
+- Se puede repetir: no pisa los ajustes manuales de la reserva ni la moneda, la comisión y la cuenta de los medios de pago editados en la app. Las reservas del período que Stays ya no devuelve se borran (con aviso), salvo las que ya están en una liquidación y las que tienen datos cargados a mano (pueden haber cambiado de fecha: se avisa). Si el export viene vacío no se borra nada. La regla de qué reserva pertenece a un período está en un solo lugar: `server/periodo.ts`.
 - Si el período no existe se crea con los parámetros del último y sin cotización; no se trae un período cerrado.
 - Moneda del medio de pago: USD si Stays lo dice o si es PayPal/Payoneer; si no, ARS. Descuentan comisión (neto = importe − `_f_tax`): Mercado Pago, PayPal y los "Link". Se avisa cuando falta cargar la comisión en Stays.
-- Credenciales: las carga el usuario en la app y se guardan cifradas con `safeStorage` (DPAPI de Windows) en `stays.cred`, fuera de la base: no viajan en los backups. La clave nunca vuelve a la pantalla. `configuracion.stays.url` permite apuntar a otra URL (se usó para probar contra un Stays simulado).
+- Credenciales: las carga el usuario en la app y se guardan cifradas con `safeStorage` (DPAPI de Windows) en `stays.cred`, fuera de la base: no viajan en los backups. La clave nunca vuelve a la pantalla. `configuracion.stays.url` permite apuntar a otra URL, pero la clave solo se manda por https a `*.stays.net` o a un Stays de prueba en la misma PC, y sin seguir redirecciones.
 - Probado contra un Stays simulado con datos ficticios en el formato real (xlsx del export, JSON de pagos y medios). **Falta probar contra el Stays real** cuando se cambie la contraseña.
 - Pendiente para la fase 5: asociar cada medio de pago a una cuenta (pantalla), y calcular la liquidación del mes abierto con el motor a partir de reservas y pagos.
 
@@ -51,11 +51,12 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - **Desktop** como Roble: Electron + React/Vite + Express + SQLite. Proyecto nuevo, se copia de Roble solo lo que sirva.
 - **SQLite con `node:sqlite`** (incluido en Node/Electron) en vez de `better-sqlite3`: sin módulo nativo ni `electron-rebuild`. Electron corre los `.ts` directo (type stripping); solo Vite compila la interfaz. `tsc` se usa únicamente para chequear tipos.
 - **Una sola API HTTP** (Express) para la ventana local y, en la fase 5, para las terminales. En desarrollo Vite corre dentro del mismo Express.
+- **Seguridad local:** la API solo atiende pedidos dirigidos a esta PC (contra DNS rebinding) y rechaza escrituras que el navegador marca como de otro sitio (`Sec-Fetch-Site`). La ventana no abre ventanas nuevas, no navega fuera de la app y no concede permisos. Los backups no van a carpetas de otras PCs de la red.
 - **TypeScript** en todo.
 - **UI:** Ant Design.
 - **Red:** servidor/terminal como Roble (HTTP + WS + mDNS en LAN), con emparejamiento de terminales.
 - **Login:** ninguno.
-- **Convenciones de Roble:** importes en centavos INTEGER, fechas ISO, bajas lógicas, saldos por vistas `v_*`, capa repos.
+- **Convenciones de Roble:** importes en centavos INTEGER, fechas ISO, bajas lógicas, saldos por vistas `v_*`. La "capa repos" de Roble no se adoptó: el SQL vive junto a cada módulo (`server/app.ts`, `server/importador/`, `server/stays/`).
 - **PDF:** `printToPDF` de Electron (patrón `HojaImpresion`).
 - **Backups:** como Roble pero al cerrar, al apagar Windows y cada 6 h con la app abierta; se conservan 60 copias (unas 2 semanas en el peor caso), con `VACUUM INTO`, con carpeta de destino configurable (Drive/OneDrive) en `configuracion.backup.carpeta`.
 

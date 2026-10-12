@@ -10,6 +10,7 @@
 // Si el período no existe se crea con los parámetros del último cargado.
 import type { DatabaseSync } from 'node:sqlite';
 import type { ClienteStays, FilaReserva, MedioStays, PagoStays } from './cliente.ts';
+import { enPeriodo, SQL_EN_PERIODO } from '../periodo.ts';
 
 export interface ReporteSync {
   mes: string;
@@ -37,7 +38,7 @@ const mesesEntre = (desde: string, hasta: string) =>
 
 // Stays exporta las fechas como texto en español ("01 oct. 2026").
 export function fechaStays(v: unknown): string | null {
-  if (typeof v === 'number') return new Date(Date.UTC(1899, 11, 30) + Math.round(v) * DIA).toISOString().slice(0, 10);
+  if (typeof v === 'number') return new Date(Date.UTC(1899, 11, 30) + Math.floor(v) * DIA).toISOString().slice(0, 10);
   if (typeof v !== 'string') return null;
   if (/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10);
   const m = /^(\d{1,2}) ([a-z]+)\.? (\d{4})$/i.exec(v.trim());
@@ -100,7 +101,7 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
         avisos.push(`Reserva ${codigo}: fechas ilegibles ("${fila.Llegada}" / "${fila['Fecha de salida']}"), no se trae.`);
         return false;
       }
-      return (llegada < cierre && salida > inicio) || (llegada >= inicio && llegada < cierre);
+      return enPeriodo(llegada, salida, inicio, cierre);
     });
     const pagosPorReserva = await enParalelo(delPeriodo, 4, ([codigo]) => cliente.pagos(codigo));
 
@@ -127,7 +128,10 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
       // Medios de pago
       const altaMedio = db.prepare(`
         INSERT INTO medio_pago(stays_id, nombre, tipo_stays, moneda, descuenta_comision, activo) VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT(stays_id) DO UPDATE SET nombre = excluded.nombre, tipo_stays = excluded.tipo_stays, activo = excluded.activo`);
+        ON CONFLICT(stays_id) DO UPDATE SET nombre = excluded.nombre, tipo_stays = excluded.tipo_stays, activo = excluded.activo,
+          -- Un medio cargado antes como "(medio desconocido)" toma ahora su moneda y comisión reales.
+          moneda = CASE medio_pago.tipo_stays WHEN 'desconocido' THEN excluded.moneda ELSE medio_pago.moneda END,
+          descuenta_comision = CASE medio_pago.tipo_stays WHEN 'desconocido' THEN excluded.descuenta_comision ELSE medio_pago.descuenta_comision END`);
       for (const m of medios) {
         const nombre = m.internalName?.trim() || (m.type === 'user' ? 'Efectivo' : m.type);
         altaMedio.run(m._id, nombre, m.type, monedaMedio(m, nombre), medioDescuentaComision(m, nombre), m.status === 'active' ? 1 : 0);
@@ -144,7 +148,7 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
           moneda, total_factura, forward_fee_all, precio_compra, tasa_propietario_airbnb, cargo_limpieza,
           tasa_propietario_limpieza, huesped_nombre, huesped_doc_tipo, huesped_doc_numero, raw_json, sincronizada_en)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(codigo) DO UPDATE SET stays_id = excluded.stays_id, depto_id = excluded.depto_id,
+        ON CONFLICT(codigo) DO UPDATE SET stays_id = COALESCE(excluded.stays_id, reserva.stays_id), depto_id = excluded.depto_id,
           plataforma_id = excluded.plataforma_id, codigo_ota = excluded.codigo_ota, llegada = excluded.llegada,
           salida = excluded.salida, huespedes = excluded.huespedes, estado_stays = excluded.estado_stays,
           moneda = excluded.moneda, total_factura = excluded.total_factura, forward_fee_all = excluded.forward_fee_all,
@@ -176,7 +180,11 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
         if (plataformaId === null) canalesDesconocidos.add(canal);
         const doc = texto(fila['Tipo de documento']);
         const pagos = pagosPorReserva[i];
-        const moneda = texto(fila.Moneda) === 'ARS' ? 'ARS' : 'USD';
+        const monedaStays = texto(fila.Moneda);
+        if (monedaStays !== 'ARS' && monedaStays !== 'USD') {
+          avisos.push(`Reserva ${codigo}: moneda "${monedaStays ?? ''}" desconocida, se toma USD.`);
+        }
+        const moneda = monedaStays === 'ARS' ? 'ARS' : 'USD';
         const { id: reservaId } = altaReserva.get(
           codigo, pagos.find((p) => p._idreserve)?._idreserve ?? null, deptoId, plataformaId,
           texto(fila['Código externo de reserva OTA']), fechaStays(fila.Llegada), fechaStays(fila['Fecha de salida']),
@@ -213,14 +221,16 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
       // Reservas del período que Stays ya no devuelve (canceladas o borradas allá).
       // Se compara contra todo lo que devolvió Stays, no contra lo guardado: una
       // reserva descartada con aviso (alojamiento desconocido) no se borra.
-      // Las que ya forman parte de una liquidación cerrada no se tocan.
+      // Las que ya forman parte de una liquidación cerrada no se tocan, y las que
+      // tienen datos cargados a mano tampoco: puede ser que solo cambiaron de fecha.
       const viejas = db.prepare(`
-        SELECT id, codigo, ajuste_ars <> 0 OR ajuste_usd <> 0 OR observacion IS NOT NULL AS tenia_ajuste,
-               EXISTS (SELECT 1 FROM liquidacion_reserva lr WHERE lr.reserva_id = reserva.id) AS liquidada
-        FROM reserva
-        WHERE codigo NOT IN (SELECT value FROM json_each(?))
-          AND ((llegada < ? AND salida > ?) OR (llegada >= ? AND llegada < ?))`)
-        .all(JSON.stringify([...porCodigo.keys()]), cierre, inicio, inicio, cierre) as { id: number; codigo: string; tenia_ajuste: number; liquidada: number }[];
+        SELECT id, codigo,
+               ajuste_ars <> 0 OR ajuste_usd <> 0 OR ajuste_comision_ars <> 0 OR ajuste_comision_usd <> 0
+                 OR observacion IS NOT NULL OR excluida = 1 AS tenia_ajuste,
+               EXISTS (SELECT 1 FROM liquidacion_reserva lr WHERE lr.reserva_id = r.id) AS liquidada
+        FROM reserva r
+        WHERE r.codigo NOT IN (SELECT value FROM json_each(:devueltas)) AND ${SQL_EN_PERIODO}`)
+        .all({ devueltas: JSON.stringify([...porCodigo.keys()]), inicio, cierre }) as { id: number; codigo: string; tenia_ajuste: number; liquidada: number }[];
       if (porCodigo.size === 0 && viejas.length) {
         // Un export vacío con reservas en la base huele a error de Stays: mejor no borrar nada.
         avisos.push(`Stays no devolvió ninguna reserva para ${mes} y en la app hay ${viejas.length}: no se borró ninguna. Revisá Stays y volvé a traer el mes.`);
@@ -231,9 +241,13 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
           avisos.push(`Reserva ${r.codigo}: ya no está en Stays pero es parte de una liquidación cerrada; se conserva.`);
           continue;
         }
+        if (r.tenia_ajuste) {
+          avisos.push(`Reserva ${r.codigo}: ya no aparece en ${mes} en Stays pero tiene ajustes cargados a mano; se conserva. Si cambió de fecha se actualiza al traer el mes nuevo; si se canceló, revisala.`);
+          continue;
+        }
         db.prepare('DELETE FROM reserva WHERE id = ?').run(r.id);
         reporte.eliminadas++;
-        avisos.push(`Reserva ${r.codigo}: ya no está en Stays, se borró${r.tenia_ajuste ? ' (tenía ajustes manuales)' : ''}.`);
+        avisos.push(`Reserva ${r.codigo}: ya no está en Stays, se borró.`);
       }
 
       // Pagos de MP/PayPal sin la comisión cargada en Stays (el "ADD MP TAX" del script 2).
@@ -258,7 +272,7 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
       );
       db.exec('COMMIT');
     } catch (e) {
-      db.exec('ROLLBACK');
+      if (db.isTransaction) db.exec('ROLLBACK');
       throw e;
     }
     return reporte;

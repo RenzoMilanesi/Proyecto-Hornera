@@ -29,7 +29,7 @@ export function abrirDb(ruta: string): DatabaseSync {
       db.exec(`${cambios}; PRAGMA user_version = ${VERSION_ESQUEMA};`);
       db.exec('COMMIT');
     } catch (e) {
-      db.exec('ROLLBACK'); // la base queda como estaba
+      if (db.isTransaction) db.exec('ROLLBACK'); // la base queda como estaba
       db.close();
       throw e;
     }

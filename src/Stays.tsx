@@ -31,7 +31,11 @@ const columnas: TableColumnsType<Reserva> = [
   },
 ];
 
-const mesActual = () => new Date().toISOString().slice(0, 7);
+// En hora local: con toISOString (UTC) el último día del mes después de las 21 h daría el mes siguiente.
+const mesActual = () => {
+  const hoy = new Date();
+  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+};
 
 function Credenciales({ usuario, alGuardar }: { usuario: string | null; alGuardar: (u: string) => void }) {
   const [editando, setEditando] = useState(false);

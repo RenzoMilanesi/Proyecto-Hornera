@@ -4,6 +4,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { importarExcel } from './importador/excel.ts';
 import { crearClienteStays, URL_STAYS, type Credenciales } from './stays/cliente.ts';
 import { sincronizarMes } from './stays/sync.ts';
+import { SQL_EN_PERIODO } from './periodo.ts';
 
 // Dónde viven las credenciales de Stays. En Electron, cifradas con safeStorage
 // (DPAPI de Windows) fuera de la base: no viajan en los backups.
@@ -13,6 +14,17 @@ export interface AlmacenCredenciales {
 }
 
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+// La clave de Stays solo viaja por https a Stays, o a un Stays de prueba en esta misma PC.
+function urlStaysPermitida(url: string) {
+  try {
+    const u = new URL(url);
+    return (u.protocol === 'https:' && (u.hostname === 'stays.net' || u.hostname.endsWith('.stays.net')))
+      || (u.protocol === 'http:' && (u.hostname === '127.0.0.1' || u.hostname === 'localhost'));
+  } catch {
+    return false;
+  }
+}
 
 // Solo pedidos dirigidos a esta PC: una página web con un dominio que resuelve a
 // 127.0.0.1 (DNS rebinding) manda su propio Host y queda afuera.
@@ -25,6 +37,13 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   app.use((req, res, next) => {
     if (HOST_PERMITIDO.test(req.headers.host ?? '')) return next();
     res.status(403).json({ error: 'Host no permitido' });
+  });
+  // Las escrituras solo desde la propia app: el navegador marca con Sec-Fetch-Site los
+  // pedidos que salen de otro sitio (un formulario de una página web, por ejemplo).
+  app.use((req, res, next) => {
+    const sitio = req.headers['sec-fetch-site'];
+    if (req.method === 'GET' || req.method === 'HEAD' || !sitio || sitio === 'same-origin' || sitio === 'none') return next();
+    res.status(403).json({ error: 'Pedido de otro sitio' });
   });
   app.use(express.json());
 
@@ -93,6 +112,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     try {
       // configuracion.stays.url permite apuntar a otra cuenta de Stays (o a un Stays de prueba).
       const url = (db.prepare(`SELECT valor FROM configuracion WHERE clave = 'stays.url'`).get() as { valor: string } | undefined)?.valor ?? urlStays;
+      if (!urlStaysPermitida(url)) throw new Error(`URL de Stays no permitida: ${url} (tiene que ser https://….stays.net).`);
       res.json(await sincronizarMes(db, crearClienteStays(creds, url), String(req.body?.mes ?? '')));
     } catch (e) {
       res.status(400).json({ error: mensaje(e) });
@@ -120,8 +140,8 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
       JOIN depto d ON d.id = r.depto_id
       LEFT JOIN plataforma p ON p.id = r.plataforma_id
       LEFT JOIN v_pago_liquidable v ON v.reserva_id = r.id
-      WHERE (r.llegada < ? AND r.salida > ?) OR (r.llegada >= ? AND r.llegada < ?)
-      GROUP BY r.id ORDER BY d.codigo, r.llegada`).all(cierre, inicio, inicio, cierre));
+      WHERE ${SQL_EN_PERIODO}
+      GROUP BY r.id ORDER BY d.codigo, r.llegada`).all({ inicio, cierre }));
   });
 
   // Las rutas nuevas van arriba de estas dos: lo que no es /api sigue a Vite/static.
@@ -129,7 +149,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     res.status(404).json({ error: `No existe ${req.method} /api${req.path}` });
   });
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    console.error(err);
+    console.error(mensaje(err)); // solo el mensaje: el error de body-parser trae el cuerpo (puede tener la clave)
     res.status(500).json({ error: mensaje(err) });
   });
 

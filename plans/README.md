@@ -15,9 +15,19 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 008 | [Avisos repetidos sin advertencia de React](008-avisos-key.md) | P3 | S | — | DONE |
 | 009 | ["Traer mes" solo borra lo que Stays ya no tiene](009-sync-no-borra-lo-devuelto.md) | P1 | S | — | DONE |
 | 010 | [Credenciales ilegibles no rompen la pantalla](010-credenciales-ilegibles.md) | P3 | S | — | DONE |
+| 011 | ["Traer mes" no borra reservas con datos cargados a mano](011-sync-conserva-ajustes.md) | P1 | S | — | DONE |
+| 012 | [Importar el Excel de un mes ya traído de Stays](012-importar-sobre-periodo-de-stays.md) | P1 | S | — | DONE |
+| 013 | [Moneda del propietario solo desde hojas de depto](013-moneda-del-propietario.md) | P1 | S | — | DONE |
+| 014 | [Una sola regla de "reserva del período"](014-regla-reserva-en-periodo.md) | P2 | S | 011 | DONE |
+| 015 | [Regresión de abril con importador + motor](015-regresion-motor-con-importador.md) | P2 | M | 013 | DONE |
+| 016 | [Errores chicos de robustez](016-robustez.md) | P2 | S | — | DONE |
+| 017 | [Tests de "traer mes", API y migración](017-tests-sync-y-api.md) | P2 | S | 011, 014 | DONE |
+| 018 | [Seguridad preventiva de la API local y la ventana](018-seguridad-preventiva.md) | P3 | S | — | DONE |
+| 019 | [CLAUDE.md, docs al día y tests que limpian](019-documentacion-y-dx.md) | P3 | S | 015 | DONE |
 
 Planes 006-008: revisión `improve deep` del importador (fase 3), 2026-10-12.
 Planes 009-010: revisión de la sincronización con Stays (fase 4), 2026-10-12.
+Planes 011-019: auditoría `improve deep` de las fases 1-4, 2026-10-12. Orden: 011 → 019.
 
 Orden recomendado: 001 → 002 → 003 → 004 → 005. 004 reutiliza la función
 `respaldar` de 003; 005 agrega middlewares al final de `crearApp`, después del
@@ -34,7 +44,24 @@ de 002.
 - Traer un mes anterior a los importados crea un período abierto: se avisa; caso raro.
 - Tests del importador con un Excel sintético: hoy usan el export real (no está
   en git) y se saltean sin él. Retomar cuando llegue otro mes con variaciones.
+- "Traer mes" modifica reservas de meses cerrados por importación: el snapshot de la
+  liquidación guarda sus totales; no se ve afectado.
+- Fechas de fin de mes que se corren al crear un período: los parámetros se editarán en la fase 5.
+- Excel malicioso que cuelga la app: son archivos propios.
+- Import/sync bloquean la ventana: abril tarda ~260 ms; medir si crece.
+- Cerrar la app durante un "traer mes": falla antes de escribir, no deja nada a medias.
 
 ## Pendiente de verificar (sin plan)
 - Que Electron empaquetado (asar) corra los `.ts` con type stripping. Verificar
   al armar el instalador; si no, compilar `electron/` y `server/` con `tsc`.
+
+## Decisiones pendientes del usuario (auditoría 2026-10-12)
+- Reescribir el historial de git para sacar un nombre y un DNI reales (commits 5df0021 a 589b9b1).
+- Backups en texto plano en Drive y `reserva.raw_json` con datos de huéspedes que la app no usa.
+- Montos reales de abril fijados en `server/importador/excel.test.ts`.
+- Skills de terceros versionados en `.claude/skills/` (difieren de las copias del usuario).
+
+## Para más adelante
+- Estados de pago reales de Stays (hoy cuenta todo lo que no es "pending").
+- Redondeo a centavos al guardar la liquidación del motor (fase 5).
+- Fuses de Electron e integridad del asar al armar el instalador.
