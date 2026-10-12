@@ -6,8 +6,8 @@ import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
-import type { DatabaseSync } from 'node:sqlite';
-import { abrirDb } from './db.ts';
+import { DatabaseSync } from 'node:sqlite';
+import { abrirDb, VERSION_ESQUEMA } from './db.ts';
 import { crearApp } from './app.ts';
 import { hacerBackup, respaldar, MAX_BACKUPS } from './backup.ts';
 
@@ -24,11 +24,11 @@ async function conApi(db: DatabaseSync, fn: (base: string, port: number) => Prom
 
 test('la API lista deptos con su propietario', () => {
   const db = abrirDb(':memory:');
-  db.exec(`INSERT INTO propietario(nombre) VALUES ('Olivera');
+  db.exec(`INSERT INTO propietario(nombre) VALUES ('Propietario Uno');
            INSERT INTO depto(codigo, nombre, propietario_id) VALUES ('OVL', 'Hornera Lagos', 1)`);
   return conApi(db, async (base) => {
     const deptos = await (await fetch(`${base}/api/deptos`)).json();
-    assert.deepEqual(deptos.map((d: any) => [d.codigo, d.propietario]), [['OVL', 'Olivera']]);
+    assert.deepEqual(deptos.map((d: any) => [d.codigo, d.propietario]), [['OVL', 'Propietario Uno']]);
   });
 });
 
@@ -64,8 +64,33 @@ test('los errores de la API vuelven como JSON', () => {
 
 test('abrir una base existente no vuelve a crear el esquema', () => {
   const ruta = join(mkdtempSync(join(tmpdir(), 'hornera-')), 'h.db');
-  abrirDb(ruta).exec(`INSERT INTO propietario(nombre) VALUES ('Olivera')`);
+  abrirDb(ruta).exec(`INSERT INTO propietario(nombre) VALUES ('Propietario Uno')`);
   assert.equal((abrirDb(ruta).prepare('SELECT count(*) n FROM propietario').get() as any).n, 1);
+});
+
+test('una base del esquema 1 se migra a la versión actual', () => {
+  const ruta = join(mkdtempSync(join(tmpdir(), 'hornera-')), 'v1.db');
+  const v1 = new DatabaseSync(ruta);
+  v1.exec(`CREATE TABLE liquidacion (id INTEGER PRIMARY KEY, conversion_ars INTEGER NOT NULL, saldo_final INTEGER NOT NULL) STRICT;
+           INSERT INTO liquidacion VALUES (1, 0, 500); PRAGMA user_version = 1;`);
+  v1.close();
+  const db = abrirDb(ruta);
+  assert.equal((db.prepare('PRAGMA user_version').get() as any).user_version, VERSION_ESQUEMA);
+  assert.deepEqual({ ...(db.prepare('SELECT saldo_final_ars, saldo_final_usd, conversion_usd FROM liquidacion').get() as any) },
+    { saldo_final_ars: 500, saldo_final_usd: 0, conversion_usd: 0 });
+});
+
+test('si una migración falla, la base queda como estaba', () => {
+  const ruta = join(mkdtempSync(join(tmpdir(), 'hornera-')), 'v1-rara.db');
+  const v1 = new DatabaseSync(ruta);
+  // Sin la columna saldo_final: el RENAME de la migración 1 → 2 falla.
+  v1.exec(`CREATE TABLE liquidacion (id INTEGER PRIMARY KEY, otra INTEGER) STRICT; PRAGMA user_version = 1;`);
+  v1.close();
+  assert.throws(() => abrirDb(ruta), /saldo_final/);
+  const db = new DatabaseSync(ruta);
+  assert.equal((db.prepare('PRAGMA user_version').get() as any).user_version, 1);
+  assert.equal((db.prepare(`SELECT group_concat(name) c FROM pragma_table_info('liquidacion')`).get() as any).c, 'id,otra');
+  db.close();
 });
 
 test('el backup conserva solo las últimas copias', () => {

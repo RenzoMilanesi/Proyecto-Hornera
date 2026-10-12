@@ -1,6 +1,7 @@
 // API HTTP. La usan la ventana de Electron y, más adelante, las terminales de la red.
 import express, { type NextFunction, type Request, type Response } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
+import { importarExcel } from './importador/excel.ts';
 
 // Solo pedidos dirigidos a esta PC: una página web con un dominio que resuelve a
 // 127.0.0.1 (DNS rebinding) manda su propio Host y queda afuera.
@@ -30,6 +31,20 @@ export function crearApp(db: DatabaseSync, version: string) {
     res.json(db.prepare(`
       SELECT d.id, d.codigo, d.nombre, d.estado, d.comision_pct, p.nombre AS propietario
       FROM depto d JOIN propietario p ON p.id = d.propietario_id ORDER BY d.codigo`).all());
+  });
+
+  // El archivo viaja como application/octet-stream: no es un tipo "simple" de CORS,
+  // así que una página web ajena no puede mandarlo sin preflight.
+  app.post('/api/importar/excel', express.raw({ type: 'application/octet-stream', limit: '50mb' }), (req, res) => {
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+      res.status(400).json({ error: 'Falta el archivo .xlsx' });
+      return;
+    }
+    try {
+      res.json(importarExcel(db, req.body));
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
   });
 
   // Las rutas nuevas van arriba de estas dos: lo que no es /api sigue a Vite/static.

@@ -24,19 +24,19 @@ PRAGMA foreign_keys = ON;
 -- ------------------------------------------------------------
 
 -- Hoja Propiedades, columnas E, N, O, P, Q. Una misma persona puede tener
--- varios deptos (Olivera: OVL y BAL; Bergonzi: GUE, ALV, ESP; Martinez: CAF, RIO, MAPU).
+-- varios deptos (en abril 2026: OVL y BAL; GUE, ALV y ESP; CAF, RIO y MAPU).
 CREATE TABLE propietario (
     id                 INTEGER PRIMARY KEY,
-    nombre             TEXT    NOT NULL,          -- "Olivera, Griselda Beatriz / Escalada, Anibal Omar"
-    documento          TEXT,                       -- texto libre: hoy viene "DNI N°16.719.412 / ..."
+    nombre             TEXT    NOT NULL,          -- "Pérez, Ana / Gómez, Luis" (ejemplo ficticio)
+    documento          TEXT,                       -- texto libre: hoy viene "DNI N°11.111.111 / ..."
     cuit               TEXT,
     categoria_fiscal   TEXT    CHECK (categoria_fiscal IN ('RM','RI','CF','EX','NI')),  -- NI = "No inf."
     cbu                TEXT,                       -- CBU/CVU; NULL = no informado
     es_hornera         INTEGER NOT NULL DEFAULT 0 CHECK (es_hornera IN (0,1)),  -- SFE: CBU "Nosotros"
     mails              TEXT,                       -- separados por ';' (como en el Excel)
     -- Moneda en la que cierra el saldo (fila "Cambio moneda"). ARS: el USD se
-    -- pasa a ARS (la mayoría). USD: el ARS se pasa a USD (Benedetti, Richard,
-    -- Ozerio, Bessone en abril 2026), a cambio / (1 − comision_cobro_usd_pct);
+    -- pasa a ARS (la mayoría). USD: el ARS se pasa a USD (S38, COT, R64, MAI
+    -- e ITU en abril 2026), a cambio / (1 − comision_cobro_usd_pct);
     -- R64 usa 0,04 (¿Payoneer?).
     moneda_liquidacion     TEXT NOT NULL DEFAULT 'ARS' CHECK (moneda_liquidacion IN ('ARS','USD')),
     comision_cobro_usd_pct REAL NOT NULL DEFAULT 0 CHECK (comision_cobro_usd_pct >= 0 AND comision_cobro_usd_pct < 1),
@@ -298,7 +298,7 @@ CREATE INDEX ix_mov_cuenta ON movimiento(cuenta_id);
 -- Período cerrado = congelado. Única excepción: tipo 'liquidacion', porque el
 -- pago al propietario se hace después del cierre (fecha_pago) y se imputa al
 -- período que liquida. El saldo_anterior del mes siguiente es entonces
--- liquidacion.saldo_final + los movimientos 'liquidacion' de ese período.
+-- liquidacion.saldo_final_ars/_usd + los movimientos 'liquidacion' de ese período.
 CREATE TRIGGER tr_mov_periodo_cerrado_ins BEFORE INSERT ON movimiento
 WHEN NEW.tipo <> 'liquidacion'
  AND (SELECT estado FROM periodo WHERE id = NEW.periodo_id) = 'cerrado'
@@ -366,8 +366,12 @@ CREATE TABLE liquidacion (
     saldo_anterior_usd     INTEGER NOT NULL,
     movimientos_ars        INTEGER NOT NULL,
     movimientos_usd        INTEGER NOT NULL,
-    conversion_ars         INTEGER NOT NULL,     -- fila "Cambio moneda"
-    saldo_final            INTEGER NOT NULL,     -- ARS, a transferir (>0) o deuda del propietario (<0)
+    conversion_ars         INTEGER NOT NULL,     -- fila "Cambio moneda" [J53]
+    conversion_usd         INTEGER NOT NULL,     -- [K53]
+    -- Saldo antes del pago, en la moneda de liquidación del propietario (la
+    -- otra queda en 0): >0 se le transfiere, <0 debe.
+    saldo_final_ars        INTEGER NOT NULL,
+    saldo_final_usd        INTEGER NOT NULL,
     movimiento_pago_id     INTEGER,              -- se completa al marcar "pagado"
     pdf_path               TEXT,
     calculada_en           TEXT    NOT NULL,

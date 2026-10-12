@@ -11,7 +11,7 @@ const mov = (cols, vals) =>
   `INSERT INTO movimiento(periodo_id, fecha, creado_en, ${cols}) VALUES (1, '2026-04-02', 'x', ${vals})`;
 
 run(`INSERT INTO cuenta(nombre, moneda) VALUES ('Galicia A','ARS'), ('Payoneer A','USD')`);
-run(`INSERT INTO propietario(nombre) VALUES ('Olivera')`);
+run(`INSERT INTO propietario(nombre) VALUES ('Propietario Uno')`);
 run(`INSERT INTO depto(codigo, nombre, propietario_id) VALUES ('OVL','Hornera Lagos',1)`);
 run(`INSERT INTO periodo(mes, fecha_inicio, fecha_cierre_reservas, fecha_corte_gastos, fecha_pago,
       costo_hora_limpieza, servicio_limpieza, servicio_lavanderia, prestamo_blanqueria, gestion_operativa,
@@ -34,7 +34,8 @@ falla(`INSERT INTO bloqueo(depto_id, desde, hasta) VALUES (1, '2026-04-10', '202
 run(`INSERT INTO liquidacion(periodo_id, depto_id, cambio, comision_pct, noches_disponibles, noches_ocupadas,
       cant_reservas, ingresos_ars, ingresos_usd, costos_operativos, comisiones_ars, comisiones_usd, bruto,
       honorarios, saldo_anterior_ars, saldo_anterior_usd, movimientos_ars, movimientos_usd, conversion_ars,
-      saldo_final, calculada_en) VALUES (1,1,1400.6,0.2,30,29,2,0,0,0,0,0,0,0,0,0,0,0,0,84171700,'x')`);
+      conversion_usd, saldo_final_ars, saldo_final_usd, calculada_en)
+     VALUES (1,1,1400.6,0.2,30,29,2,0,0,0,0,0,0,0,0,0,0,0,0,0,84171700,0,'x')`);
 run(`UPDATE periodo SET estado = 'cerrado' WHERE id = 1`);
 falla(mov('tipo, importe_ars', `'gasto', -1`), 'periodo cerrado');
 falla(`UPDATE movimiento SET detalle = 'x' WHERE id = 1`, 'periodo cerrado');

@@ -10,6 +10,11 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 003 | [Backup con carpeta de respaldo si falla la configurada](003-backup-fallback.md) | P1 | S | — | DONE |
 | 004 | [Backup también al apagar Windows](004-backup-apagado.md) | P2 | S | 003 | DONE |
 | 005 | [Errores de la API como JSON corto](005-errores-json.md) | P2 | S | 002 | DONE |
+| 006 | [Importar un mes anterior no pisa maestros](006-importar-mes-anterior.md) | P1 | S | — | DONE |
+| 007 | [Rollback si falla una migración](007-migracion-rollback.md) | P3 | S | — | DONE |
+| 008 | [Avisos repetidos sin advertencia de React](008-avisos-key.md) | P3 | S | — | DONE |
+
+Planes 006-008: revisión `improve deep` del importador (fase 3), 2026-10-12.
 
 Orden recomendado: 001 → 002 → 003 → 004 → 005. 004 reutiliza la función
 `respaldar` de 003; 005 agrega middlewares al final de `crearApp`, después del
@@ -19,6 +24,10 @@ de 002.
 - Aviso de tamaño del bundle de Vite: app de escritorio local, no viaja por red.
 - CORS: el navegador ya bloquea leer respuestas de otro origen; el único vector
   de lectura es DNS rebinding (plan 002).
+- Avisar fechas de CORRIENTE fuera del período (p. ej. pagos de D25 y PRO
+  tipeados 10/11/2025): descartado por el usuario, se importan tal cual.
+- Tests del importador con un Excel sintético: hoy usan el export real (no está
+  en git) y se saltean sin él. Retomar cuando llegue otro mes con variaciones.
 
 ## Pendiente de verificar (sin plan)
 - Que Electron empaquetado (asar) corra los `.ts` con type stripping. Verificar

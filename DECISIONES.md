@@ -28,6 +28,14 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - Se migra todo lo relevante con un modelo de datos propio, no hoja por hoja: propiedades/propietarios, saldos de arrastre, histórico de ocupación y movimientos.
 - Solo está abril 2026; los demás meses llegan en unos días. El importador debe servir para cualquier mes exportado.
 - **Validación:** correr en paralelo con el Excel durante 1-2 meses.
+- **Importador** (`server/importador/excel.ts`, pantalla "Importar Excel"), validado con abril 2026:
+  - Maestros (propietarios, deptos, plataformas, cuentas, conceptos): alta o actualización; el Excel manda hasta que lo reemplace la app. Un propietario se identifica por el nombre del "Facturante". Solo el mes más nuevo importado actualiza maestros e histórico; uno anterior solo agrega lo que falte.
+  - El mes del export entra **cerrado**, con sus movimientos de CORRIENTE y un snapshot de la liquidación de cada depto tomado de su hoja (no recalculado). El saldo de arrastre del mes siguiente sale de ese snapshot. Importar dos veces el mismo mes se rechaza.
+  - Los movimientos entran **sin cuenta**: el Excel no registra de qué cuenta sale cada uno. Los saldos iniciales de las cuentas se cargan al empezar a usar la app.
+  - Histórico: solo noches ocupadas por mes (hoja OCUPACION, 12/2021 a 10/2024; después no se actualizó). La hoja Resumen no tiene histórico real.
+  - No se importa: deptos sin facturante (JAI, SAR), la columna "FONDO / ACUMULADO" de CORRIENTE (fondo de reserva de CNG), la hoja NO COMISIONABLES ni las reservas (vienen de Stays, fase 4).
+  - Lectura del xlsx con SheetJS 0.20.3 desde su CDN (la de npm, 0.18.5, tiene vulnerabilidades conocidas). También sirve para exportar la lista de transferencias (fase 5).
+- **Esquema 2:** la liquidación guarda saldo final y cambio de moneda en ARS y USD (5 propietarios liquidan en USD). Las bases del esquema 1 se migran solas al abrir (`server/db.ts`).
 
 ## Técnico
 - **Desktop** como Roble: Electron + React/Vite + Express + SQLite. Proyecto nuevo, se copia de Roble solo lo que sirva.

@@ -1,6 +1,6 @@
 {
   "name": "hornera",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "HORNERA — liquidación mensual a propietarios",
   "private": true,
   "type": "module",
@@ -21,7 +21,8 @@
     "antd": "^6.6.6",
     "express": "^5.3.0",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
