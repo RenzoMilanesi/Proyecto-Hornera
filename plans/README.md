@@ -13,8 +13,11 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 006 | [Importar un mes anterior no pisa maestros](006-importar-mes-anterior.md) | P1 | S | — | DONE |
 | 007 | [Rollback si falla una migración](007-migracion-rollback.md) | P3 | S | — | DONE |
 | 008 | [Avisos repetidos sin advertencia de React](008-avisos-key.md) | P3 | S | — | DONE |
+| 009 | ["Traer mes" solo borra lo que Stays ya no tiene](009-sync-no-borra-lo-devuelto.md) | P1 | S | — | DONE |
+| 010 | [Credenciales ilegibles no rompen la pantalla](010-credenciales-ilegibles.md) | P3 | S | — | DONE |
 
 Planes 006-008: revisión `improve deep` del importador (fase 3), 2026-10-12.
+Planes 009-010: revisión de la sincronización con Stays (fase 4), 2026-10-12.
 
 Orden recomendado: 001 → 002 → 003 → 004 → 005. 004 reutiliza la función
 `respaldar` de 003; 005 agrega middlewares al final de `crearApp`, después del
@@ -26,6 +29,9 @@ de 002.
   de lectura es DNS rebinding (plan 002).
 - Avisar fechas de CORRIENTE fuera del período (p. ej. pagos de D25 y PRO
   tipeados 10/11/2025): descartado por el usuario, se importan tal cual.
+- Efectivo en Stays cuenta como ARS: Stays no informa la moneda del pago, los
+  scripts hacían lo mismo y la moneda del medio se edita en la app (la sync no la pisa).
+- Traer un mes anterior a los importados crea un período abierto: se avisa; caso raro.
 - Tests del importador con un Excel sintético: hoy usan el export real (no está
   en git) y se saltean sin él. Retomar cuando llegue otro mes con variaciones.
 

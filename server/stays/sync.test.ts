@@ -1,0 +1,172 @@
+// Correr: npm test
+// Contra un Stays simulado (datos ficticios con el formato real de la API).
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import * as XLSX from 'xlsx';
+import { abrirDb } from '../db.ts';
+import { crearClienteStays, type FilaReserva, type MedioStays, type PagoStays } from './cliente.ts';
+import { fechaStays, sincronizarMes, sumarMeses } from './sync.ts';
+
+const reserva = (codigo: string, depto: string, llegada: string, salida: string, canal: string, moneda = 'USD'): FilaReserva => ({
+  Reserva: codigo, 'Nombre interno del alojamiento': depto, Llegada: llegada, 'Fecha de salida': salida, Canal: canal,
+  Moneda: moneda, 'Total de huéspedes': 2, 'Total de factura de hospedaje': 311.45, 'Precio de compra': 140.85,
+  'Tipo de documento': 'ID', 'Numero de documento': 11111111, 'Nombre del huésped': 'Huésped Ficticio',
+});
+const pago = (id: string, medio: string, val: number, extra: Partial<PagoStays> = {}): PagoStays =>
+  ({ _id: id, _idpaymentProvider: medio, _idreserve: 'int-' + id, type: 'credit', status: 'completed', _f_val: val, paymentDate: '2026-05-02', ...extra });
+
+// Stays simulado: devuelve las mismas reservas para cualquier dateType (el filtro es nuestro).
+async function conStays(fn: (url: string, datos: { reservas: FilaReserva[]; pagos: Record<string, PagoStays[]> }) => Promise<void>) {
+  const medios: MedioStays[] = [
+    { _id: 'mp', type: 'mercadopago', status: 'active', internalName: 'Mercado Pago Prueba', currencies: ['ARS'] },
+    { _id: 'payo', type: 'bank', status: 'active', internalName: 'Payoneer' },
+    { _id: 'efe', type: 'user', status: 'active' },
+  ];
+  const datos = {
+    reservas: [
+      reserva('R1', 'AAA', '01 may. 2026', '05 may. 2026', 'API airbnb'),
+      reserva('R2', 'BBB', '28 abr. 2026', '03 may. 2026', '', 'ARS'),      // viene de abril; sin canal
+      reserva('R3', 'ZZZ', '10 may. 2026', '12 may. 2026', 'API airbnb'),   // depto desconocido
+      reserva('R4', 'AAA', '20 abr. 2026', '01 may. 2026', 'API airbnb'),   // sale el 1: 0 noches en mayo
+      reserva('R5', 'AAA', '31 may. 2026', '31 may. 2026', 'VRBO nuevo'),   // cancelación de 0 noches; canal nuevo
+    ],
+    pagos: {
+      R1: [pago('p1', 'payo', 300), pago('p2', 'payo', 48.28, { type: 'debit', name: 'res. fee API airbnb' }),
+        pago('p3', 'payo', 48.28, { name: 'res. fee API airbnb' })],
+      R2: [pago('p4', 'mp', 100000, { _f_tax: 5000 }), pago('p5', 'mp', 50000)],  // p5: MP sin comisión
+      R5: [pago('p6', 'efe', 20000)],
+    } as Record<string, PagoStays[]>,
+  };
+  const esperado = 'Basic ' + Buffer.from('usuario:clave').toString('base64');
+  const server = createServer((req, res) => {
+    if (req.headers.authorization !== esperado) { res.writeHead(401).end('unauthorized'); return; }
+    const url = new URL(req.url!, 'http://x');
+    if (url.pathname === '/finance/payment-providers') { res.end(JSON.stringify(medios)); return; }
+    if (url.pathname === '/booking/reservations-export') {
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(datos.reservas), 'Sheet1');
+      res.end(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+      return;
+    }
+    const m = /^\/booking\/reservations\/([^/]+)\/payments$/.exec(url.pathname);
+    if (m) { res.end(JSON.stringify(datos.pagos[m[1]] ?? [])); return; }
+    res.writeHead(404).end();
+  }).listen(0);
+  try {
+    await fn(`http://127.0.0.1:${(server.address() as AddressInfo).port}`, datos);
+  } finally {
+    server.close();
+  }
+}
+
+function baseConAbril() {
+  const db = abrirDb(':memory:');
+  db.exec(`
+    INSERT INTO propietario(nombre) VALUES ('Propietario Uno');
+    INSERT INTO depto(codigo, nombre, propietario_id) VALUES ('AAA', 'Depto A', 1), ('BBB', 'Depto B', 1);
+    INSERT INTO plataforma(nombre_stays, nombre, codigo, gestiona_pago) VALUES ('API airbnb', 'Airbnb', 'A', 1), ('Carga Agente', 'Carga Agente', 'W', 0);
+    INSERT INTO periodo(mes, fecha_inicio, fecha_cierre_reservas, fecha_corte_gastos, fecha_pago, costo_hora_limpieza,
+      servicio_limpieza, servicio_lavanderia, prestamo_blanqueria, gestion_operativa, mantenimiento, tarifa_base,
+      adicional_huesped, cargo_tramo_1, cargo_tramo_2, cm_fee_usd, estado)
+    VALUES ('2026-04', '2026-04-01', '2026-05-01', '2026-04-28', '2026-05-10', 1, 1, 1, 1, 1, 1, 6978520, 1, 1, 1, 2000, 'cerrado');`);
+  return db;
+}
+
+test('fechas de Stays y meses', () => {
+  assert.equal(fechaStays('01 oct. 2026'), '2026-10-01');
+  assert.equal(fechaStays('9 dic. 2026'), '2026-12-09');
+  assert.equal(fechaStays('2026-05-03'), '2026-05-03');
+  assert.equal(fechaStays('ayer'), null);
+  assert.equal(sumarMeses('2026-01-31', 1), '2026-02-28');
+  assert.equal(sumarMeses('2026-04-28', 1), '2026-05-28');
+});
+
+test('traer mayo: crea el período, trae reservas y pagos del mes y avisa lo que falta', () => conStays(async (url) => {
+  const db = baseConAbril();
+  const r = await sincronizarMes(db, crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url), '2026-05');
+
+  assert.equal(r.periodoCreado, true);
+  assert.deepEqual([r.reservas, r.pagos, r.eliminadas], [3, 6, 0]);
+  const periodo = db.prepare(`SELECT fecha_cierre_reservas, fecha_corte_gastos, fecha_pago, tarifa_base, estado FROM periodo WHERE mes = '2026-05'`).get() as any;
+  assert.deepEqual({ ...periodo }, { fecha_cierre_reservas: '2026-06-01', fecha_corte_gastos: '2026-05-28', fecha_pago: '2026-06-10', tarifa_base: 6978520, estado: 'abierto' });
+
+  const reservas = db.prepare(`
+    SELECT r.codigo, d.codigo depto, p.nombre_stays canal, r.llegada, r.salida, r.moneda, r.huesped_doc_tipo, r.precio_compra
+    FROM reserva r JOIN depto d ON d.id = r.depto_id LEFT JOIN plataforma p ON p.id = r.plataforma_id ORDER BY r.codigo`).all() as any[];
+  assert.deepEqual(reservas.map((x) => ({ ...x })), [
+    { codigo: 'R1', depto: 'AAA', canal: 'API airbnb', llegada: '2026-05-01', salida: '2026-05-05', moneda: 'USD', huesped_doc_tipo: 'DNI', precio_compra: 14085 },
+    { codigo: 'R2', depto: 'BBB', canal: 'Carga Agente', llegada: '2026-04-28', salida: '2026-05-03', moneda: 'ARS', huesped_doc_tipo: 'DNI', precio_compra: 14085 },
+    { codigo: 'R5', depto: 'AAA', canal: null, llegada: '2026-05-31', salida: '2026-05-31', moneda: 'USD', huesped_doc_tipo: 'DNI', precio_compra: 14085 },
+  ]);
+
+  // Lo que entra en la liquidación: sin débitos ni "res. fee"; MP neto de comisión.
+  const liquidable = db.prepare(`
+    SELECT r.codigo, v.moneda, sum(v.importe_neto) neto FROM v_pago_liquidable v JOIN reserva r ON r.id = v.reserva_id
+    GROUP BY r.codigo, v.moneda ORDER BY r.codigo`).all() as any[];
+  assert.deepEqual(liquidable.map((x) => ({ ...x })), [
+    { codigo: 'R1', moneda: 'USD', neto: 30000 },
+    { codigo: 'R2', moneda: 'ARS', neto: 14500000 },
+    { codigo: 'R5', moneda: 'ARS', neto: 2000000 },
+  ]);
+
+  for (const texto of ['Se creó el período 2026-05', 'Reserva R3: el alojamiento "ZZZ"', 'Canal "VRBO nuevo"',
+    'sin comisión cargada en Stays (R2)', 'Medios de pago sin cuenta asociada: Efectivo, Mercado Pago Prueba, Payoneer']) {
+    assert.ok(r.avisos.some((a) => a.includes(texto)), `falta el aviso "${texto}" en ${JSON.stringify(r.avisos)}`);
+  }
+}));
+
+test('volver a traer el mes respeta los ajustes manuales y borra lo que Stays ya no tiene', () => conStays(async (url, datos) => {
+  const db = baseConAbril();
+  const cliente = crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url);
+  await sincronizarMes(db, cliente, '2026-05');
+  db.exec(`UPDATE reserva SET ajuste_ars = -500000, observacion = 'descuento acordado' WHERE codigo = 'R2'`);
+  db.exec(`UPDATE medio_pago SET moneda = 'ARS' WHERE stays_id = 'payo'`); // editado en la app: se respeta
+
+  datos.reservas = datos.reservas.filter((x) => x.Reserva !== 'R5');
+  datos.reservas[0]['Total de huéspedes'] = 4;
+  datos.pagos.R2 = [datos.pagos.R2[0]];
+  const r = await sincronizarMes(db, cliente, '2026-05');
+
+  assert.equal(r.periodoCreado, false);
+  assert.deepEqual([r.reservas, r.pagos, r.eliminadas], [2, 4, 1]);
+  assert.ok(r.avisos.some((a) => a === 'Reserva R5: ya no está en Stays, se borró.'));
+  const r2 = db.prepare(`SELECT ajuste_ars, observacion, (SELECT count(*) FROM pago WHERE reserva_id = reserva.id) pagos FROM reserva WHERE codigo = 'R2'`).get() as any;
+  assert.deepEqual({ ...r2 }, { ajuste_ars: -500000, observacion: 'descuento acordado', pagos: 1 });
+  assert.equal((db.prepare(`SELECT huespedes FROM reserva WHERE codigo = 'R1'`).get() as any).huespedes, 4);
+  assert.equal((db.prepare(`SELECT moneda FROM medio_pago WHERE stays_id = 'payo'`).get() as any).moneda, 'ARS');
+  assert.equal((db.prepare(`SELECT count(*) n FROM sincronizacion`).get() as any).n, 2);
+}));
+
+test('no borra reservas que Stays devolvió pero se descartaron, ni todo el mes si el export viene vacío', () => conStays(async (url, datos) => {
+  const db = baseConAbril();
+  const cliente = crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url);
+  await sincronizarMes(db, cliente, '2026-05');
+  const cantidad = () => (db.prepare('SELECT count(*) n FROM reserva').get() as any).n;
+  assert.equal(cantidad(), 3);
+
+  datos.reservas[0]['Nombre interno del alojamiento'] = 'RENOMBRADO'; // R1 sigue en Stays, con otro alojamiento
+  const r1 = await sincronizarMes(db, cliente, '2026-05');
+  assert.equal(r1.eliminadas, 0);
+  assert.equal(cantidad(), 3);
+
+  datos.reservas = [];
+  const r2 = await sincronizarMes(db, cliente, '2026-05');
+  assert.equal(r2.eliminadas, 0);
+  assert.equal(cantidad(), 3);
+  assert.ok(r2.avisos.some((a) => a.includes('Stays no devolvió ninguna reserva para 2026-05')));
+}));
+
+test('clave incorrecta o período cerrado: no se escribe nada', () => conStays(async (url) => {
+  const db = baseConAbril();
+  await sincronizarMes(db, crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url), '2026-05');
+  const reservasAntes = (db.prepare('SELECT count(*) n FROM reserva').get() as any).n;
+
+  await assert.rejects(sincronizarMes(db, crearClienteStays({ usuario: 'usuario', clave: 'mal' }, url), '2026-05'), /rechazó el usuario o la clave/);
+  assert.equal((db.prepare('SELECT count(*) n FROM reserva').get() as any).n, reservasAntes);
+  assert.equal((db.prepare(`SELECT resultado FROM sincronizacion ORDER BY id DESC LIMIT 1`).get() as any).resultado, 'error');
+
+  await assert.rejects(sincronizarMes(db, crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url), '2026-04'), /2026-04 está cerrado/);
+  await assert.rejects(sincronizarMes(abrirDb(':memory:'), crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url), '2026-05'), /importá primero el Excel/);
+}));

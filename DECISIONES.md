@@ -37,6 +37,16 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
   - Lectura del xlsx con SheetJS 0.20.3 desde su CDN (la de npm, 0.18.5, tiene vulnerabilidades conocidas). También sirve para exportar la lista de transferencias (fase 5).
 - **Esquema 2:** la liquidación guarda saldo final y cambio de moneda en ARS y USD (5 propietarios liquidan en USD). Las bases del esquema 1 se migran solas al abrir (`server/db.ts`).
 
+## Stays ("traer mes", `server/stays/`)
+- Reemplaza los scripts 0 a 2 de `balances-hornera`, con sus mismas reglas: reservas por llegada, por salida (corrida un día) e incluidas; entra la que tiene noches en el período o llega en él (cancelaciones de 0 noches). Reserva sin canal = "Carga Agente".
+- Primero se baja todo y después se escribe en una transacción: si la red falla no queda nada a medias. Cada intento queda en `sincronizacion` (también los fallidos).
+- Se puede repetir: no pisa los ajustes manuales de la reserva ni la moneda, la comisión y la cuenta de los medios de pago editados en la app. Las reservas del período que Stays ya no devuelve se borran (con aviso), salvo las que ya están en una liquidación cerrada. Si el export viene vacío no se borra nada.
+- Si el período no existe se crea con los parámetros del último y sin cotización; no se trae un período cerrado.
+- Moneda del medio de pago: USD si Stays lo dice o si es PayPal/Payoneer; si no, ARS. Descuentan comisión (neto = importe − `_f_tax`): Mercado Pago, PayPal y los "Link". Se avisa cuando falta cargar la comisión en Stays.
+- Credenciales: las carga el usuario en la app y se guardan cifradas con `safeStorage` (DPAPI de Windows) en `stays.cred`, fuera de la base: no viajan en los backups. La clave nunca vuelve a la pantalla. `configuracion.stays.url` permite apuntar a otra URL (se usó para probar contra un Stays simulado).
+- Probado contra un Stays simulado con datos ficticios en el formato real (xlsx del export, JSON de pagos y medios). **Falta probar contra el Stays real** cuando se cambie la contraseña.
+- Pendiente para la fase 5: asociar cada medio de pago a una cuenta (pantalla), y calcular la liquidación del mes abierto con el motor a partir de reservas y pagos.
+
 ## Técnico
 - **Desktop** como Roble: Electron + React/Vite + Express + SQLite. Proyecto nuevo, se copia de Roble solo lo que sirva.
 - **SQLite con `node:sqlite`** (incluido en Node/Electron) en vez de `better-sqlite3`: sin módulo nativo ni `electron-rebuild`. Electron corre los `.ts` directo (type stripping); solo Vite compila la interfaz. `tsc` se usa únicamente para chequear tipos.

@@ -3,6 +3,7 @@ import { Alert, Layout, Menu, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType as ColumnsType } from 'antd';
 import { get } from './api.ts';
 import { Importar } from './Importar.tsx';
+import { Stays } from './Stays.tsx';
 
 interface Depto { id: number; codigo: string; nombre: string; estado: string; comision_pct: number; propietario: string }
 interface Propietario { id: number; nombre: string; moneda_liquidacion: string; tiene_cbu: number; deptos: string | null }
@@ -35,6 +36,7 @@ function Listado<T extends { id: number }>({ ruta, columnas }: { ruta: string; c
 const secciones = {
   deptos: { titulo: 'Deptos', vista: <Listado<Depto> ruta="deptos" columnas={columnasDeptos} /> },
   propietarios: { titulo: 'Propietarios', vista: <Listado<Propietario> ruta="propietarios" columnas={columnasPropietarios} /> },
+  stays: { titulo: 'Stays', vista: <Stays /> },
   importar: { titulo: 'Importar Excel', vista: <Importar /> },
 };
 type Seccion = keyof typeof secciones;

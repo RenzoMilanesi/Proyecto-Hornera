@@ -62,6 +62,29 @@ test('los errores de la API vuelven como JSON', () => {
   });
 });
 
+test('credenciales de Stays: se guardan, la clave no vuelve y sin ellas no se sincroniza', async () => {
+  let guardadas: { usuario: string; clave: string } | null = null;
+  const credenciales = { leer: () => guardadas, guardar: (c: { usuario: string; clave: string }) => { guardadas = c; } };
+  const server = crearApp(abrirDb(':memory:'), '0.0.0', { credenciales }).listen(0);
+  try {
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api`;
+    const json = { 'Content-Type': 'application/json' };
+    const sincronizar = () => fetch(`${base}/stays/sincronizar`, { method: 'POST', headers: json, body: '{"mes":"2026-05"}' });
+
+    assert.equal((await sincronizar()).status, 400);
+    assert.equal((await fetch(`${base}/stays/credenciales`, { method: 'PUT', headers: json, body: '{"usuario":"u"}' })).status, 400);
+    const put = await fetch(`${base}/stays/credenciales`, { method: 'PUT', headers: json, body: '{"usuario":" u ","clave":"secreta"}' });
+    assert.deepEqual(await put.json(), { usuario: 'u' });
+    assert.deepEqual(guardadas, { usuario: 'u', clave: 'secreta' });
+    const estado = await (await fetch(`${base}/stays`)).text();
+    assert.equal(estado, '{"usuario":"u"}');
+    // Con credenciales pero sin períodos: el error es del negocio, no de credenciales.
+    assert.match((await (await sincronizar()).json()).error, /importá primero el Excel/);
+  } finally {
+    server.close();
+  }
+});
+
 test('abrir una base existente no vuelve a crear el esquema', () => {
   const ruta = join(mkdtempSync(join(tmpdir(), 'hornera-')), 'h.db');
   abrirDb(ruta).exec(`INSERT INTO propietario(nombre) VALUES ('Propietario Uno')`);

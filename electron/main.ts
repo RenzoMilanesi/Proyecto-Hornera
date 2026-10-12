@@ -1,11 +1,12 @@
 // Proceso principal: abre la base, levanta la API y muestra la ventana.
 // En desarrollo, Vite corre como middleware del mismo Express (un solo puerto, con HMR).
-import { app, BrowserWindow, dialog } from 'electron';
+import { app, BrowserWindow, dialog, safeStorage } from 'electron';
 import express from 'express';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { abrirDb } from '../server/db.ts';
-import { crearApp } from '../server/app.ts';
+import { crearApp, type AlmacenCredenciales } from '../server/app.ts';
 import { respaldar } from '../server/backup.ts';
 
 const PUERTO = 4310;
@@ -14,9 +15,31 @@ const HOST = '127.0.0.1';
 const RAIZ = join(import.meta.dirname, '..');
 const BACKUP_CADA_MS = 6 * 60 * 60 * 1000;
 
+// Credenciales de Stays cifradas con DPAPI de Windows: solo las descifra este
+// usuario en esta PC. Archivo aparte de la base, así no viajan en los backups.
+function almacenCredenciales(): AlmacenCredenciales {
+  const ruta = join(app.getPath('userData'), 'stays.cred');
+  return {
+    leer() {
+      if (!existsSync(ruta)) return null;
+      try {
+        return JSON.parse(safeStorage.decryptString(readFileSync(ruta)));
+      } catch (e) {
+        // Cifrado por otro usuario u otra PC (carpeta copiada): se vuelve a pedir la clave.
+        console.error('No se pudieron leer las credenciales de Stays:', e);
+        return null;
+      }
+    },
+    guardar(c) {
+      if (!safeStorage.isEncryptionAvailable()) throw new Error('Windows no permite cifrar la clave en esta PC.');
+      writeFileSync(ruta, safeStorage.encryptString(JSON.stringify(c)));
+    },
+  };
+}
+
 async function iniciar() {
   const db = abrirDb(join(app.getPath('userData'), 'hornera.db'));
-  const api = crearApp(db, app.getVersion());
+  const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales() });
   const http = createServer(api);
 
   if (app.isPackaged) {
