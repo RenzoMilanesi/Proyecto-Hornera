@@ -99,8 +99,8 @@ export function Liquidacion() {
     }
   };
   const pdf = (depto?: string) => accion(depto ? `pdf:${depto}` : 'pdf', async () => {
-    const r = await enviar<{ carpeta: string; archivos: string[] }>('liquidacion/pdf', 'POST', { mes, depto });
-    setAviso(`${r.archivos.length === 1 ? 'PDF guardado' : `${r.archivos.length} PDF guardados`} en ${r.carpeta}`);
+    const r = await enviar<{ carpeta: string; archivos: string[]; en_servidor: boolean }>('liquidacion/pdf', 'POST', { mes, depto });
+    setAviso(`${r.archivos.length === 1 ? 'PDF guardado' : `${r.archivos.length} PDF guardados`} en ${r.carpeta}${r.en_servidor ? ' de la PC servidor' : ''}`);
   });
 
   const comparar = async (archivo: File) => {

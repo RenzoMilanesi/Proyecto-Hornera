@@ -8,6 +8,8 @@ import { Liquidacion } from './Liquidacion.tsx';
 import { Movimientos } from './Movimientos.tsx';
 import { Cuentas } from './Cuentas.tsx';
 import { Transferencias } from './Transferencias.tsx';
+import { Terminales } from './Terminales.tsx';
+import { Emparejar } from './Emparejar.tsx';
 
 interface Depto { id: number; codigo: string; nombre: string; estado: string; comision_pct: number; propietario: string }
 interface Propietario { id: number; nombre: string; moneda_liquidacion: string; tiene_cbu: number; deptos: string | null }
@@ -46,15 +48,25 @@ const secciones = {
   cuentas: { titulo: 'Cuentas', vista: <Cuentas /> },
   stays: { titulo: 'Stays', vista: <Stays /> },
   importar: { titulo: 'Importar Excel', vista: <Importar /> },
+  terminales: { titulo: 'Terminales', vista: <Terminales /> }, // solo en la PC servidor
 };
 type Seccion = keyof typeof secciones;
 
 export function App() {
   const [seccion, setSeccion] = useState<Seccion>('deptos');
   const [version, setVersion] = useState('');
+  const [local, setLocal] = useState(false);
+  const [emparejar, setEmparejar] = useState(false);
   useEffect(() => {
-    get<{ version: string }>('estado').then((e) => setVersion(e.version), () => {});
+    // fetch directo: el 401 de una terminal sin emparejar se distingue de cualquier otro error.
+    fetch('/api/estado').then(async (r) => {
+      if (r.status === 401) return setEmparejar(true);
+      const e = await r.json();
+      setVersion(e.version);
+      setLocal(e.local);
+    }, () => {});
   }, []);
+  if (emparejar) return <Emparejar />;
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Layout.Sider theme="light" width={200}>
@@ -62,7 +74,7 @@ export function App() {
         <Menu
           selectedKeys={[seccion]}
           onClick={(e) => setSeccion(e.key as Seccion)}
-          items={Object.entries(secciones).map(([key, s]) => ({ key, label: s.titulo }))}
+          items={Object.entries(secciones).filter(([key]) => local || key !== 'terminales').map(([key, s]) => ({ key, label: s.titulo }))}
         />
         <Typography.Text type="secondary" style={{ position: 'absolute', bottom: 12, left: 24 }}>v{version}</Typography.Text>
       </Layout.Sider>

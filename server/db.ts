@@ -31,6 +31,14 @@ FROM cuenta c
 LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
            WHERE tipo = 'saldo_inicial' AND estado = 'vigente' AND cuenta_id IS NOT NULL
            GROUP BY cuenta_id) d ON d.cuenta_id = c.id;`,
+  // 3 → 4: terminales de la red (fase 5d).
+  `CREATE TABLE terminal (
+      id          INTEGER PRIMARY KEY,
+      nombre      TEXT    NOT NULL,
+      token_hash  TEXT    NOT NULL UNIQUE,
+      creada_en   TEXT    NOT NULL,
+      revocada_en TEXT
+  ) STRICT;`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

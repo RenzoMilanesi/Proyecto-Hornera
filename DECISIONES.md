@@ -49,7 +49,7 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - **Cerrar el mes** guarda la liquidación de cada depto tal como se calculó (`liquidacion` + `liquidacion_reserva`, con los prorrateos redondeados a centavos) y congela el período. Hace falta la cotización y que el mes anterior esté cerrado.
 - **Reabrir** borra ese snapshot y vuelve a calcular. No se puede si el mes siguiente está cerrado, si hay pagos de liquidación vigentes (se anulan antes) ni si el mes se importó del Excel (su liquidación es la del Excel). Cierre y reapertura quedan en la auditoría.
 - **Transferencias** (pantalla): saldo de cada depto en su moneda, lo pagado y lo pendiente; "Marcar pagado" genera el movimiento "Liquidacion periodo" (tipo `liquidacion`, permitido con el mes cerrado) desde la cuenta elegida, con pagos parciales. Si el mes siguiente ya está cerrado, lo pendiente pasó a ese mes como saldo anterior y no se puede pagar desde el mes viejo (se pagaría dos veces). Exportación a Excel para el banco (CBU/CVU, "Nosotros" para el depto propio).
-- **PDF por depto**: mismo contenido y orden que la hoja del Excel, generado con `printToPDF` de Electron desde una vista imprimible de la app. Se guarda en `DocumentosHorneraLiquidaciones<mes><DEPTO>.pdf` (o en `configuracion.pdf.carpeta`) y se abre. Con el mes abierto sirve de vista previa. El detalle de reservas no incluye documento ni razón social de los huéspedes.
+- **PDF por depto**: mismo contenido y orden que la hoja del Excel, generado con `printToPDF` de Electron desde una vista imprimible de la app. Se guarda en `Documentos\Hornera\Liquidaciones\<mes>\<DEPTO>.pdf` (o en `configuracion.pdf.carpeta`) y se abre. Con el mes abierto sirve de vista previa. El detalle de reservas no incluye documento ni razón social de los huéspedes.
 - Los datos de la administradora del encabezado (nombre, CUIT, dirección, teléfono, mail) los toma el importador de la hoja de un depto y quedan en `configuracion` (`empresa.*`), no en el código.
 
 ## Movimientos y cuentas (`server/movimientos.ts`, pantallas "Movimientos" y "Cuentas")
@@ -73,11 +73,16 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 ## Técnico
 - **Desktop** como Roble: Electron + React/Vite + Express + SQLite. Proyecto nuevo, se copia de Roble solo lo que sirva.
 - **SQLite con `node:sqlite`** (incluido en Node/Electron) en vez de `better-sqlite3`: sin módulo nativo ni `electron-rebuild`. Electron corre los `.ts` directo (type stripping); solo Vite compila la interfaz. `tsc` se usa únicamente para chequear tipos.
-- **Una sola API HTTP** (Express) para la ventana local y, en la fase 5, para las terminales. En desarrollo Vite corre dentro del mismo Express.
+- **Una sola API HTTP** (Express) para la ventana local y para las terminales. En desarrollo Vite corre dentro del mismo Express.
 - **Seguridad local:** la API solo atiende pedidos dirigidos a esta PC (contra DNS rebinding) y rechaza escrituras que el navegador marca como de otro sitio (`Sec-Fetch-Site`). La ventana no abre ventanas nuevas, no navega fuera de la app y no concede permisos. Los backups no van a carpetas de otras PCs de la red.
 - **TypeScript** en todo.
 - **UI:** Ant Design.
-- **Red:** servidor/terminal como Roble (HTTP + WS + mDNS en LAN), con emparejamiento de terminales.
+- **Red (fase 5d, `server/terminales.ts`):** la PC servidor escucha en la LAN (puerto 4310). Una terminal no tiene base: su ventana abre la app del servidor (interfaz y API son las del servidor, así que la versión de la terminal no importa).
+  - **Rol:** se pregunta la primera vez (servidor o terminal) y queda en `rol.json`; una instalación que ya tiene base es servidor sin preguntar. La terminal guarda la dirección del servidor; si no responde, muestra `electron/terminal.html` para escribir otra o pasar a servidor.
+  - **Emparejamiento:** en el servidor, Terminales → "Generar código" (6 dígitos, 10 min, una vez; a los 5 errores se invalida). La terminal lo escribe y recibe un token en una cookie HttpOnly; la base guarda solo su hash (tabla `terminal`, esquema 4). Desde otra PC, sin token la API responde 401. Se revoca desde Terminales.
+  - **Solo en el servidor:** administrar terminales y cargar la clave de Stays (no viaja por la LAN en HTTP sin cifrar). Los PDF se generan en el servidor y no se abren si los pidió una terminal (se avisa la carpeta).
+  - La auditoría registra el nombre de la terminal que hizo el cambio.
+  - **Sin mDNS ni WebSocket (a diferencia de Roble):** la terminal llama al servidor por el nombre del equipo, que Windows resuelve en la LAN y no cambia con DHCP; cada pantalla recarga sus datos al abrirse. mDNS si el nombre no resuelve en la red de la oficina; WS si hace falta ver en vivo lo que carga la otra PC.
 - **Login:** ninguno.
 - **Convenciones de Roble:** importes en centavos INTEGER, fechas ISO, bajas lógicas, saldos por vistas `v_*`. La "capa repos" de Roble no se adoptó: el SQL vive junto a cada módulo (`server/app.ts`, `server/importador/`, `server/stays/`).
 - **PDF:** `printToPDF` de Electron (patrón `HojaImpresion`).

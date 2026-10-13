@@ -31,11 +31,13 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 024 | [El saldo de una cuenta arranca en su "Saldo inicial"](024-saldo-cuenta-desde-saldo-inicial.md) | P1 | S | — | A TESTEAR |
 | 025 | [No se paga un mes cuyo saldo ya pasó al siguiente cerrado](025-no-pagar-saldo-arrastrado.md) | P1 | S | — | A TESTEAR |
 | 026 | [Cotización del dólar desde una API, con histórico del mes](026-cotizacion-dolar-api.md) | P2 | M | decisión del usuario | TODO |
+| 027 | [La terminal no queda trabada si el servidor responde con error](027-terminal-sin-salida-ante-error-http.md) | P2 | S | — | A TESTEAR |
 
-Los planes 001 a 025 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
+Los planes 001 a 025 y 027 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 
 Planes 006-008: revisión `improve deep` del importador (fase 3), 2026-10-12.
 Planes 009-010: revisión de la sincronización con Stays (fase 4), 2026-10-12.
+Plan 027: revisión de la fase 5d (servidor/terminal), 2026-10-13.
 Plan 025: revisión de cierre, transferencias y PDF (fase 5c), 2026-10-12.
 Plan 024: revisión de movimientos y cuentas (fase 5b), 2026-10-12.
 Planes 020-023: revisión de la liquidación del mes abierto (fase 5a), 2026-10-12.
@@ -46,6 +48,8 @@ Orden recomendado: 001 → 002 → 003 → 004 → 005. 004 reutiliza la funció
 de 002.
 
 ## Considerados y descartados
+- Fase 5d: datos que no se actualizan solos entre PCs (sin WebSocket) y PDF que quedan en el servidor si los pide una terminal: decididos y documentados en DECISIONES ("Red").
+- Fase 5d: el nombre de la terminal en la auditoría lo elige la terminal (se puede repetir o imitar): la auditoría no es un control de seguridad, no hay login.
 - Saldo de cuenta solo con pagos "completed" (la liquidación cuenta todo lo no "pending"): a propósito, la cuenta muestra la plata que ya entró.
 - Conceptos con errores de tipeo se dan de alta solos: cómodo para cargar; si se ensucian, una pantalla para depurarlos.
 - Cambiar la moneda de un medio de pago con pagos cargados: es para corregir; no toca meses cerrados.

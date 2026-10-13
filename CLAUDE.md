@@ -12,7 +12,8 @@ propietarios de HORNERA (alquileres temporarios, Rosario). Contexto y decisiones
 - `npm run typecheck`: `tsc` solo chequea tipos (no compila).
 
 ## Estructura
-- `electron/main.ts`: ventana, API en 127.0.0.1:4310, backups, credenciales de Stays (safeStorage).
+- `electron/main.ts`: rol de la PC (servidor o terminal), ventana, API en el puerto 4310 de la LAN, backups,
+  credenciales de Stays (safeStorage). `server/terminales.ts`: emparejamiento de terminales.
 - `server/app.ts`: rutas `/api/*`. `server/db.ts`: esquema y migraciones. `schema.sql`: esquema actual.
 - `server/liquidacion/motor.ts`: motor de liquidación (función pura).
 - `server/importador/excel.ts`: importa el Excel mensual. `server/stays/`: "traer mes" de Stays.

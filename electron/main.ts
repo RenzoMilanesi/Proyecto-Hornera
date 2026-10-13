@@ -1,4 +1,5 @@
-// Proceso principal: abre la base, levanta la API y muestra la ventana.
+// Proceso principal. La PC es servidor (abre la base, levanta la API en la red, hace backups y
+// muestra la ventana) o terminal (solo una ventana con la app de otra PC servidor, fase 5d).
 // En desarrollo, Vite corre como middleware del mismo Express (un solo puerto, con HMR).
 import { app, BrowserWindow, dialog, safeStorage, session, shell } from 'electron';
 import express from 'express';
@@ -10,10 +11,43 @@ import { crearApp, type AlmacenCredenciales, type GeneradorPdf } from '../server
 import { respaldar } from '../server/backup.ts';
 
 const PUERTO = 4310;
-// ponytail: solo 127.0.0.1 hasta el modo servidor/terminal (fase 5), que escucha en la LAN con emparejamiento.
-const HOST = '127.0.0.1';
+// Escucha en la red para las terminales; desde otra PC la API exige emparejar (server/terminales.ts).
+const HOST = '0.0.0.0';
+const ORIGEN_LOCAL = `http://127.0.0.1:${PUERTO}`;
 const RAIZ = join(import.meta.dirname, '..');
 const BACKUP_CADA_MS = 6 * 60 * 60 * 1000;
+
+// ---- Rol de la PC, en rol.json (userData). Una terminal guarda además la dirección del servidor.
+interface Rol { rol: 'servidor' | 'terminal'; servidor?: string }
+const rutaRol = () => join(app.getPath('userData'), 'rol.json');
+const guardarRol = (r: Rol) => writeFileSync(rutaRol(), JSON.stringify(r));
+
+async function rolDeEstaPc(): Promise<Rol> {
+  try {
+    return JSON.parse(readFileSync(rutaRol(), 'utf8'));
+  } catch { /* primera vez */ }
+  // Una instalación que ya tiene la base es el servidor (las de antes de la fase 5d): no se pregunta.
+  let rol: Rol = { rol: 'servidor' };
+  if (!existsSync(join(app.getPath('userData'), 'hornera.db'))) {
+    const { response } = await dialog.showMessageBox({
+      type: 'question', title: 'Hornera', message: '¿Qué es esta PC?',
+      detail: 'El servidor guarda los datos. Una terminal usa los datos de otra PC servidor de la red local.',
+      buttons: ['Servidor (los datos están acá)', 'Terminal (se conecta a otra PC)'], defaultId: 0, cancelId: 0,
+    });
+    if (response === 1) rol = { rol: 'terminal' };
+  }
+  guardarRol(rol);
+  return rol;
+}
+
+// La ventana solo muestra la app: sin ventanas nuevas, sin permisos. Navegar fuera, lo decide cada rol.
+function crearVentana() {
+  const ventana = new BrowserWindow({ width: 1280, height: 800, title: 'Hornera', autoHideMenuBar: true });
+  ventana.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  session.defaultSession.setPermissionRequestHandler((_wc, _permiso, responder) => responder(false));
+  ventana.maximize();
+  return ventana;
+}
 
 // Credenciales de Stays cifradas con DPAPI de Windows: solo las descifra este
 // usuario en esta PC. Archivo aparte de la base, así no viajan en los backups.
@@ -61,16 +95,17 @@ function generadorPdf(origen: string): GeneradorPdf {
   };
 }
 
-async function iniciar() {
+async function iniciarServidor() {
   const db = abrirDb(join(app.getPath('userData'), 'hornera.db'));
-  const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales(), pdf: generadorPdf(`http://${HOST}:${PUERTO}`) });
+  const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales(), pdf: generadorPdf(ORIGEN_LOCAL) });
   const http = createServer(api);
 
   if (app.isPackaged) {
     api.use(express.static(join(RAIZ, 'dist')));
   } else {
     const { createServer: crearVite } = await import('vite');
-    const vite = await crearVite({ root: RAIZ, server: { middlewareMode: true, hmr: { server: http } }, appType: 'spa' });
+    // allowedHosts: el Host ya lo filtra la API (crearApp); así una terminal también anda en desarrollo.
+    const vite = await crearVite({ root: RAIZ, server: { middlewareMode: true, hmr: { server: http }, allowedHosts: true }, appType: 'spa' });
     api.use(vite.middlewares);
   }
   await new Promise<void>((ok, error) => http.once('error', error).listen(PUERTO, HOST, ok));
@@ -100,15 +135,67 @@ async function iniciar() {
   };
   app.on('before-quit', () => cerrar(true));
 
-  const ventana = new BrowserWindow({ width: 1280, height: 800, title: 'Hornera', autoHideMenuBar: true });
+  const ventana = crearVentana();
   ventana.on('session-end', () => cerrar(false)); // evento de ventana, solo Windows
-  // La ventana solo muestra la app: sin ventanas nuevas, sin navegar a otros sitios, sin permisos.
-  const origen = `http://${HOST}:${PUERTO}`;
-  ventana.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  ventana.webContents.on('will-navigate', (e, url) => { if (new URL(url).origin !== origen) e.preventDefault(); });
-  session.defaultSession.setPermissionRequestHandler((_wc, _permiso, responder) => responder(false));
-  ventana.maximize();
-  await ventana.loadURL(`http://${HOST}:${PUERTO}`);
+  ventana.webContents.on('will-navigate', (e, url) => { if (new URL(url).origin !== ORIGEN_LOCAL) e.preventDefault(); });
+  await ventana.loadURL(ORIGEN_LOCAL);
+}
+
+// "PC-OFICINA", "192.168.0.10:4310" o "http://pc-oficina" → "http://pc-oficina:4310".
+function origenServidor(texto: string) {
+  const u = new URL(/^https?:\/\//.test(texto) ? texto : `http://${texto}`);
+  if (!u.port) u.port = String(PUERTO);
+  return u.origin;
+}
+
+// Terminal: la ventana abre la app del servidor (la interfaz y la API son las suyas, así que la
+// versión de esta PC no importa). Sin servidor o si no responde, muestra terminal.html para elegirlo.
+function iniciarTerminal(rol: Rol) {
+  const ventana = crearVentana();
+  const pantalla = join(import.meta.dirname, 'terminal.html');
+  const configurar = (error?: string) => ventana.loadFile(pantalla, { query: { ...(error && { error }), ...(rol.servidor && { servidor: rol.servidor }) } });
+
+  ventana.webContents.on('will-navigate', (e, url) => {
+    const u = new URL(url);
+    if (u.protocol !== 'file:') {
+      if (u.origin !== rol.servidor) e.preventDefault();
+      return;
+    }
+    e.preventDefault(); // el formulario de terminal.html: se resuelve acá
+    if (u.searchParams.get('rol') === 'servidor') {
+      guardarRol({ rol: 'servidor' });
+      app.relaunch();
+      app.quit();
+      return;
+    }
+    try {
+      rol.servidor = origenServidor(u.searchParams.get('conectar')?.trim() ?? '');
+    } catch {
+      configurar('Esa dirección no es válida.');
+      return;
+    }
+    guardarRol(rol);
+    ventana.loadURL(rol.servidor);
+  });
+  ventana.webContents.on('did-fail-load', (_e, codigo, descripcion, url, principal) => {
+    // -3: navegación reemplazada por otra, no es una falla.
+    if (principal && codigo !== -3 && url.startsWith('http')) configurar(`No se pudo conectar con ${rol.servidor} (${descripcion}). ¿Está abierta Hornera en el servidor?`);
+  });
+
+  // Algo responde en esa dirección pero con error (p. ej. 403 por un nombre que el servidor no
+  // reconoce): sin esto la ventana queda mostrando el error, sin forma de volver a terminal.html.
+  ventana.webContents.on('did-navigate', (_e, url, codigo) => {
+    if (url.startsWith('http') && codigo >= 400) configurar(`El servidor ${rol.servidor} respondió con error ${codigo}. Revisá la dirección (usá el nombre que muestra Terminales en el servidor).`);
+  });
+
+  if (rol.servidor) ventana.loadURL(rol.servidor);
+  else configurar();
+}
+
+async function iniciar() {
+  const rol = await rolDeEstaPc();
+  if (rol.rol === 'terminal') iniciarTerminal(rol);
+  else await iniciarServidor();
 }
 
 // Una sola instancia por PC: si ya está abierta, la segunda trae esa ventana al frente y sale.

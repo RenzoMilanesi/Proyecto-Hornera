@@ -12,18 +12,18 @@ Versión `1.0.0` = reemplaza al Excel en producción, después de correr 1-2 mes
 | 5a | Liquidación del mes abierto desde la base (motor), cotización, ajustes de reserva y comparación con el Excel del mes | A testear |
 | 5b | Movimientos (reemplaza CORRIENTE) y cuentas: carga, medios de pago → cuenta, saldos | A testear |
 | 5c | Cierre y reapertura del mes (snapshot), transferencias (pantalla + Excel) y PDF por depto | A testear |
-| 5d | Modo servidor/terminal en la LAN | Pendiente |
+| 5d | Modo servidor/terminal en la LAN, con emparejamiento | A testear |
 | 6 | Resumen: KPIs, resultado Hornera, saldos de cuentas, histórico | Pendiente |
 | — | Fuera de la v1: mails, ARCA, mantenimiento, obligaciones, checklist | — |
 
-Todo lo construido (fases 0 a 5c, versión `0.6.0`) está **a testear**: tiene tests automáticos y se
+Todo lo construido (fases 0 a 5d, versión `0.7.0`) está **a testear**: tiene tests automáticos y se
 probó en la app con datos de prueba, pero falta revisarlo a mano con los dueños y con datos reales.
 
 ## Checklist de prueba (próxima sesión)
 
 **Fase 2 · App y backups**
 - [ ] `npm start` abre la app; abrirla dos veces trae la ventana existente.
-- [ ] Al cerrar queda un backup en `%APPDATA%horneraackups`; con la app abierta, uno cada 6 h.
+- [ ] Al cerrar queda un backup en `%APPDATA%\hornera\backups`; con la app abierta, uno cada 6 h.
 
 **Fase 3 · Importar Excel**
 - [ ] Importar `2026-04.xlsx`: 24 liquidaciones, avisos de JAI, SAR y el fondo de CNG.
@@ -48,6 +48,13 @@ probó en la app con datos de prueba, pero falta revisarlo a mano con los dueño
 - [ ] Cerrar un mes, generar los PDF y compararlos con los que hoy se mandan desde el Excel.
 - [ ] Marcar pagado (total y en partes), anular un pago, exportar el Excel de transferencias.
 - [ ] Reabrir un mes (sin pagos) y volver a cerrarlo.
+
+**Fase 5d · Terminales** (dos PC en la misma red)
+- [ ] En la PC servidor, permitir Hornera en el firewall de Windows (redes privadas) cuando lo pregunte.
+- [ ] Instalar en la segunda PC, elegir "Terminal" y conectar con el nombre del servidor (Terminales lo muestra).
+- [ ] Emparejar con el código; cargar un movimiento desde la terminal y verlo en el servidor (y en la auditoría con el nombre de la terminal).
+- [ ] Revocar la terminal: tiene que volver a pedir el código.
+- [ ] Cerrar Hornera en el servidor: la terminal avisa que no puede conectar; al reabrirlo, "Conectar" vuelve a entrar.
 
 **Preguntas para los dueños** (`DECISIONES.md`, "Pendiente"): contraseña de Stays, meses del Sheet,
 RIO/AND, 4 % de R64, qué plataformas cobran comisión, fee de AND, honorarios en meses sin reservas.

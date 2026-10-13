@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Hornera — Terminal</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #222; }
+    main { max-width: 440px; margin: 80px auto; background: #fff; padding: 24px 28px; border-radius: 8px; box-shadow: 0 1px 4px #0002; }
+    h1 { font-size: 20px; margin-top: 0; }
+    input { width: 100%; box-sizing: border-box; padding: 8px; font-size: 15px; margin: 6px 0 14px; }
+    button { padding: 8px 18px; font-size: 15px; }
+    .error { color: #c00; }
+    .otro { margin-top: 28px; font-size: 13px; color: #666; }
+  </style>
+</head>
+<body>
+  <!-- Al enviar, electron/main.ts intercepta la navegación (?conectar=… o ?rol=servidor). -->
+  <main>
+    <h1>Conectar con la PC servidor</h1>
+    <p class="error" id="error" hidden></p>
+    <form>
+      <label for="conectar">Nombre o IP del servidor (se ve en el servidor, en <b>Terminales</b>)</label>
+      <input id="conectar" name="conectar" placeholder="PC-OFICINA" required autofocus>
+      <button>Conectar</button>
+    </form>
+    <p class="otro">¿Esta PC tiene que ser el servidor? <a href="?rol=servidor">Usarla como servidor</a></p>
+  </main>
+  <script>
+    const q = new URLSearchParams(location.search);
+    if (q.get('error')) { error.textContent = q.get('error'); error.hidden = false; }
+    if (q.get('servidor')) conectar.value = new URL(q.get('servidor')).host;
+  </script>
+</body>
+</html>

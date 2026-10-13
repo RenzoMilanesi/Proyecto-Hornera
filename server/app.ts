@@ -1,4 +1,4 @@
-// API HTTP. La usan la ventana de Electron y, más adelante, las terminales de la red.
+// API HTTP. La usan la ventana de Electron y las terminales de la red (server/terminales.ts).
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -14,6 +14,7 @@ import { anularMovimiento, crearMovimiento, editarMovimiento, listarMovimientos,
 import { cerrarPeriodo, reabrirPeriodo } from './liquidacion/cierre.ts';
 import { excelTransferencias, listarTransferencias, pagarLiquidacion } from './liquidacion/pagos.ts';
 import { hojaDepto } from './liquidacion/hoja.ts';
+import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
 
 // Dónde viven las credenciales de Stays. En Electron, cifradas con safeStorage
 // (DPAPI de Windows) fuera de la base: no viajan en los backups.
@@ -43,15 +44,17 @@ function urlStaysPermitida(url: string) {
 }
 
 // Solo pedidos dirigidos a esta PC: una página web con un dominio que resuelve a
-// 127.0.0.1 (DNS rebinding) manda su propio Host y queda afuera.
-// Fase 5 (terminales en LAN): sumar acá las IP/nombres de la PC servidor.
-const HOST_PERMITIDO = /^(127\.0\.0\.1|localhost)(:\d+)?$/;
+// 127.0.0.1 o a la IP del servidor (DNS rebinding) manda su propio Host y queda afuera.
+function hostPermitido(host: string) {
+  const h = hostSinPuerto(host);
+  return h === '127.0.0.1' || h === 'localhost' || nombresDeEstaPc().includes(h);
+}
 
 export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf } = {}) {
   const app = express();
   const { credenciales, urlStays = URL_STAYS, pdf } = opciones;
   app.use((req, res, next) => {
-    if (HOST_PERMITIDO.test(req.headers.host ?? '')) return next();
+    if (hostPermitido(req.headers.host ?? '')) return next();
     res.status(403).json({ error: 'Host no permitido' });
   });
   // Las escrituras solo desde la propia app: el navegador marca con Sec-Fetch-Site los
@@ -62,9 +65,12 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     res.status(403).json({ error: 'Pedido de otro sitio' });
   });
   app.use(express.json());
+  app.use('/api', autorizar(db));
+  rutasTerminales(app, db);
 
-  app.get('/api/estado', (_req, res) => {
-    res.json({ version });
+  // local: la ventana es la de la PC servidor (ahí se ve "Terminales").
+  app.get('/api/estado', (req, res) => {
+    res.json({ version, local: esLocal(req) });
   });
 
   app.get('/api/propietarios', (_req, res) => {
@@ -99,7 +105,8 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     res.json({ usuario: credenciales?.leer()?.usuario ?? null });
   });
 
-  app.put('/api/stays/credenciales', (req, res) => {
+  // Solo en el servidor: la clave no viaja por la red local (HTTP sin cifrar).
+  app.put('/api/stays/credenciales', soloLocal, (req, res) => {
     const { usuario, clave } = req.body ?? {};
     if (typeof usuario !== 'string' || !usuario.trim() || typeof clave !== 'string' || !clave) {
       res.status(400).json({ error: 'Faltan el usuario o la clave' });
@@ -322,8 +329,8 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
         writeFileSync(ruta, await pdf.generar(`/?imprimir=1&mes=${encodeURIComponent(String(mes))}&depto=${encodeURIComponent(codigo)}`));
         archivos.push(ruta);
       }
-      pdf.abrir(archivos.length === 1 ? archivos[0] : carpeta);
-      res.json({ carpeta, archivos });
+      if (esLocal(req)) pdf.abrir(archivos.length === 1 ? archivos[0] : carpeta); // desde una terminal se abriría en el servidor
+      res.json({ carpeta, archivos, en_servidor: !esLocal(req) });
     } catch (e) {
       res.status(400).json({ error: mensaje(e) });
     }

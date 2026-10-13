@@ -158,9 +158,11 @@ test('abrir una base existente no vuelve a crear el esquema', (t) => {
 });
 
 test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
-  // El esquema 1 es el actual con la tabla liquidacion como era antes de la migración 1 → 2.
+  // El esquema 1 es el actual con la tabla liquidacion como era antes de la migración 1 → 2
+  // y sin la tabla terminal (3 → 4).
   const actual = readFileSync(new URL('../schema.sql', import.meta.url), 'utf8');
   const v1 = actual
+    .replace(/CREATE TABLE terminal \([^;]*;/, '')
     .replace(/^\s*conversion_usd .*\r?\n/m, '')
     .replace(/saldo_final_ars\s+INTEGER NOT NULL,\s*\r?\n\s*saldo_final_usd\s+INTEGER NOT NULL,/, 'saldo_final INTEGER NOT NULL,');
   assert.notEqual(v1, actual);

@@ -449,6 +449,15 @@ CREATE TABLE auditoria (
 ) STRICT;
 CREATE INDEX ix_auditoria_registro ON auditoria(tabla, registro_id);
 
+-- PCs de la red emparejadas con este servidor (fase 5d). Se guarda el hash del token, no el token.
+CREATE TABLE terminal (
+    id          INTEGER PRIMARY KEY,
+    nombre      TEXT    NOT NULL,
+    token_hash  TEXT    NOT NULL UNIQUE,
+    creada_en   TEXT    NOT NULL,
+    revocada_en TEXT
+) STRICT;
+
 -- Clave/valor: carpeta de backup, URL de Stays, etc. Las credenciales de Stays
 -- NO van aquí: se guardan cifradas con safeStorage de Electron.
 CREATE TABLE configuracion (
