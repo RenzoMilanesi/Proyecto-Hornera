@@ -13,10 +13,10 @@ Versión `1.0.0` = reemplaza al Excel en producción, después de correr 1-2 mes
 | 5b | Movimientos (reemplaza CORRIENTE) y cuentas: carga, medios de pago → cuenta, saldos | A testear |
 | 5c | Cierre y reapertura del mes (snapshot), transferencias (pantalla + Excel) y PDF por depto | A testear |
 | 5d | Modo servidor/terminal en la LAN, con emparejamiento | A testear |
-| 6 | Resumen: KPIs, resultado Hornera, saldos de cuentas, histórico | Pendiente |
+| 6 | Resumen: KPIs, resultado Hornera, saldos de cuentas, histórico | A testear |
 | — | Fuera de la v1: mails, ARCA, mantenimiento, obligaciones, checklist | — |
 
-Todo lo construido (fases 0 a 5d, versión `0.7.0`) está **a testear**: tiene tests automáticos y se
+Todo lo construido (fases 0 a 6, versión `0.8.0`) está **a testear**: tiene tests automáticos y se
 probó en la app con datos de prueba, pero falta revisarlo a mano con los dueños y con datos reales.
 
 ## Checklist de prueba (próxima sesión)
@@ -56,5 +56,11 @@ probó en la app con datos de prueba, pero falta revisarlo a mano con los dueño
 - [ ] Revocar la terminal: tiene que volver a pedir el código.
 - [ ] Cerrar Hornera en el servidor: la terminal avisa que no puede conectar; al reabrirlo, "Conectar" vuelve a entrar.
 
+**Fase 6 · Resumen**
+- [ ] Con abril importado: ocupación, bruto y honorarios por depto iguales a las hojas del Excel.
+- [ ] Revisar con los dueños la definición de "Resultado de Hornera" (DECISIONES, "Pendiente").
+- [ ] Evolución: los meses del histórico (12/2021 a 10/2024) con sus noches; los meses cerrados con todo.
+
 **Preguntas para los dueños** (`DECISIONES.md`, "Pendiente"): contraseña de Stays, meses del Sheet,
-RIO/AND, 4 % de R64, qué plataformas cobran comisión, fee de AND, honorarios en meses sin reservas.
+RIO/AND, 4 % de R64, qué plataformas cobran comisión, fee de AND, honorarios en meses sin reservas,
+qué es el resultado de Hornera.

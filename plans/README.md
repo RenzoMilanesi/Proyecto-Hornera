@@ -48,6 +48,7 @@ Orden recomendado: 001 → 002 → 003 → 004 → 005. 004 reutiliza la funció
 de 002.
 
 ## Considerados y descartados
+- Fase 6 (revisión 2026-10-13, sin hallazgos para planificar): el resultado de Hornera no suma filas HOR/CAN de CORRIENTE porque el importador las descarta con aviso; en abril 2026 no hay ninguna. Revisar si aparecen en otros meses. La definición del resultado queda como pregunta a los dueños (DECISIONES, "Pendiente").
 - Fase 5d: datos que no se actualizan solos entre PCs (sin WebSocket) y PDF que quedan en el servidor si los pide una terminal: decididos y documentados en DECISIONES ("Red").
 - Fase 5d: el nombre de la terminal en la auditoría lo elige la terminal (se puede repetir o imitar): la auditoría no es un control de seguridad, no hay login.
 - Saldo de cuenta solo con pagos "completed" (la liquidación cuenta todo lo no "pending"): a propósito, la cuenta muestra la plata que ya entró.

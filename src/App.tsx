@@ -9,6 +9,7 @@ import { Movimientos } from './Movimientos.tsx';
 import { Cuentas } from './Cuentas.tsx';
 import { Transferencias } from './Transferencias.tsx';
 import { Terminales } from './Terminales.tsx';
+import { Resumen } from './Resumen.tsx';
 import { Emparejar } from './Emparejar.tsx';
 
 interface Depto { id: number; codigo: string; nombre: string; estado: string; comision_pct: number; propietario: string }
@@ -40,6 +41,7 @@ function Listado<T extends { id: number }>({ ruta, columnas }: { ruta: string; c
 }
 
 const secciones = {
+  resumen: { titulo: 'Resumen', vista: <Resumen /> },
   deptos: { titulo: 'Deptos', vista: <Listado<Depto> ruta="deptos" columnas={columnasDeptos} /> },
   propietarios: { titulo: 'Propietarios', vista: <Listado<Propietario> ruta="propietarios" columnas={columnasPropietarios} /> },
   liquidacion: { titulo: 'Liquidación', vista: <Liquidacion /> },
@@ -53,7 +55,7 @@ const secciones = {
 type Seccion = keyof typeof secciones;
 
 export function App() {
-  const [seccion, setSeccion] = useState<Seccion>('deptos');
+  const [seccion, setSeccion] = useState<Seccion>('resumen');
   const [version, setVersion] = useState('');
   const [local, setLocal] = useState(false);
   const [emparejar, setEmparejar] = useState(false);

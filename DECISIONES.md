@@ -52,6 +52,13 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - **PDF por depto**: mismo contenido y orden que la hoja del Excel, generado con `printToPDF` de Electron desde una vista imprimible de la app. Se guarda en `Documentos\Hornera\Liquidaciones\<mes>\<DEPTO>.pdf` (o en `configuracion.pdf.carpeta`) y se abre. Con el mes abierto sirve de vista previa. El detalle de reservas no incluye documento ni razón social de los huéspedes.
 - Los datos de la administradora del encabezado (nombre, CUIT, dirección, teléfono, mail) los toma el importador de la hoja de un depto y quedan en `configuracion` (`empresa.*`), no en el código.
 
+## Resumen (fase 6, `server/resumen.ts`, pantalla "Resumen")
+- Es la primera pantalla. Elige un mes (por defecto el último cerrado): mes cerrado sale del snapshot `liquidacion`; mes abierto, del motor (cambia hasta cerrarlo).
+- **KPIs por depto:** ocupación (noches ocupadas / disponibles), reservas, bruto (ARS + USD × cambio), bruto por noche ocupada y honorarios.
+- **Resultado de Hornera** = honorarios + costos operativos cobrados a los propietarios (tarifa por reserva) + ingresos, gastos y ajustes de la empresa (movimientos sin depto, INT). Sin saldos iniciales ni transferencias. Los movimientos de la empresa en USD se muestran aparte, sin convertir.
+- **Saldos de cuentas:** los de hoy (`v_saldo_cuenta`), no los del mes elegido.
+- **Evolución mensual:** un renglón por mes cerrado (noches, ocupación, bruto, honorarios, resultado) y, antes de usar la app, solo las noches ocupadas del histórico (hoja OCUPACION). Los meses abiertos no entran. Barras simples en CSS: sin librería de gráficos.
+
 ## Movimientos y cuentas (`server/movimientos.ts`, pantallas "Movimientos" y "Cuentas")
 - Reemplazan a CORRIENTE. Cada movimiento: período, fecha, depto o empresa (INT), tipo, concepto (si no existe se da de alta), detalle, importe en ARS o USD con signo y cuenta opcional.
 - Tipos: gasto, adelanto al propietario y cobro directo por plataforma van negativos; ingreso, positivo; saldo inicial y ajuste, con cualquier signo. Adelantos y cobros directos siempre son de un depto. Los pagos de liquidación los generará "marcar pagado" (fase 5c).
@@ -98,4 +105,5 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - Comisión por plataforma: aplicar el % de `Plataformas` (Website 1,7 %) daría comisiones que el Excel no cobra (OVL tiene 0). ¿Qué plataformas generan comisión de verdad?
 - Fee del channel manager: se aplica USD 25 (lo que cobra el Excel en K33). Confirmar que B7 = 20 no se usa.
 - AND no figura en NO COMISIONABLES: en abril el Excel no le cobró el fee del channel manager y la app sí. ¿Corresponde?
+- Resultado de Hornera (pantalla Resumen): ¿es honorarios + costos operativos cobrados + gastos e ingresos de la empresa (INT)? ¿Los costos operativos son ingreso de Hornera (y la limpieza se paga como gasto INT)?
 - Mes sin reservas: con la fórmula del Excel, la base de honorarios queda negativa (solo el fee) y los honorarios dan positivos (se le devuelve plata al propietario). La app lo reproduce. ¿Es lo correcto o los honorarios deberían ser 0?

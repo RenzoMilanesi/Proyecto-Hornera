@@ -17,6 +17,7 @@ propietarios de HORNERA (alquileres temporarios, Rosario). Contexto y decisiones
 - `server/app.ts`: rutas `/api/*`. `server/db.ts`: esquema y migraciones. `schema.sql`: esquema actual.
 - `server/liquidacion/motor.ts`: motor de liquidación (función pura).
 - `server/importador/excel.ts`: importa el Excel mensual. `server/stays/`: "traer mes" de Stays.
+- `server/resumen.ts`: KPIs, resultado de Hornera y evolución (pantalla Resumen).
 - `server/periodo.ts`: regla única de qué reserva pertenece a un período.
 - `src/`: interfaz (React + Ant Design).
 

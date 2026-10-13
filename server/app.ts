@@ -14,6 +14,7 @@ import { anularMovimiento, crearMovimiento, editarMovimiento, listarMovimientos,
 import { cerrarPeriodo, reabrirPeriodo } from './liquidacion/cierre.ts';
 import { excelTransferencias, listarTransferencias, pagarLiquidacion } from './liquidacion/pagos.ts';
 import { hojaDepto } from './liquidacion/hoja.ts';
+import { evolucion, resumenDelMes } from './resumen.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
 
 // Dónde viven las credenciales de Stays. En Electron, cifradas con safeStorage
@@ -222,6 +223,9 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
       res.status(400).json({ error: mensaje(e) });
     }
   });
+
+  app.get('/api/resumen', (req, res) => intentar(res, () => resumenDelMes(db, String(req.query.mes ?? ''))));
+  app.get('/api/resumen/evolucion', (_req, res) => { res.json(evolucion(db)); });
 
   app.post('/api/liquidacion/comparar', express.raw({ type: 'application/octet-stream', limit: '50mb' }), (req, res) => {
     if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
