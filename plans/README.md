@@ -30,8 +30,9 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 023 | [La comparación con el Excel se borra al recalcular](023-comparacion-vieja.md) | P3 | S | — | A TESTEAR |
 | 024 | [El saldo de una cuenta arranca en su "Saldo inicial"](024-saldo-cuenta-desde-saldo-inicial.md) | P1 | S | — | A TESTEAR |
 | 025 | [No se paga un mes cuyo saldo ya pasó al siguiente cerrado](025-no-pagar-saldo-arrastrado.md) | P1 | S | — | A TESTEAR |
+| 026 | [Cotización del dólar desde una API, con histórico del mes](026-cotizacion-dolar-api.md) | P2 | M | decisión del usuario | TODO |
 
-Todos los planes están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
+Los planes 001 a 025 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 
 Planes 006-008: revisión `improve deep` del importador (fase 3), 2026-10-12.
 Planes 009-010: revisión de la sincronización con Stays (fase 4), 2026-10-12.
