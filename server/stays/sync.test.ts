@@ -226,6 +226,18 @@ test('si un dato de Stays tiene una forma inesperada, el error dice de qué rese
   assert.equal((db.prepare('SELECT count(*) n FROM reserva').get() as { n: number }).n, 0);
 }));
 
+test('avisa pagos en dólares cargados con el importe en pesos de la reserva o con montos absurdos', () => conStays(async (url, datos) => {
+  const db = baseConAbril();
+  datos.pagos.R2.push(pago('p30', 'payo', 311.45));  // R2 es en ARS por $ 311,45: el mismo número con Payoneer (USD)
+  datos.pagos.R1.push(pago('p31', 'payo', 15000));   // USD 15.000 en un pago
+  datos.pagos.R1.push(pago('p32', 'payo', 9000));    // USD 9.000: no avisa
+  const r = await sincronizarMes(db, crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url), '2026-05');
+  const raros = r.avisos.filter((a) => /no parece en dólares|igual al total de la reserva/.test(a));
+  assert.equal(raros.length, 2, JSON.stringify(raros));
+  assert.match(raros[0], /^Reserva R1: el pago p31 por "Payoneer" es de USD 15\.000/);
+  assert.match(raros[1], /^Reserva R2: el pago p30 de 311,45 por "Payoneer" se toma en USD, pero es igual al total de la reserva en ARS/);
+}));
+
 test('pide a Stays las tres consultas del período con el rango correcto', () => conStays(async (url, datos) => {
   await sincronizarMes(baseConAbril(), crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url), '2026-05');
   const exports = datos.pedidos.filter((p) => p.startsWith('/booking/reservations-export')).sort();

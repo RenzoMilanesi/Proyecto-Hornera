@@ -278,6 +278,21 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
       if (sinComision.length) {
         avisos.push(`Pagos de Mercado Pago/PayPal sin comisión cargada en Stays (${sinComision.map((r) => r.codigo).join(', ')}): cargala allá y volvé a traer el mes.`);
       }
+      // Stays no informa la moneda de cada pago: sale del medio. Si un pago se cargó en la moneda de la
+      // reserva con un medio de la otra (p. ej. $ 1.000.000 con PayPal, en USD), el bruto se dispara.
+      // ponytail: umbral fijo de USD 10.000 por pago; hacerlo configurable si hay estadías que lo superen.
+      const montosRaros = db.prepare(`
+        SELECT r.codigo, p.stays_id, p.importe, mp.nombre medio, mp.moneda, r.moneda moneda_reserva, r.total_factura
+        FROM pago p JOIN medio_pago mp ON mp.id = p.medio_pago_id JOIN reserva r ON r.id = p.reserva_id
+        WHERE r.codigo IN (SELECT value FROM json_each(?)) AND p.tipo = 'credit'
+          AND ((mp.moneda <> r.moneda AND p.importe = r.total_factura) OR (mp.moneda = 'USD' AND p.importe > 1000000))
+        ORDER BY r.codigo`).all(JSON.stringify(traidas)) as { codigo: string; stays_id: string; importe: number; medio: string; moneda: string; moneda_reserva: string; total_factura: number | null }[];
+      for (const x of montosRaros) {
+        const monto = (x.importe / 100).toLocaleString('es-AR');
+        avisos.push(x.moneda !== x.moneda_reserva && x.importe === x.total_factura
+          ? `Reserva ${x.codigo}: el pago ${x.stays_id} de ${monto} por "${x.medio}" se toma en ${x.moneda}, pero es igual al total de la reserva en ${x.moneda_reserva}. ¿Se cargó en ${x.moneda_reserva}? Corregilo en Stays y volvé a traer el mes.`
+          : `Reserva ${x.codigo}: el pago ${x.stays_id} por "${x.medio}" es de USD ${monto}, un monto que no parece en dólares. Revisalo en Stays.`);
+      }
       const sinCuenta = db.prepare(`
         SELECT DISTINCT mp.nombre FROM pago p JOIN medio_pago mp ON mp.id = p.medio_pago_id JOIN reserva r ON r.id = p.reserva_id
         WHERE mp.cuenta_id IS NULL AND r.codigo IN (SELECT value FROM json_each(?)) ORDER BY mp.nombre`)
