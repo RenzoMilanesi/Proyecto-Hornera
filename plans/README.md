@@ -5,31 +5,33 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 
 | # | Plan | Prioridad | Esfuerzo | Depende de | Estado |
 |---|---|---|---|---|---|
-| 001 | [Una sola instancia sin error al reabrir](001-instancia-unica.md) | P1 | S | — | DONE |
-| 002 | [API solo para pedidos dirigidos a la PC (DNS rebinding)](002-host-permitido.md) | P1 | S | — | DONE |
-| 003 | [Backup con carpeta de respaldo si falla la configurada](003-backup-fallback.md) | P1 | S | — | DONE |
-| 004 | [Backup también al apagar Windows](004-backup-apagado.md) | P2 | S | 003 | DONE |
-| 005 | [Errores de la API como JSON corto](005-errores-json.md) | P2 | S | 002 | DONE |
-| 006 | [Importar un mes anterior no pisa maestros](006-importar-mes-anterior.md) | P1 | S | — | DONE |
-| 007 | [Rollback si falla una migración](007-migracion-rollback.md) | P3 | S | — | DONE |
-| 008 | [Avisos repetidos sin advertencia de React](008-avisos-key.md) | P3 | S | — | DONE |
-| 009 | ["Traer mes" solo borra lo que Stays ya no tiene](009-sync-no-borra-lo-devuelto.md) | P1 | S | — | DONE |
-| 010 | [Credenciales ilegibles no rompen la pantalla](010-credenciales-ilegibles.md) | P3 | S | — | DONE |
-| 011 | ["Traer mes" no borra reservas con datos cargados a mano](011-sync-conserva-ajustes.md) | P1 | S | — | DONE |
-| 012 | [Importar el Excel de un mes ya traído de Stays](012-importar-sobre-periodo-de-stays.md) | P1 | S | — | DONE |
-| 013 | [Moneda del propietario solo desde hojas de depto](013-moneda-del-propietario.md) | P1 | S | — | DONE |
-| 014 | [Una sola regla de "reserva del período"](014-regla-reserva-en-periodo.md) | P2 | S | 011 | DONE |
-| 015 | [Regresión de abril con importador + motor](015-regresion-motor-con-importador.md) | P2 | M | 013 | DONE |
-| 016 | [Errores chicos de robustez](016-robustez.md) | P2 | S | — | DONE |
-| 017 | [Tests de "traer mes", API y migración](017-tests-sync-y-api.md) | P2 | S | 011, 014 | DONE |
-| 018 | [Seguridad preventiva de la API local y la ventana](018-seguridad-preventiva.md) | P3 | S | — | DONE |
-| 019 | [CLAUDE.md, docs al día y tests que limpian](019-documentacion-y-dx.md) | P3 | S | 015 | DONE |
-| 020 | [La comisión de una reserva se cobra una sola vez](020-comision-una-vez.md) | P1 | S | — | DONE |
-| 021 | [No se cambian ajustes de reservas de un mes cerrado](021-ajustes-mes-cerrado.md) | P2 | S | — | DONE |
-| 022 | [Avisar cuando el saldo viene de un mes que no es el anterior](022-aviso-mes-salteado.md) | P3 | S | — | DONE |
-| 023 | [La comparación con el Excel se borra al recalcular](023-comparacion-vieja.md) | P3 | S | — | DONE |
-| 024 | [El saldo de una cuenta arranca en su "Saldo inicial"](024-saldo-cuenta-desde-saldo-inicial.md) | P1 | S | — | DONE |
-| 025 | [No se paga un mes cuyo saldo ya pasó al siguiente cerrado](025-no-pagar-saldo-arrastrado.md) | P1 | S | — | DONE |
+| 001 | [Una sola instancia sin error al reabrir](001-instancia-unica.md) | P1 | S | — | A TESTEAR |
+| 002 | [API solo para pedidos dirigidos a la PC (DNS rebinding)](002-host-permitido.md) | P1 | S | — | A TESTEAR |
+| 003 | [Backup con carpeta de respaldo si falla la configurada](003-backup-fallback.md) | P1 | S | — | A TESTEAR |
+| 004 | [Backup también al apagar Windows](004-backup-apagado.md) | P2 | S | 003 | A TESTEAR |
+| 005 | [Errores de la API como JSON corto](005-errores-json.md) | P2 | S | 002 | A TESTEAR |
+| 006 | [Importar un mes anterior no pisa maestros](006-importar-mes-anterior.md) | P1 | S | — | A TESTEAR |
+| 007 | [Rollback si falla una migración](007-migracion-rollback.md) | P3 | S | — | A TESTEAR |
+| 008 | [Avisos repetidos sin advertencia de React](008-avisos-key.md) | P3 | S | — | A TESTEAR |
+| 009 | ["Traer mes" solo borra lo que Stays ya no tiene](009-sync-no-borra-lo-devuelto.md) | P1 | S | — | A TESTEAR |
+| 010 | [Credenciales ilegibles no rompen la pantalla](010-credenciales-ilegibles.md) | P3 | S | — | A TESTEAR |
+| 011 | ["Traer mes" no borra reservas con datos cargados a mano](011-sync-conserva-ajustes.md) | P1 | S | — | A TESTEAR |
+| 012 | [Importar el Excel de un mes ya traído de Stays](012-importar-sobre-periodo-de-stays.md) | P1 | S | — | A TESTEAR |
+| 013 | [Moneda del propietario solo desde hojas de depto](013-moneda-del-propietario.md) | P1 | S | — | A TESTEAR |
+| 014 | [Una sola regla de "reserva del período"](014-regla-reserva-en-periodo.md) | P2 | S | 011 | A TESTEAR |
+| 015 | [Regresión de abril con importador + motor](015-regresion-motor-con-importador.md) | P2 | M | 013 | A TESTEAR |
+| 016 | [Errores chicos de robustez](016-robustez.md) | P2 | S | — | A TESTEAR |
+| 017 | [Tests de "traer mes", API y migración](017-tests-sync-y-api.md) | P2 | S | 011, 014 | A TESTEAR |
+| 018 | [Seguridad preventiva de la API local y la ventana](018-seguridad-preventiva.md) | P3 | S | — | A TESTEAR |
+| 019 | [CLAUDE.md, docs al día y tests que limpian](019-documentacion-y-dx.md) | P3 | S | 015 | A TESTEAR |
+| 020 | [La comisión de una reserva se cobra una sola vez](020-comision-una-vez.md) | P1 | S | — | A TESTEAR |
+| 021 | [No se cambian ajustes de reservas de un mes cerrado](021-ajustes-mes-cerrado.md) | P2 | S | — | A TESTEAR |
+| 022 | [Avisar cuando el saldo viene de un mes que no es el anterior](022-aviso-mes-salteado.md) | P3 | S | — | A TESTEAR |
+| 023 | [La comparación con el Excel se borra al recalcular](023-comparacion-vieja.md) | P3 | S | — | A TESTEAR |
+| 024 | [El saldo de una cuenta arranca en su "Saldo inicial"](024-saldo-cuenta-desde-saldo-inicial.md) | P1 | S | — | A TESTEAR |
+| 025 | [No se paga un mes cuyo saldo ya pasó al siguiente cerrado](025-no-pagar-saldo-arrastrado.md) | P1 | S | — | A TESTEAR |
+
+Todos los planes están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 
 Planes 006-008: revisión `improve deep` del importador (fase 3), 2026-10-12.
 Planes 009-010: revisión de la sincronización con Stays (fase 4), 2026-10-12.
