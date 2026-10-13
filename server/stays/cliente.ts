@@ -9,7 +9,7 @@ export type FilaReserva = Record<string, string | number | boolean | null>;
 
 export interface PagoStays {
   _id: string;
-  _idpaymentProvider: string;
+  _idpaymentProvider?: string | null;   // falta en algunos pagos de meses viejos
   _idreserve?: string;
   type: string;            // credit | debit
   status: string;          // completed | pending | ...

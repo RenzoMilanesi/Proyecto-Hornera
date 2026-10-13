@@ -10,6 +10,7 @@ propietarios de HORNERA (alquileres temporarios, Rosario). Contexto y decisiones
   Con datos de prueba: `npx electron . --user-data-dir=<carpeta temporal>`.
 - `npm test`: tests (`node --test "server/**/*.test.ts"`) y `node schema.check.mjs`.
 - `npm run typecheck`: `tsc` solo chequea tipos (no compila).
+- `npm run dist`: instalador de Windows en `release\` (electron-builder, NSIS). Guía de prueba: `GUIA-PRUEBAS.md`.
 
 ## Estructura
 - `electron/main.ts`: rol de la PC (servidor o terminal), ventana, API en el puerto 4310 de la LAN, backups,

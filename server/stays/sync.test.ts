@@ -196,6 +196,36 @@ test('moneda desconocida avisa; un medio que primero llegó como desconocido tom
   assert.equal((db.prepare(`SELECT stays_id FROM reserva WHERE codigo = 'R1'`).get() as any).stays_id, staysId);
 }));
 
+test('un pago sin medio de pago en Stays se trae como "(sin medio)" en la moneda de la reserva', () => conStays(async (url, datos) => {
+  const db = baseConAbril();
+  const sinMedio = { ...pago('p10', 'x', 700) } as Partial<PagoStays>;
+  delete sinMedio._idpaymentProvider; // así llegan algunos pagos de meses viejos
+  datos.pagos.R1.push(sinMedio as PagoStays, { ...pago('p11', 'x', 50), _idpaymentProvider: null } as unknown as PagoStays);
+  datos.pagos.R2.push({ ...pago('p12', 'x', 900), _idpaymentProvider: '' } as PagoStays);
+  const r = await sincronizarMes(db, crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url), '2026-05');
+  assert.equal(r.pagos, 9);
+  const medios = db.prepare(`
+    SELECT mp.stays_id, mp.nombre, mp.moneda, count(*) n FROM pago p JOIN medio_pago mp ON mp.id = p.medio_pago_id
+    WHERE p.stays_id IN ('p10', 'p11', 'p12') GROUP BY mp.id ORDER BY mp.stays_id`).all() as any[];
+  assert.deepEqual(medios.map((x) => ({ ...x })), [
+    { stays_id: 'sin-medio-ARS', nombre: '(sin medio)', moneda: 'ARS', n: 1 },
+    { stays_id: 'sin-medio-USD', nombre: '(sin medio)', moneda: 'USD', n: 2 },
+  ]);
+  assert.ok(r.avisos.some((a) => a.includes('Reserva R1: el pago p10 no tiene medio de pago en Stays')));
+
+  // Sin _id no se puede guardar: se saltea con aviso.
+  datos.pagos.R5.push({ ...pago('', 'efe', 300) });
+  const r2 = await sincronizarMes(db, crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url), '2026-05');
+  assert.ok(r2.avisos.some((a) => a.includes('Reserva R5: un pago de 300 no tiene identificador')));
+}));
+
+test('si un dato de Stays tiene una forma inesperada, el error dice de qué reserva es y no se escribe nada', () => conStays(async (url, datos) => {
+  const db = baseConAbril();
+  datos.pagos.R2.push({ ...pago('p20', 'mp', 1), status: undefined } as unknown as PagoStays);
+  await assert.rejects(sincronizarMes(db, crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url), '2026-05'), /^Error: Reserva R2: /);
+  assert.equal((db.prepare('SELECT count(*) n FROM reserva').get() as { n: number }).n, 0);
+}));
+
 test('pide a Stays las tres consultas del período con el rango correcto', () => conStays(async (url, datos) => {
   await sincronizarMes(baseConAbril(), crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url), '2026-05');
   const exports = datos.pedidos.filter((p) => p.startsWith('/booking/reservations-export')).sort();

@@ -14,15 +14,22 @@ Versión `1.0.0` = reemplaza al Excel en producción, después de correr 1-2 mes
 | 5c | Cierre y reapertura del mes (snapshot), transferencias (pantalla + Excel) y PDF por depto | A testear |
 | 5d | Modo servidor/terminal en la LAN, con emparejamiento | A testear |
 | 6 | Resumen: KPIs, resultado Hornera, saldos de cuentas, histórico | A testear |
+| — | Instalador de Windows (`npm run dist`) y guía de prueba (`GUIA-PRUEBAS.md`) | A testear |
 | — | Fuera de la v1: mails, ARCA, mantenimiento, obligaciones, checklist | — |
 
-Todo lo construido (fases 0 a 6, versión `0.8.0`) está **a testear**: tiene tests automáticos y se
+Todo lo construido (fases 0 a 6 e instalador, versión `0.8.1`) está **a testear**: tiene tests automáticos y se
 probó en la app con datos de prueba, pero falta revisarlo a mano con los dueños y con datos reales.
 
 ## Checklist de prueba (próxima sesión)
 
+Cómo probar cada punto, paso a paso: `GUIA-PRUEBAS.md`.
+
+**Instalador**
+- [ ] Instalar con `Hornera Setup <versión>.exe` en la PC servidor; queda el acceso directo y abre la app.
+- [ ] Instalar una versión nueva encima: los datos (`%APPDATA%\Hornera`) siguen ahí.
+
 **Fase 2 · App y backups**
-- [ ] `npm start` abre la app; abrirla dos veces trae la ventana existente.
+- [ ] La app instalada abre; abrirla dos veces trae la ventana existente.
 - [ ] Al cerrar queda un backup en `%APPDATA%\hornera\backups`; con la app abierta, uno cada 6 h.
 
 **Fase 3 · Importar Excel**

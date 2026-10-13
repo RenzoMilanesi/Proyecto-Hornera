@@ -139,6 +139,8 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
       const medioId = db.prepare('SELECT id FROM medio_pago WHERE stays_id = ?');
       const altaMedioDesconocido = db.prepare(`
         INSERT INTO medio_pago(stays_id, nombre, tipo_stays, moneda) VALUES (?, '(medio desconocido)', 'desconocido', ?) RETURNING id`);
+      const altaMedioSinMedio = db.prepare(`
+        INSERT INTO medio_pago(stays_id, nombre, tipo_stays, moneda) VALUES (?, '(sin medio)', 'sin-medio', ?) RETURNING id`);
 
       const deptos = new Map((db.prepare('SELECT codigo, id FROM depto').all() as { codigo: string; id: number }[]).map((d) => [d.codigo, d.id]));
       const plataformas = new Map((db.prepare('SELECT nombre_stays, id FROM plataforma').all() as { nombre_stays: string; id: number }[]).map((p) => [p.nombre_stays, p.id]));
@@ -168,7 +170,7 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
 
       const traidas: string[] = [];
       const canalesDesconocidos = new Set<string>();
-      delPeriodo.forEach(([codigo, fila], i) => {
+      const traerReserva = ([codigo, fila]: [string, FilaReserva], i: number) => {
         const depto = texto(fila['Nombre interno del alojamiento']);
         const deptoId = depto ? deptos.get(depto) : undefined;
         if (deptoId === undefined) {
@@ -201,19 +203,37 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
 
         borrarPagosViejos.run(reservaId, JSON.stringify(pagos.map((p) => p._id)));
         for (const p of pagos as PagoStays[]) {
+          if (!texto(p._id)) {
+            avisos.push(`Reserva ${codigo}: un pago de ${p._f_val ?? '?'} no tiene identificador en Stays, no se trae.`);
+            continue;
+          }
           if (p.type !== 'credit' && p.type !== 'debit') {
             avisos.push(`Reserva ${codigo}: pago ${p._id} de tipo "${p.type}" desconocido, no se trae.`);
             continue;
           }
-          let medio = medioId.get(p._idpaymentProvider) as { id: number } | undefined;
-          if (!medio) {
-            medio = altaMedioDesconocido.get(p._idpaymentProvider, moneda) as { id: number };
-            avisos.push(`Reserva ${codigo}: el pago ${p._id} usa un medio de pago que Stays no informa (${p._idpaymentProvider}); se cargó como "(medio desconocido)" en ${moneda}.`);
+          // Algunos pagos (vistos en meses viejos) llegan sin medio: van a un medio "(sin medio)" por moneda,
+          // que se asocia a una cuenta como cualquier otro.
+          const proveedor = texto(p._idpaymentProvider);
+          let medio = medioId.get(proveedor ?? `sin-medio-${moneda}`) as { id: number } | undefined;
+          if (!proveedor) {
+            medio ??= altaMedioSinMedio.get(`sin-medio-${moneda}`, moneda) as { id: number };
+            avisos.push(`Reserva ${codigo}: el pago ${p._id} no tiene medio de pago en Stays; se cargó como "(sin medio)" en ${moneda}.`);
+          } else if (!medio) {
+            medio = altaMedioDesconocido.get(proveedor, moneda) as { id: number };
+            avisos.push(`Reserva ${codigo}: el pago ${p._id} usa un medio de pago que Stays no informa (${proveedor}); se cargó como "(medio desconocido)" en ${moneda}.`);
           }
           const comision = centavos(p._f_tax);
           altaPago.run(p._id, reservaId, medio.id, p.type, p.status, texto(p.name), centavos(p._f_val) ?? 0,
             comision === 0 ? null : comision, texto(p.paymentDate), JSON.stringify(p));
           reporte.pagos++;
+        }
+      };
+      // Si un dato de Stays viene con una forma inesperada, el error dice de qué reserva es.
+      delPeriodo.forEach((x, i) => {
+        try {
+          traerReserva(x, i);
+        } catch (e) {
+          throw new Error(`Reserva ${x[0]}: ${e instanceof Error ? e.message : String(e)}`);
         }
       });
       for (const canal of canalesDesconocidos) avisos.push(`Canal "${canal}" no está en Plataformas: esas reservas quedan sin plataforma.`);
