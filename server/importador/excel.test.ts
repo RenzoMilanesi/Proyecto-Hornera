@@ -21,7 +21,8 @@ test('importa abril 2026: maestros, período cerrado, movimientos y liquidacione
   assert.deepEqual(r.avisos.filter((a) => a.includes('no coinciden')), []);
 
   const periodo = db.prepare(`SELECT estado, tarifa_base, cm_fee_usd FROM periodo WHERE mes = '2026-04'`).get() as any;
-  assert.deepEqual({ ...periodo }, { estado: 'cerrado', tarifa_base: 6978520, cm_fee_usd: 2000 });
+  // fee CM: USD 25 de NO COMISIONABLES (no los 20 de Datos balance B7)
+  assert.deepEqual({ ...periodo }, { estado: 'cerrado', tarifa_base: 6978520, cm_fee_usd: 2500 });
 
   // OVL: saldo antes de pagar = la transferencia de abril, y el pago queda vinculado.
   const ovl = db.prepare(`

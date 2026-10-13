@@ -58,9 +58,57 @@ function parsearFacturante(s: string) {
 
 // Moneda de liquidación según la fila "Cambio moneda" de la hoja del depto:
 // J53 = -SUM(J..) pasa el ARS a USD; K53 con "/96" es el recargo del 4 % de R64.
+// Fee mensual del channel manager en USD: el que se cobra es la columna F de
+// NO COMISIONABLES (K33 de cada hoja), no "Datos balance" B7 (20 en abril 2026, sin uso).
+function feeCanalUsd(wb: XLSX.WorkBook, dbal: Hoja): number {
+  const nc = wb.Sheets['NO COMISIONABLES'];
+  for (let f = 2; nc && f <= ultimaFila(nc); f++) if (typeof nc[`F${f}`]?.v === 'number') return nc[`F${f}`].v;
+  return num(dbal, 'B7');
+}
+
 function monedaDeHoja(h: Hoja) {
   const aUsd = (h.J53?.f ?? '').toUpperCase().replaceAll(' ', '').startsWith('-SUM(J');
   return { moneda: aUsd ? 'USD' : 'ARS', recargo: aUsd && (h.K53?.f ?? '').includes('96') ? 0.04 : 0 };
+}
+
+// Hojas por depto del libro: se llaman como el código y lo repiten en C11 (OVL, ANTO...).
+export function hojasDeDepto(wb: XLSX.WorkBook): Map<string, Hoja> {
+  const hojas = new Map<string, Hoja>();
+  for (const nombre of wb.SheetNames) {
+    if (nombre.length <= 4 && txt(wb.Sheets[nombre], 'C11') === nombre) hojas.set(nombre, wb.Sheets[nombre]);
+  }
+  return hojas;
+}
+
+// Lo que muestra la hoja de un depto, en centavos. `saldo` es el de antes de pagar:
+// J55/K55 ya restan las filas "Liquidacion periodo" del detalle (36 a 52).
+export function leerHojaDepto(h: Hoja, inicio: string, cierre: string) {
+  const pagos = { ars: 0, usd: 0 };
+  const detalle = { ars: 0, usd: 0 };
+  for (let f = 36; f <= 52; f++) {
+    detalle.ars += c(num(h, `J${f}`));
+    detalle.usd += c(num(h, `K${f}`));
+    if (/^liquidaci[oó]n periodo$/i.test(txt(h, `B${f}`))) {
+      pagos.ars += c(num(h, `J${f}`));
+      pagos.usd += c(num(h, `K${f}`));
+    }
+  }
+  return {
+    comisionPct: num(h, 'I15'),
+    nochesDisponibles: num(h, 'B23'),
+    nochesNoDisponibles: num(h, 'B24') + dias(inicio, cierre) - num(h, 'B22'), // JUY: cierre editado a mano en C21
+    nochesOcupadas: num(h, 'B26'),
+    nochesPropietario: num(h, 'B25'),
+    cantReservas: num(h, 'E24'),
+    ingresos: { ars: c(num(h, 'J31')), usd: c(num(h, 'K31')) },
+    costosOperativos: -c(num(h, 'J32')),
+    comisiones: { ars: -c(num(h, 'J33')), usd: -c(num(h, 'K33')) },
+    bruto: c(num(h, 'F18')),
+    honorarios: c(num(h, 'J34')),
+    conversion: { ars: c(num(h, 'J53')), usd: c(num(h, 'K53')) },
+    saldo: { ars: c(num(h, 'J55')) - pagos.ars, usd: c(num(h, 'K55')) - pagos.usd },
+    detalle, // filas 36 a 52, con los pagos
+  };
 }
 
 export function importarExcel(db: DatabaseSync, contenido: Buffer, ahora = new Date()): ReporteImportacion {
@@ -139,11 +187,7 @@ export function importarExcel(db: DatabaseSync, contenido: Buffer, ahora = new D
     for (let f = 1; f <= ultimaFila(listas); f++) conceptoId(txt(listas, `C${f}`));
 
     // ---- Propietarios y deptos (Propiedades)
-    const hojasDepto = new Map<string, Hoja>();
-    for (const nombre of wb.SheetNames) {
-      const h = wb.Sheets[nombre];
-      if (txt(h, 'C11') === nombre && nombre.length <= 4) hojasDepto.set(nombre, h);
-    }
+    const hojasDepto = hojasDeDepto(wb);
     const buscarPropietario = db.prepare('SELECT id FROM propietario WHERE nombre = ?');
     const altaPropietario = db.prepare(`
       INSERT INTO propietario(nombre, documento, cuit, categoria_fiscal, cbu, es_hornera, mails, moneda_liquidacion, comision_cobro_usd_pct)
@@ -243,7 +287,7 @@ export function importarExcel(db: DatabaseSync, contenido: Buffer, ahora = new D
       mes, inicio, cierre, fecha(num(dbal, 'B3')), fecha(num(dbal, 'B4')),
       num(dbal, 'B5'), num(dbal, 'A6'), c(num(dbal, 'B13')), c(num(dbal, 'B8')),
       c(num(dbal, 'B9')), c(num(dbal, 'B10')), c(num(dbal, 'B11')), c(num(dbal, 'B12')), c(num(dbal, 'B15')), c(num(dbal, 'B16')),
-      num(dbal, 'A17'), c(num(dbal, 'B17')), num(dbal, 'A18'), c(num(dbal, 'B18')), c(num(dbal, 'B7')),
+      num(dbal, 'A17'), c(num(dbal, 'B17')), num(dbal, 'A18'), c(num(dbal, 'B18')), c(feeCanalUsd(wb, dbal)),
     ) as { id: number };
     if (existente) avisos.push(`El período ${mes} estaba abierto (creado al traer de Stays): se completó con los parámetros del Excel y quedó cerrado.`);
 
@@ -310,20 +354,17 @@ export function importarExcel(db: DatabaseSync, contenido: Buffer, ahora = new D
         .reduce((s, tipo) => ({ ars: s.ars + tot(tipo).ars, usd: s.usd + tot(tipo).usd }), CERO);
 
       // Lo importado de CORRIENTE tiene que ser lo mismo que muestra la hoja (filas 36 a 52).
-      let hojaArs = 0, hojaUsd = 0;
-      for (let f = 36; f <= 52; f++) { hojaArs += c(num(h, `J${f}`)); hojaUsd += c(num(h, `K${f}`)); }
+      const x = leerHojaDepto(h, inicio, cierre);
       const importado = { ars: saldoAnterior.ars + otros.ars + pagos.ars, usd: saldoAnterior.usd + otros.usd + pagos.usd };
-      if (Math.abs(importado.ars - hojaArs) > 1 || Math.abs(importado.usd - hojaUsd) > 1) {
-        avisos.push(`Depto ${codigo}: los movimientos de CORRIENTE (ARS ${importado.ars / 100}, USD ${importado.usd / 100}) no coinciden con su hoja (ARS ${hojaArs / 100}, USD ${hojaUsd / 100}).`);
+      if (Math.abs(importado.ars - x.detalle.ars) > 1 || Math.abs(importado.usd - x.detalle.usd) > 1) {
+        avisos.push(`Depto ${codigo}: los movimientos de CORRIENTE (ARS ${importado.ars / 100}, USD ${importado.usd / 100}) no coinciden con su hoja (ARS ${x.detalle.ars / 100}, USD ${x.detalle.usd / 100}).`);
       }
 
       altaLiquidacion.run(
-        periodoId, deptoId, cambio, num(h, 'I15'), num(h, 'B23'), num(h, 'B24') + dias(inicio, cierre) - num(h, 'B22'),
-        num(h, 'B26'), num(h, 'B25'), num(h, 'E24'), c(num(h, 'J31')), c(num(h, 'K31')), -c(num(h, 'J32')),
-        -c(num(h, 'J33')), -c(num(h, 'K33')), c(num(h, 'F18')), c(num(h, 'J34')), saldoAnterior.ars, saldoAnterior.usd,
-        otros.ars, otros.usd, c(num(h, 'J53')), c(num(h, 'K53')),
-        // J55/K55 ya restan el pago; el snapshot guarda el saldo de antes de pagar.
-        c(num(h, 'J55')) - pagos.ars, c(num(h, 'K55')) - pagos.usd,
+        periodoId, deptoId, cambio, x.comisionPct, x.nochesDisponibles, x.nochesNoDisponibles,
+        x.nochesOcupadas, x.nochesPropietario, x.cantReservas, x.ingresos.ars, x.ingresos.usd, x.costosOperativos,
+        x.comisiones.ars, x.comisiones.usd, x.bruto, x.honorarios, saldoAnterior.ars, saldoAnterior.usd,
+        otros.ars, otros.usd, x.conversion.ars, x.conversion.usd, x.saldo.ars, x.saldo.usd,
         d?.pagoId ?? null, creadoEn,
       );
       reporte.liquidaciones++;

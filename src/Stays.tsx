@@ -2,17 +2,17 @@ import { useEffect, useState } from 'react';
 import { Alert, Button, Card, Descriptions, Form, Input, Space, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { enviar, get, pesos } from './api.ts';
+import { AjustesReserva, type ReservaAjustable } from './AjustesReserva.tsx';
 
 interface Reporte { mes: string; periodoCreado: boolean; reservas: number; pagos: number; medios: number; eliminadas: number; avisos: string[] }
-interface Reserva {
-  id: number; codigo: string; depto: string; llegada: string; salida: string; huespedes: number; plataforma: string | null;
-  estado_stays: string | null; ajuste_ars: number; ajuste_usd: number; excluida: number;
+interface Reserva extends ReservaAjustable {
+  llegada: string; salida: string; huespedes: number; plataforma: string | null; estado_stays: string | null;
   cobrado_ars: number; cobrado_usd: number; falta_comision: number | null;
 }
 
 const enUnaLinea = { onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }) };
 
-const columnas: TableColumnsType<Reserva> = [
+const columnas = (alEditar: (r: Reserva) => void): TableColumnsType<Reserva> => [
   { title: 'Depto', dataIndex: 'depto', width: 80 },
   { title: 'Reserva', dataIndex: 'codigo', width: 90 },
   { title: 'Llegada', dataIndex: 'llegada', ...enUnaLinea },
@@ -26,9 +26,11 @@ const columnas: TableColumnsType<Reserva> = [
     render: (_: unknown, r) => <>
       {r.falta_comision ? <Tag color="red">falta comisión</Tag> : null}
       {r.ajuste_ars || r.ajuste_usd ? <Tag color="blue">ajuste</Tag> : null}
+      {r.ajuste_comision_ars || r.ajuste_comision_usd ? <Tag color="purple">comisión</Tag> : null}
       {r.excluida ? <Tag>excluida</Tag> : null}
     </>,
   },
+  { title: '', key: 'editar', width: 90, render: (_: unknown, r) => <Button size="small" onClick={() => alEditar(r)}>Ajustes</Button> },
 ];
 
 // En hora local: con toISOString (UTC) el último día del mes después de las 21 h daría el mes siguiente.
@@ -75,9 +77,11 @@ export function Stays() {
   const [reporte, setReporte] = useState<Reporte>();
   const [error, setError] = useState<string>();
   const [reservas, setReservas] = useState<Reserva[]>();
+  const [editando, setEditando] = useState<Reserva>();
+  const [version, setVersion] = useState(0); // fuerza recargar la tabla después de guardar ajustes
 
   useEffect(() => { get<{ usuario: string | null }>('stays').then((r) => setUsuario(r.usuario), () => {}); }, []);
-  useEffect(() => { get<Reserva[]>(`reservas?mes=${mes}`).then(setReservas, () => setReservas([])); }, [mes, reporte]);
+  useEffect(() => { get<Reserva[]>(`reservas?mes=${mes}`).then(setReservas, () => setReservas([])); }, [mes, reporte, version]);
 
   const traer = async () => {
     setTrayendo(true);
@@ -93,7 +97,7 @@ export function Stays() {
   };
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <Card size="small" title="Credenciales de la API de Stays">
         <Credenciales usuario={usuario} alGuardar={setUsuario} />
       </Card>
@@ -124,7 +128,8 @@ export function Stays() {
       </Card>
 
       <Card size="small" title={`Reservas de ${mes}${reservas ? ` (${reservas.length})` : ''}`}>
-        <Table<Reserva> rowKey="id" size="small" pagination={false} loading={!reservas} dataSource={reservas} columns={columnas} />
+        <Table<Reserva> rowKey="id" size="small" pagination={false} scroll={{ x: "max-content" }} loading={!reservas} dataSource={reservas} columns={columnas(setEditando)} />
+        <AjustesReserva reserva={editando} alCerrar={(guardado) => { setEditando(undefined); if (guardado) setVersion((v) => v + 1); }} />
       </Card>
     </Space>
   );

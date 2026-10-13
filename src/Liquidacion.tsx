@@ -1,0 +1,149 @@
+import { useEffect, useState } from 'react';
+import { Alert, Button, Card, Descriptions, InputNumber, Select, Space, Table, Tag, Typography, Upload } from 'antd';
+import type { TableColumnsType } from 'antd';
+import type { LiquidacionDepto, LiquidacionPeriodo } from '../server/liquidacion/servicio.ts';
+import type { ComparacionDepto } from '../server/liquidacion/comparar.ts';
+import { enviar, get, pesos, subirArchivo } from './api.ts';
+
+interface Periodo { mes: string; estado: string; usd_cotizacion: number | null; usd_descuento_pct: number }
+
+const derecha = { align: 'right' as const, onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }) };
+const ars = (c: number) => (c ? pesos(c) : '');
+const usd = (c: number) => (c ? pesos(c, 'USD') : '');
+
+function Comparacion({ c }: { c?: ComparacionDepto }) {
+  if (!c) return null;
+  if (c.estado === 'igual') return <Tag color="green">igual al Excel</Tag>;
+  if (c.estado === 'solo_excel') return <Tag color="orange">solo en el Excel</Tag>;
+  if (c.estado === 'solo_app') return <Tag color="orange">no está en el Excel</Tag>;
+  return <Tag color="red">{c.diferencias.length} diferencia{c.diferencias.length > 1 ? 's' : ''}</Tag>;
+}
+
+function Detalle({ d, comparacion }: { d: LiquidacionDepto; comparacion?: ComparacionDepto }) {
+  const r = d.resultado;
+  return (
+    <Space orientation="vertical" style={{ width: '100%' }}>
+      {comparacion?.estado === 'distinto' && (
+        <Alert type="error" showIcon title="Diferencias con el Excel" description={
+          <ul style={{ margin: 0, paddingLeft: 20 }}>{comparacion.diferencias.map((x, i) => (
+            <li key={i}>{x.campo}{x.unidad === 'noches' ? '' : ` ${x.unidad}`}: app {x.unidad === 'noches' ? x.app : pesos(x.app, x.unidad)} · Excel {x.unidad === 'noches' ? x.excel : pesos(x.excel, x.unidad)}</li>
+          ))}</ul>} />
+      )}
+      <Descriptions size="small" bordered column={3} items={[
+        { label: 'Saldo anterior', children: <>{ars(d.saldoAnterior.ars)} {usd(d.saldoAnterior.usd)}</> },
+        { label: 'Costos operativos', children: pesos(-r.costosOperativos) },
+        { label: 'Comisiones', children: <>{ars(-d.comisiones.ars)} {usd(-d.comisiones.usd)}</> },
+        { label: 'Gastos directos', children: pesos(r.gastosDirectos) },
+        { label: 'Saldo parcial', children: pesos(r.saldoParcial) },
+        { label: 'Cambio de moneda', children: <>{ars(r.conversion.ars)} {usd(r.conversion.usd)}</> },
+      ]} />
+      <Table size="small" pagination={false} rowKey="codigoInterno" dataSource={r.reservas} columns={[
+        { title: 'Reserva', dataIndex: 'codigoInterno', render: (v: string) => <Typography.Text code>{v}</Typography.Text> },
+        { title: 'Noches (período / total)', key: 'n', render: (_: unknown, l) => `${l.nochesPeriodo} / ${l.nochesTotales}` },
+        { title: 'Cobrado ARS', dataIndex: 'importePeriodoArs', ...derecha, render: ars },
+        { title: 'Cobrado USD', dataIndex: 'importePeriodoUsd', ...derecha, render: usd },
+        { title: 'Tarifa', dataIndex: 'tarifaPeriodo', ...derecha, render: ars },
+      ]} />
+    </Space>
+  );
+}
+
+export function Liquidacion() {
+  const [periodos, setPeriodos] = useState<Periodo[]>([]);
+  const [mes, setMes] = useState<string>();
+  const [datos, setDatos] = useState<LiquidacionPeriodo>();
+  const [error, setError] = useState<string>();
+  const [cotizacion, setCotizacion] = useState<number | null>(null);
+  const [comparacion, setComparacion] = useState<Map<string, ComparacionDepto>>();
+  const [comparando, setComparando] = useState(false);
+
+  const cargarPeriodos = () => get<Periodo[]>('periodos').then((ps) => {
+    setPeriodos(ps);
+    setMes((m) => m ?? (ps.find((p) => p.estado === 'abierto') ?? ps[0])?.mes);
+  });
+  useEffect(() => { cargarPeriodos().catch((e) => setError(String(e))); }, []);
+
+  const calcular = (m: string) => {
+    setError(undefined);
+    setComparacion(undefined); // una comparación vieja no vale para el cálculo nuevo
+    get<LiquidacionPeriodo>(`liquidacion?mes=${m}`).then((d) => { setDatos(d); setCotizacion(d.cotizacion); }, (e) => setError(String(e)));
+  };
+  useEffect(() => { if (mes) calcular(mes); }, [mes]);
+
+  const periodo = periodos.find((p) => p.mes === mes);
+  const guardarCotizacion = async () => {
+    if (!mes || !cotizacion) return;
+    try {
+      await enviar(`periodos/${mes}/cotizacion`, 'PUT', { cotizacion });
+      await cargarPeriodos();
+      calcular(mes);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  const comparar = async (archivo: File) => {
+    setComparando(true);
+    setError(undefined);
+    try {
+      const r = await subirArchivo<{ deptos: ComparacionDepto[] }>(`liquidacion/comparar?mes=${mes}`, archivo);
+      setComparacion(new Map(r.deptos.map((d) => [d.codigo, d])));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setComparando(false);
+    }
+  };
+
+  const columnas: TableColumnsType<LiquidacionDepto> = [
+    { title: 'Depto', dataIndex: 'codigo', width: 80 },
+    { title: 'Propietario', dataIndex: 'propietario', ellipsis: true },
+    { title: 'Noches', key: 'noches', width: 90, render: (_: unknown, d) => `${d.resultado.nochesOcupadas} / ${d.resultado.nochesDisponibles}` },
+    { title: 'Bruto', key: 'bruto', ...derecha, render: (_: unknown, d) => pesos(d.resultado.bruto) },
+    { title: 'Honorarios', key: 'hon', ...derecha, render: (_: unknown, d) => pesos(d.resultado.honorarios) },
+    {
+      title: 'Saldo', key: 'saldo', ...derecha,
+      render: (_: unknown, d) => {
+        const valor = d.moneda === 'USD' ? d.resultado.saldo.usd : d.resultado.saldo.ars;
+        return <Typography.Text type={valor < 0 ? 'danger' : undefined} strong>{pesos(valor, d.moneda)}</Typography.Text>;
+      },
+    },
+    ...(comparacion ? [{ title: 'Excel', key: 'excel', width: 150, render: (_: unknown, d: LiquidacionDepto) => <Comparacion c={comparacion.get(d.codigo)} /> }] : []),
+  ];
+  const resumen = comparacion && [...comparacion.values()].reduce((s, c) => ({ ...s, [c.estado]: (s[c.estado] ?? 0) + 1 }), {} as Record<string, number>);
+  const soloExcel = comparacion && [...comparacion.values()].filter((c) => c.estado === 'solo_excel').map((c) => c.codigo);
+
+  return (
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
+      <Card size="small">
+        <Space wrap size="large">
+          <Select style={{ width: 160 }} value={mes} onChange={setMes} placeholder="Mes"
+            options={periodos.map((p) => ({ value: p.mes, label: `${p.mes} · ${p.estado}` }))} />
+          {periodo && <Tag color={periodo.estado === 'abierto' ? 'blue' : 'default'}>{periodo.estado}</Tag>}
+          <Space>
+            <span>Dólar cripto al cierre</span>
+            <InputNumber min={1} value={cotizacion} onChange={setCotizacion} disabled={periodo?.estado !== 'abierto'} style={{ width: 120 }} />
+            {periodo?.estado === 'abierto' && <Button onClick={guardarCotizacion} disabled={!cotizacion || cotizacion === datos?.cotizacion}>Guardar</Button>}
+            {datos?.cambio != null && <Typography.Text type="secondary">cambio: {datos.cambio.toLocaleString('es-AR', { maximumFractionDigits: 2 })}</Typography.Text>}
+          </Space>
+          <Upload accept=".xlsx" showUploadList={false} disabled={!datos?.cambio || comparando}
+            beforeUpload={(archivo) => { comparar(archivo); return false; }}>
+            <Button loading={comparando} disabled={!datos?.cambio}>Comparar con el Excel del mes</Button>
+          </Upload>
+        </Space>
+      </Card>
+
+      {error && <Alert type="error" showIcon title={error} />}
+      {datos?.avisos.length ? <Alert type="warning" showIcon title="Avisos" description={<ul style={{ margin: 0, paddingLeft: 20 }}>{datos.avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>} /> : null}
+      {resumen && (
+        <Alert type={resumen.distinto || resumen.solo_excel || resumen.solo_app ? 'warning' : 'success'} showIcon
+          title={`Comparación con el Excel: ${resumen.igual ?? 0} iguales, ${resumen.distinto ?? 0} con diferencias`
+            + (resumen.solo_app ? `, ${resumen.solo_app} solo en la app` : '')}
+          description={soloExcel?.length ? `Hojas del Excel sin liquidación en la app: ${soloExcel.join(', ')}` : undefined} />
+      )}
+
+      <Table<LiquidacionDepto> rowKey="deptoId" size="small" pagination={false} scroll={{ x: "max-content" }} loading={!datos && !error}
+        dataSource={datos?.deptos} columns={columnas}
+        expandable={{ expandedRowRender: (d) => <Detalle d={d} comparacion={comparacion?.get(d.codigo)} /> }} />
+    </Space>
+  );
+}

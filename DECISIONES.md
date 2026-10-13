@@ -17,7 +17,7 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - **Motor de liquidación:** `server/liquidacion/motor.ts`, función pura. Reproduce las 24 hojas de abril 2026 al centavo, salvo RIO y AND, que tienen costos editados a mano en el Excel. La regresión (`server/liquidacion/regresion.test.ts`) arma la entrada del motor con lo que guarda el importador, que es el camino de la fase 5.
 - **Tipo de cambio:** se trae automático (dólar cripto) menos el % configurable (hoy 6 %), con override manual.
 - **Tarifa por reserva:** la fórmula del Excel, con parámetros globales por período y override opcional por depto. Se prorratea por las noches del período.
-- **Comisiones OTAs/agentes/CM:** se calculan automáticamente por reserva con el % de cada plataforma más el fee de CM por depto; se pueden ajustar a mano.
+- **Comisiones OTAs/agentes/CM:** en el Excel se tipean a mano por depto (hoja NO COMISIONABLES: Booking reducida, Alq. Argentina, otros agentes). En la app: fee del channel manager por depto (USD 25, columna F de NO COMISIONABLES, que es lo que se cobra; "Datos balance" B7 dice 20 y no se usa) más la comisión cargada a mano en cada reserva. El % automático por plataforma queda apagado hasta saber cuáles cobran.
 - **Pago directo por plataforma (co-host Airbnb):** configuración por depto + canal, con la fórmula de `3-Union_Reservas_Cuentas.PY`.
 - **Correcciones:** preferentemente en Stays y volver a sincronizar; también ajuste manual sobre la reserva (corrección ARS/USD, observación) que no se pisa al re-sincronizar.
 - **Cierre:** el mes queda congelado (parámetros, reservas, resultados), se puede reabrir a mano y el saldo pasa al mes siguiente.
@@ -36,6 +36,14 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
   - No se importa: deptos sin facturante (JAI, SAR), la columna "FONDO / ACUMULADO" de CORRIENTE (fondo de reserva de CNG), la hoja NO COMISIONABLES ni las reservas (vienen de Stays, fase 4).
   - Lectura del xlsx con SheetJS 0.20.3 desde su CDN (la de npm, 0.18.5, tiene vulnerabilidades conocidas). También sirve para exportar la lista de transferencias (fase 5).
 - **Esquema 2:** la liquidación guarda saldo final y cambio de moneda en ARS y USD (5 propietarios liquidan en USD). Las bases del esquema 1 se migran solas al abrir (`server/db.ts`).
+
+## Liquidación del mes abierto (`server/liquidacion/servicio.ts`, pantalla "Liquidación")
+- Se recalcula cada vez desde la base con el motor: reservas del período no excluidas, lo cobrado neto en Stays más los ajustes de la reserva, movimientos del período (sin los pagos de liquidación), noches bloqueadas y el saldo de arrastre.
+- Saldo de arrastre = saldo final de la liquidación cerrada del mes anterior + los pagos de liquidación de ese mes. Si el período tiene "Saldo mes anterior" cargado (migración), se usa ese.
+- Necesita la cotización del dólar del período (manual por ahora). Un depto entra si está activo o tiene reservas, movimientos o saldo.
+- Marcha en paralelo: "Comparar con el Excel del mes" lee las hojas por depto del Excel de ese mes (sin importarlo) y muestra las diferencias. Con abril armado en la base: 22 deptos iguales; RIO y AND difieren por sus costos editados a mano.
+- Ajustes de reserva (corrección ARS/USD, comisión, observación, excluir) desde la pantalla Stays, con registro en `auditoria` (también los cambios de cotización). La corrección de lo cobrado se prorratea por noches como el ingreso; la comisión cuenta una sola vez, en el mes en que llega la reserva. Los ajustes de una reserva que es parte de un mes cerrado no se cambian (hay que reabrirlo).
+- Si el mes anterior encontrado no es el inmediatamente anterior, se avisa (falta cargar un mes).
 
 ## Stays ("traer mes", `server/stays/`)
 - Reemplaza los scripts 0 a 2 de `balances-hornera`, con sus mismas reglas: reservas por llegada, por salida (corrida un día) e incluidas; entra la que tiene noches en el período o llega en él (cancelaciones de 0 noches). Reserva sin canal = "Carga Agente".
@@ -68,4 +76,6 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - RIO y AND (abril 2026): en sus hojas hay −124.008 tipeado a mano en la columna de tarifa (Z14) y, en AND, la fórmula de costos invertida (`J32 = Z57`). Les cambia costos, honorarios y saldo. ¿Es un error? Si lo es, esas dos liquidaciones salieron mal.
 - R64 convierte a USD con `cambio / 0,96`, y S38, MAI, ITU y COT con `cambio`. ¿El 4 % es la comisión de Payoneer? ¿Por qué solo R64?
 - Comisión por plataforma: aplicar el % de `Plataformas` (Website 1,7 %) daría comisiones que el Excel no cobra (OVL tiene 0). ¿Qué plataformas generan comisión de verdad?
-- Fee del channel manager: `Datos balance`!B7 dice 20 y `NO COMISIONABLES`!F dice USD 25. ¿Cuál vale?
+- Fee del channel manager: se aplica USD 25 (lo que cobra el Excel en K33). Confirmar que B7 = 20 no se usa.
+- AND no figura en NO COMISIONABLES: en abril el Excel no le cobró el fee del channel manager y la app sí. ¿Corresponde?
+- Mes sin reservas: con la fórmula del Excel, la base de honorarios queda negativa (solo el fee) y los honorarios dan positivos (se le devuelve plata al propietario). La app lo reproduce. ¿Es lo correcto o los honorarios deberían ser 0?

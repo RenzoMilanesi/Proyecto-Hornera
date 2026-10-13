@@ -5,6 +5,9 @@ import { importarExcel } from './importador/excel.ts';
 import { crearClienteStays, URL_STAYS, type Credenciales } from './stays/cliente.ts';
 import { sincronizarMes } from './stays/sync.ts';
 import { SQL_EN_PERIODO } from './periodo.ts';
+import { liquidarPeriodo } from './liquidacion/servicio.ts';
+import { compararConExcel } from './liquidacion/comparar.ts';
+import { auditar } from './auditoria.ts';
 
 // Dónde viven las credenciales de Stays. En Electron, cifradas con safeStorage
 // (DPAPI de Windows) fuera de la base: no viajan en los backups.
@@ -132,7 +135,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     const { fecha_inicio: inicio, fecha_cierre_reservas: cierre } = periodo;
     res.json(db.prepare(`
       SELECT r.id, r.codigo, d.codigo AS depto, r.llegada, r.salida, r.huespedes, p.nombre AS plataforma,
-             r.estado_stays, r.ajuste_ars, r.ajuste_usd, r.excluida,
+             r.estado_stays, r.ajuste_ars, r.ajuste_usd, r.ajuste_comision_ars, r.ajuste_comision_usd, r.observacion, r.excluida,
              COALESCE(SUM(CASE v.moneda WHEN 'ARS' THEN v.importe_neto END), 0) AS cobrado_ars,
              COALESCE(SUM(CASE v.moneda WHEN 'USD' THEN v.importe_neto END), 0) AS cobrado_usd,
              MAX(v.falta_comision) AS falta_comision
@@ -142,6 +145,74 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
       LEFT JOIN v_pago_liquidable v ON v.reserva_id = r.id
       WHERE ${SQL_EN_PERIODO}
       GROUP BY r.id ORDER BY d.codigo, r.llegada`).all({ inicio, cierre }));
+  });
+
+  // Ajustes manuales de una reserva (pestañas 🖊 del Excel). "Traer mes" no los pisa.
+  app.put('/api/reservas/:id', (req, res) => {
+    const b = req.body ?? {};
+    const importes = ['ajuste_ars', 'ajuste_usd', 'ajuste_comision_ars', 'ajuste_comision_usd'] as const;
+    if (importes.some((k) => !Number.isInteger(b[k])) || ![0, 1].includes(b.excluida)
+      || (b.observacion !== null && typeof b.observacion !== 'string')) {
+      res.status(400).json({ error: 'Ajustes inválidos: importes en centavos enteros, excluida 0 o 1, observación texto o null' });
+      return;
+    }
+    const id = Number(req.params.id);
+    const antes = db.prepare(`SELECT ${importes.join(', ')}, observacion, excluida FROM reserva WHERE id = ?`).get(id);
+    if (!antes) {
+      res.status(404).json({ error: 'No existe la reserva' });
+      return;
+    }
+    // Mes cerrado = congelado: su liquidación ya tomó estos ajustes; cambiarlos descuadraría el total.
+    const cerrado = db.prepare(`
+      SELECT p.mes FROM reserva r JOIN periodo p ON p.estado = 'cerrado'
+        AND ${SQL_EN_PERIODO.replaceAll(':inicio', 'p.fecha_inicio').replaceAll(':cierre', 'p.fecha_cierre_reservas')}
+      WHERE r.id = ? ORDER BY p.mes LIMIT 1`).get(id) as { mes: string } | undefined;
+    if (cerrado) {
+      res.status(400).json({ error: `La reserva es parte del mes cerrado ${cerrado.mes}: reabrilo para cambiar sus ajustes.` });
+      return;
+    }
+    const despues = { ...Object.fromEntries(importes.map((k) => [k, b[k]])), observacion: b.observacion?.trim() || null, excluida: b.excluida };
+    db.prepare(`UPDATE reserva SET ajuste_ars = :ajuste_ars, ajuste_usd = :ajuste_usd, ajuste_comision_ars = :ajuste_comision_ars,
+      ajuste_comision_usd = :ajuste_comision_usd, observacion = :observacion, excluida = :excluida WHERE id = :id`).run({ ...despues, id });
+    auditar(db, 'reserva', id, 'modificacion', antes, despues);
+    res.json(despues);
+  });
+
+  // ---- Períodos y liquidación
+  app.get('/api/periodos', (_req, res) => {
+    res.json(db.prepare('SELECT mes, estado, usd_cotizacion, usd_descuento_pct FROM periodo ORDER BY mes DESC').all());
+  });
+
+  // Cotización del dólar cripto al cierre (manual por ahora; ponytail: la consulta automática viene después).
+  app.put('/api/periodos/:mes/cotizacion', (req, res) => {
+    const cotizacion = req.body?.cotizacion;
+    const p = db.prepare('SELECT id, estado, usd_cotizacion FROM periodo WHERE mes = ?').get(req.params.mes) as { id: number; estado: string; usd_cotizacion: number | null } | undefined;
+    if (!p) { res.status(404).json({ error: 'No existe el período' }); return; }
+    if (p.estado !== 'abierto') { res.status(400).json({ error: 'El período está cerrado' }); return; }
+    if (typeof cotizacion !== 'number' || !(cotizacion > 0)) { res.status(400).json({ error: 'Cotización inválida' }); return; }
+    db.prepare(`UPDATE periodo SET usd_cotizacion = ?, usd_cotizacion_fuente = 'manual' WHERE id = ?`).run(cotizacion, p.id);
+    auditar(db, 'periodo', p.id, 'modificacion', { usd_cotizacion: p.usd_cotizacion }, { usd_cotizacion: cotizacion });
+    res.json({ cotizacion });
+  });
+
+  app.get('/api/liquidacion', (req, res) => {
+    try {
+      res.json(liquidarPeriodo(db, String(req.query.mes ?? '')));
+    } catch (e) {
+      res.status(400).json({ error: mensaje(e) });
+    }
+  });
+
+  app.post('/api/liquidacion/comparar', express.raw({ type: 'application/octet-stream', limit: '50mb' }), (req, res) => {
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+      res.status(400).json({ error: 'Falta el archivo .xlsx' });
+      return;
+    }
+    try {
+      res.json(compararConExcel(db, String(req.query.mes ?? ''), req.body));
+    } catch (e) {
+      res.status(400).json({ error: mensaje(e) });
+    }
   });
 
   // Las rutas nuevas van arriba de estas dos: lo que no es /api sigue a Vite/static.

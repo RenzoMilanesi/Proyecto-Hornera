@@ -87,8 +87,9 @@ const dias = (desde: string, hasta: string) => Math.round((Date.parse(hasta) - D
 const EPS = 1e-6;
 const truncar = (x: number) => Math.trunc(x + Math.sign(x) * EPS);
 // ROUNDDOWN(pesos, 0) y ROUND(pesos, 0) de Excel, operando en centavos.
-export const truncPesos = (c: number): Centavos => truncar(c / 100) * 100;
-export const redondearPesos = (c: number): Centavos => Math.sign(c) * Math.round(Math.abs(c) / 100) * 100;
+// `+ 0` convierte −0 en 0 (si no, la pantalla muestra "-$ 0,00").
+export const truncPesos = (c: number): Centavos => truncar(c / 100) * 100 + 0;
+export const redondearPesos = (c: number): Centavos => Math.sign(c) * Math.round(Math.abs(c) / 100) * 100 + 0;
 const redondearUsd = redondearPesos; // K55 también redondea a unidades
 
 export function liquidar(e: EntradaLiquidacion): ResultadoLiquidacion {
@@ -134,7 +135,7 @@ export function liquidar(e: EntradaLiquidacion): ResultadoLiquidacion {
   const gastosDirectos = truncPesos(-costosOperativos - e.comisiones.ars - e.comisiones.usd * p.cambio); // [F19]
   // [J34] honorarios redondeados a centenas de pesos hacia cero.
   const base = ingresos.ars - costosOperativos - e.comisiones.ars + (ingresos.usd - e.comisiones.usd) * p.cambio;
-  const honorarios = -truncar(base * d.comisionPct / 10_000) * 10_000;
+  const honorarios = -truncar(base * d.comisionPct / 10_000) * 10_000 + 0;
 
   // Detalle ingresos/egresos [J31:K52] sin pagos, y conversión a la moneda de liquidación [53].
   const lineasArs = ingresos.ars - costosOperativos - e.comisiones.ars + honorarios + e.movimientos.reduce((s, m) => s + m.ars, 0);

@@ -233,3 +233,41 @@ test('si la carpeta de backup configurada falla o es de otra PC, la copia queda 
   db.prepare(`DELETE FROM configuracion`).run();
   assert.match(respaldar(db, porDefecto), /hornera-.*\.db$/); // sin configurar: va directo a la por defecto
 });
+
+test('ajustes de una reserva y cotización del período: validan y quedan en la auditoría', () => {
+  const db = abrirDb(':memory:');
+  periodo(db, '2026-04', '2026-04-01', '2026-05-01');
+  periodo(db, '2026-05', '2026-05-01', '2026-06-01');
+  db.exec(`UPDATE periodo SET estado = 'cerrado' WHERE mes = '2026-04';
+    INSERT INTO propietario(nombre) VALUES ('Propietario Uno');
+    INSERT INTO depto(codigo, nombre, propietario_id) VALUES ('AAA', 'Depto A', 1);
+    INSERT INTO reserva(codigo, depto_id, llegada, salida, moneda, raw_json, sincronizada_en) VALUES ('R1', 1, '2026-05-02', '2026-05-04', 'ARS', '{}', 'x');`);
+  return conApi(db, async (base) => {
+    const json = { 'Content-Type': 'application/json' };
+    const enviar = (ruta: string, cuerpo: unknown) => fetch(`${base}/api/${ruta}`, { method: 'PUT', headers: json, body: JSON.stringify(cuerpo) });
+    const ajustes = { ajuste_ars: -50000, ajuste_usd: 0, ajuste_comision_ars: 1000, ajuste_comision_usd: 0, observacion: ' descuento ', excluida: 0 };
+
+    assert.equal((await enviar('reservas/1', { ...ajustes, ajuste_ars: 1.5 })).status, 400); // centavos enteros
+    assert.equal((await enviar('reservas/99', ajustes)).status, 404);
+    // Reserva que viene de abril (cerrado): sus ajustes ya están en esa liquidación.
+    db.exec(`INSERT INTO reserva(codigo, depto_id, llegada, salida, moneda, raw_json, sincronizada_en) VALUES ('R0', 1, '2026-04-29', '2026-05-02', 'ARS', '{}', 'x')`);
+    const cerrada = await enviar('reservas/2', ajustes);
+    assert.equal(cerrada.status, 400);
+    assert.match((await cerrada.json()).error, /parte del mes cerrado 2026-04/);
+    assert.equal((await enviar('reservas/1', ajustes)).status, 200);
+    const r = db.prepare(`SELECT ajuste_ars, ajuste_comision_ars, observacion FROM reserva WHERE id = 1`).get() as any;
+    assert.deepEqual({ ...r }, { ajuste_ars: -50000, ajuste_comision_ars: 1000, observacion: 'descuento' });
+
+    assert.equal((await enviar('periodos/2026-05/cotizacion', { cotizacion: -1 })).status, 400);
+    assert.equal((await enviar('periodos/2026-04/cotizacion', { cotizacion: 1500 })).status, 400); // cerrado
+    assert.equal((await enviar('periodos/2026-05/cotizacion', { cotizacion: 1500 })).status, 200);
+    assert.equal((db.prepare(`SELECT usd_cotizacion FROM periodo WHERE mes = '2026-05'`).get() as any).usd_cotizacion, 1500);
+
+    const auditoria = db.prepare(`SELECT tabla, accion FROM auditoria ORDER BY id`).all().map((a: any) => `${a.tabla}:${a.accion}`);
+    assert.deepEqual(auditoria, ['reserva:modificacion', 'periodo:modificacion']);
+
+    const liq = await (await fetch(`${base}/api/liquidacion?mes=2026-05`)).json();
+    assert.deepEqual(liq.deptos.map((d: any) => d.codigo), ['AAA']);
+    assert.equal((await fetch(`${base}/api/liquidacion?mes=2030-01`)).status, 400);
+  });
+});
