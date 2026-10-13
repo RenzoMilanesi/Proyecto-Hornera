@@ -12,6 +12,25 @@ const MIGRACIONES = [
   `ALTER TABLE liquidacion RENAME COLUMN saldo_final TO saldo_final_ars;
    ALTER TABLE liquidacion ADD COLUMN saldo_final_usd INTEGER NOT NULL DEFAULT 0;
    ALTER TABLE liquidacion ADD COLUMN conversion_usd INTEGER NOT NULL DEFAULT 0;`,
+  // 2 → 3: el saldo de una cuenta también suma los pagos de Stays de sus medios de pago.
+  `DROP VIEW IF EXISTS v_saldo_cuenta;
+-- El saldo arranca en la fecha del "Saldo inicial" de la cuenta (saldo_desde), si tiene:
+-- lo cobrado o movido antes ya está incluido en ese saldo. Sin saldo inicial suma todo.
+CREATE VIEW v_saldo_cuenta AS
+SELECT c.id AS cuenta_id, c.nombre, c.moneda, c.activo, d.desde AS saldo_desde,
+       -- Movimientos cargados en la app (gastos, transferencias, saldo inicial...)
+       COALESCE((SELECT SUM(CASE c.moneda WHEN 'ARS' THEN m.importe_ars ELSE m.importe_usd END)
+                 FROM movimiento m WHERE m.cuenta_id = c.id AND m.estado = 'vigente'
+                   AND (d.desde IS NULL OR m.fecha >= d.desde)), 0)
+       -- + lo que entró por los medios de pago de Stays asociados a la cuenta (neto de comisión)
+     + COALESCE((SELECT SUM(CASE p.tipo WHEN 'debit' THEN -p.importe ELSE p.importe - COALESCE(p.comision, 0) END)
+                 FROM pago p JOIN medio_pago mp ON mp.id = p.medio_pago_id
+                 WHERE mp.cuenta_id = c.id AND mp.moneda = c.moneda AND p.estado = 'completed'
+                   AND (d.desde IS NULL OR p.fecha_pago IS NULL OR p.fecha_pago >= d.desde)), 0) AS saldo
+FROM cuenta c
+LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
+           WHERE tipo = 'saldo_inicial' AND estado = 'vigente' AND cuenta_id IS NOT NULL
+           GROUP BY cuenta_id) d ON d.cuenta_id = c.id;`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

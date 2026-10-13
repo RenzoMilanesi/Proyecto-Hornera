@@ -8,6 +8,7 @@ import { SQL_EN_PERIODO } from './periodo.ts';
 import { liquidarPeriodo } from './liquidacion/servicio.ts';
 import { compararConExcel } from './liquidacion/comparar.ts';
 import { auditar } from './auditoria.ts';
+import { anularMovimiento, crearMovimiento, editarMovimiento, listarMovimientos, transferir } from './movimientos.ts';
 
 // Dónde viven las credenciales de Stays. En Electron, cifradas con safeStorage
 // (DPAPI de Windows) fuera de la base: no viajan en los backups.
@@ -214,6 +215,67 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
       res.status(400).json({ error: mensaje(e) });
     }
   });
+
+  // ---- Movimientos (reemplaza CORRIENTE). Los errores de validación vuelven como 400.
+  const intentar = (res: Response, fn: () => unknown) => {
+    try {
+      res.json(fn() ?? { ok: true });
+    } catch (e) {
+      res.status(400).json({ error: mensaje(e) });
+    }
+  };
+  app.get('/api/movimientos', (req, res) => { res.json(listarMovimientos(db, String(req.query.mes ?? ''))); });
+  app.post('/api/movimientos', (req, res) => intentar(res, () => ({ id: crearMovimiento(db, req.body ?? {}) })));
+  app.put('/api/movimientos/:id', (req, res) => intentar(res, () => editarMovimiento(db, Number(req.params.id), req.body ?? {})));
+  app.post('/api/movimientos/:id/anular', (req, res) => intentar(res, () => anularMovimiento(db, Number(req.params.id))));
+  app.post('/api/transferencias', (req, res) => intentar(res, () => ({ id: transferir(db, req.body ?? {}) })));
+  app.get('/api/conceptos', (_req, res) => {
+    res.json(db.prepare('SELECT id, nombre FROM concepto WHERE activo = 1 ORDER BY nombre').all());
+  });
+
+  // ---- Cuentas y medios de pago de Stays
+  app.get('/api/cuentas', (_req, res) => {
+    res.json(db.prepare('SELECT cuenta_id AS id, nombre, moneda, activo, saldo, saldo_desde FROM v_saldo_cuenta ORDER BY activo DESC, nombre').all());
+  });
+  app.post('/api/cuentas', (req, res) => intentar(res, () => {
+    const { nombre, moneda } = req.body ?? {};
+    if (typeof nombre !== 'string' || !nombre.trim() || (moneda !== 'ARS' && moneda !== 'USD')) throw new Error('Faltan el nombre o la moneda (ARS o USD).');
+    if (db.prepare('SELECT 1 FROM cuenta WHERE lower(nombre) = lower(?)').get(nombre.trim())) throw new Error(`Ya existe la cuenta ${nombre.trim()}.`);
+    const id = Number(db.prepare('INSERT INTO cuenta(nombre, moneda) VALUES (?, ?)').run(nombre.trim(), moneda).lastInsertRowid);
+    auditar(db, 'cuenta', id, 'alta', null, { nombre: nombre.trim(), moneda });
+    return { id };
+  }));
+  // La moneda no se cambia: los movimientos ya cargados quedarían en la moneda equivocada.
+  app.put('/api/cuentas/:id', (req, res) => intentar(res, () => {
+    const { nombre, activo } = req.body ?? {};
+    const id = Number(req.params.id);
+    const antes = db.prepare('SELECT nombre, activo FROM cuenta WHERE id = ?').get(id);
+    if (!antes) throw new Error('No existe la cuenta.');
+    if (typeof nombre !== 'string' || !nombre.trim() || ![0, 1].includes(activo)) throw new Error('Faltan el nombre o si está activa.');
+    db.prepare('UPDATE cuenta SET nombre = ?, activo = ? WHERE id = ?').run(nombre.trim(), activo, id);
+    auditar(db, 'cuenta', id, 'modificacion', antes, { nombre: nombre.trim(), activo });
+  }));
+  app.get('/api/medios-pago', (_req, res) => {
+    res.json(db.prepare(`
+      SELECT mp.id, mp.nombre, mp.tipo_stays, mp.moneda, mp.descuenta_comision, mp.cuenta_id, mp.activo,
+             (SELECT count(*) FROM pago p WHERE p.medio_pago_id = mp.id) AS pagos
+      FROM medio_pago mp ORDER BY mp.activo DESC, mp.nombre`).all());
+  });
+  // Asociar un medio de pago de Stays a una cuenta (y corregir su moneda o si descuenta comisión).
+  app.put('/api/medios-pago/:id', (req, res) => intentar(res, () => {
+    const { cuenta_id, moneda, descuenta_comision } = req.body ?? {};
+    const id = Number(req.params.id);
+    const antes = db.prepare('SELECT cuenta_id, moneda, descuenta_comision FROM medio_pago WHERE id = ?').get(id);
+    if (!antes) throw new Error('No existe el medio de pago.');
+    if ((moneda !== 'ARS' && moneda !== 'USD') || ![0, 1].includes(descuenta_comision)) throw new Error('Moneda (ARS o USD) o comisión inválidas.');
+    if (cuenta_id != null) {
+      const c = db.prepare('SELECT nombre, moneda FROM cuenta WHERE id = ?').get(cuenta_id) as { nombre: string; moneda: string } | undefined;
+      if (!c) throw new Error('No existe la cuenta.');
+      if (c.moneda !== moneda) throw new Error(`La cuenta ${c.nombre} es en ${c.moneda} y el medio de pago en ${moneda}.`);
+    }
+    db.prepare('UPDATE medio_pago SET cuenta_id = ?, moneda = ?, descuenta_comision = ? WHERE id = ?').run(cuenta_id ?? null, moneda, descuenta_comision, id);
+    auditar(db, 'medio_pago', id, 'modificacion', antes, { cuenta_id: cuenta_id ?? null, moneda, descuenta_comision });
+  }));
 
   // Las rutas nuevas van arriba de estas dos: lo que no es /api sigue a Vite/static.
   app.use('/api', (req, res) => {

@@ -271,3 +271,30 @@ test('ajustes de una reserva y cotización del período: validan y quedan en la 
     assert.equal((await fetch(`${base}/api/liquidacion?mes=2030-01`)).status, 400);
   });
 });
+
+test('cuentas, medios de pago y movimientos por la API', () => {
+  const db = abrirDb(':memory:');
+  periodo(db, '2026-05', '2026-05-01', '2026-06-01');
+  db.exec(`INSERT INTO medio_pago(stays_id, nombre, tipo_stays, moneda) VALUES ('mp', 'MP', 'mercadopago', 'ARS')`);
+  return conApi(db, async (base) => {
+    const json = { 'Content-Type': 'application/json' };
+    const pedir = (metodo: string, ruta: string, cuerpo?: unknown) =>
+      fetch(`${base}/api/${ruta}`, { method: metodo, headers: json, body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo) });
+
+    assert.equal((await pedir('POST', 'cuentas', { nombre: 'Banco Prueba', moneda: 'ARS' })).status, 200);
+    assert.equal((await pedir('POST', 'cuentas', { nombre: 'Dólares Prueba', moneda: 'USD' })).status, 200);
+    assert.match((await (await pedir('POST', 'cuentas', { nombre: 'banco prueba', moneda: 'ARS' })).json()).error, /Ya existe/);
+
+    // El medio de pago en ARS no se asocia a una cuenta en USD.
+    assert.match((await (await pedir('PUT', 'medios-pago/1', { cuenta_id: 2, moneda: 'ARS', descuenta_comision: 1 })).json()).error, /es en USD/);
+    assert.equal((await pedir('PUT', 'medios-pago/1', { cuenta_id: 1, moneda: 'ARS', descuenta_comision: 1 })).status, 200);
+
+    const mov = { mes: '2026-05', fecha: '2026-05-03', depto: null, tipo: 'saldo_inicial', concepto: null, detalle: 'Saldo al empezar', importe_ars: 100000, importe_usd: 0, cuenta_id: 1 };
+    assert.match((await (await pedir('POST', 'movimientos', { ...mov, importe_ars: 0 })).json()).error, /Falta el importe/);
+    assert.equal((await pedir('POST', 'movimientos', mov)).status, 200);
+    const lista = await (await fetch(`${base}/api/movimientos?mes=2026-05`)).json();
+    assert.deepEqual(lista.map((m: any) => [m.tipo, m.cuenta, m.importe_ars]), [['saldo_inicial', 'Banco Prueba', 100000]]);
+    const cuentas = await (await fetch(`${base}/api/cuentas`)).json();
+    assert.deepEqual(cuentas.map((c: any) => [c.nombre, c.saldo]), [['Banco Prueba', 100000], ['Dólares Prueba', 0]]);
+  });
+});

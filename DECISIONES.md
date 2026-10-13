@@ -45,6 +45,14 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - Ajustes de reserva (corrección ARS/USD, comisión, observación, excluir) desde la pantalla Stays, con registro en `auditoria` (también los cambios de cotización). La corrección de lo cobrado se prorratea por noches como el ingreso; la comisión cuenta una sola vez, en el mes en que llega la reserva. Los ajustes de una reserva que es parte de un mes cerrado no se cambian (hay que reabrirlo).
 - Si el mes anterior encontrado no es el inmediatamente anterior, se avisa (falta cargar un mes).
 
+## Movimientos y cuentas (`server/movimientos.ts`, pantallas "Movimientos" y "Cuentas")
+- Reemplazan a CORRIENTE. Cada movimiento: período, fecha, depto o empresa (INT), tipo, concepto (si no existe se da de alta), detalle, importe en ARS o USD con signo y cuenta opcional.
+- Tipos: gasto, adelanto al propietario y cobro directo por plataforma van negativos; ingreso, positivo; saldo inicial y ajuste, con cualquier signo. Adelantos y cobros directos siempre son de un depto. Los pagos de liquidación los generará "marcar pagado" (fase 5c).
+- Nunca se borran: se anulan. Se pueden editar mientras el período está abierto; los pagos de liquidación y las transferencias no se editan (se anulan y se cargan de nuevo). Todo queda en la auditoría.
+- Transferencia entre cuentas propias: dos movimientos con el mismo `transferencia_grupo`; entre monedas distintas (compra/venta de USD) cada lado lleva su importe. Anular una pata anula las dos.
+- Saldo de una cuenta (`v_saldo_cuenta`, esquema 3) = movimientos con esa cuenta + lo cobrado en Stays por los medios de pago asociados (completados, neto de comisión, menos débitos), desde la fecha de su "Saldo inicial" (lo anterior ya está incluido en ese saldo; sin saldo inicial suma todo). La moneda de una cuenta no se cambia; un medio de pago solo se asocia a una cuenta de su moneda.
+- El saldo de arranque de cada cuenta se carga como movimiento "Saldo inicial" con la cuenta y sin depto.
+
 ## Stays ("traer mes", `server/stays/`)
 - Reemplaza los scripts 0 a 2 de `balances-hornera`, con sus mismas reglas: reservas por llegada, por salida (corrida un día) e incluidas; entra la que tiene noches en el período o llega en él (cancelaciones de 0 noches). Reserva sin canal = "Carga Agente".
 - Primero se baja todo y después se escribe en una transacción: si la red falla no queda nada a medias. Cada intento queda en `sincronizacion` (también los fallidos).

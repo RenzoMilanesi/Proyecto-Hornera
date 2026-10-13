@@ -28,9 +28,11 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 021 | [No se cambian ajustes de reservas de un mes cerrado](021-ajustes-mes-cerrado.md) | P2 | S | — | DONE |
 | 022 | [Avisar cuando el saldo viene de un mes que no es el anterior](022-aviso-mes-salteado.md) | P3 | S | — | DONE |
 | 023 | [La comparación con el Excel se borra al recalcular](023-comparacion-vieja.md) | P3 | S | — | DONE |
+| 024 | [El saldo de una cuenta arranca en su "Saldo inicial"](024-saldo-cuenta-desde-saldo-inicial.md) | P1 | S | — | DONE |
 
 Planes 006-008: revisión `improve deep` del importador (fase 3), 2026-10-12.
 Planes 009-010: revisión de la sincronización con Stays (fase 4), 2026-10-12.
+Plan 024: revisión de movimientos y cuentas (fase 5b), 2026-10-12.
 Planes 020-023: revisión de la liquidación del mes abierto (fase 5a), 2026-10-12.
 Planes 011-019: auditoría `improve deep` de las fases 1-4, 2026-10-12. Orden: 011 → 019.
 
@@ -39,6 +41,9 @@ Orden recomendado: 001 → 002 → 003 → 004 → 005. 004 reutiliza la funció
 de 002.
 
 ## Considerados y descartados
+- Saldo de cuenta solo con pagos "completed" (la liquidación cuenta todo lo no "pending"): a propósito, la cuenta muestra la plata que ya entró.
+- Conceptos con errores de tipeo se dan de alta solos: cómodo para cargar; si se ensucian, una pantalla para depurarlos.
+- Cambiar la moneda de un medio de pago con pagos cargados: es para corregir; no toca meses cerrados.
 - Aviso de tamaño del bundle de Vite: app de escritorio local, no viaja por red.
 - CORS: el navegador ya bloquea leer respuestas de otro origen; el único vector
   de lectura es DNS rebinding (plan 002).
