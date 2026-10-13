@@ -1,5 +1,7 @@
 // API HTTP. La usan la ventana de Electron y, más adelante, las terminales de la red.
 import express, { type NextFunction, type Request, type Response } from 'express';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import { importarExcel } from './importador/excel.ts';
 import { crearClienteStays, URL_STAYS, type Credenciales } from './stays/cliente.ts';
@@ -9,12 +11,22 @@ import { liquidarPeriodo } from './liquidacion/servicio.ts';
 import { compararConExcel } from './liquidacion/comparar.ts';
 import { auditar } from './auditoria.ts';
 import { anularMovimiento, crearMovimiento, editarMovimiento, listarMovimientos, transferir } from './movimientos.ts';
+import { cerrarPeriodo, reabrirPeriodo } from './liquidacion/cierre.ts';
+import { excelTransferencias, listarTransferencias, pagarLiquidacion } from './liquidacion/pagos.ts';
+import { hojaDepto } from './liquidacion/hoja.ts';
 
 // Dónde viven las credenciales de Stays. En Electron, cifradas con safeStorage
 // (DPAPI de Windows) fuera de la base: no viajan en los backups.
 export interface AlmacenCredenciales {
   leer(): Credenciales | null;
   guardar(c: Credenciales): void;
+}
+
+// PDF de la hoja de un depto. En Electron: ventana oculta + printToPDF (ver electron/main.ts).
+export interface GeneradorPdf {
+  generar(ruta: string): Promise<Buffer>;   // ruta de la app a imprimir, p. ej. "/?imprimir=1&mes=…"
+  carpeta(mes: string): string;             // dónde se guardan los PDF del mes
+  abrir(ruta: string): void;                // abre el archivo o la carpeta en Windows
 }
 
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -35,9 +47,9 @@ function urlStaysPermitida(url: string) {
 // Fase 5 (terminales en LAN): sumar acá las IP/nombres de la PC servidor.
 const HOST_PERMITIDO = /^(127\.0\.0\.1|localhost)(:\d+)?$/;
 
-export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string } = {}) {
+export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf } = {}) {
   const app = express();
-  const { credenciales, urlStays = URL_STAYS } = opciones;
+  const { credenciales, urlStays = URL_STAYS, pdf } = opciones;
   app.use((req, res, next) => {
     if (HOST_PERMITIDO.test(req.headers.host ?? '')) return next();
     res.status(403).json({ error: 'Host no permitido' });
@@ -181,7 +193,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
 
   // ---- Períodos y liquidación
   app.get('/api/periodos', (_req, res) => {
-    res.json(db.prepare('SELECT mes, estado, usd_cotizacion, usd_descuento_pct FROM periodo ORDER BY mes DESC').all());
+    res.json(db.prepare('SELECT mes, estado, usd_cotizacion, usd_descuento_pct, fecha_pago FROM periodo ORDER BY mes DESC').all());
   });
 
   // Cotización del dólar cripto al cierre (manual por ahora; ponytail: la consulta automática viene después).
@@ -276,6 +288,46 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     db.prepare('UPDATE medio_pago SET cuenta_id = ?, moneda = ?, descuenta_comision = ? WHERE id = ?').run(cuenta_id ?? null, moneda, descuenta_comision, id);
     auditar(db, 'medio_pago', id, 'modificacion', antes, { cuenta_id: cuenta_id ?? null, moneda, descuenta_comision });
   }));
+
+  // ---- Cierre del mes, transferencias y PDF
+  app.post('/api/periodos/:mes/cerrar', (req, res) => intentar(res, () => cerrarPeriodo(db, req.params.mes)));
+  app.post('/api/periodos/:mes/reabrir', (req, res) => intentar(res, () => reabrirPeriodo(db, req.params.mes)));
+  app.get('/api/transferencias', (req, res) => { res.json(listarTransferencias(db, String(req.query.mes ?? ''))); });
+  app.post('/api/liquidaciones/:id/pagar', (req, res) => intentar(res, () => ({ id: pagarLiquidacion(db, Number(req.params.id), req.body ?? {}) })));
+  app.get('/api/transferencias/excel', (req, res) => {
+    const mes = String(req.query.mes ?? '');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="transferencias-${mes}.xlsx"`);
+    res.send(excelTransferencias(db, mes));
+  });
+  app.get('/api/hoja', (req, res) => intentar(res, () => hojaDepto(db, String(req.query.mes ?? ''), String(req.query.depto ?? ''))));
+
+  // Genera los PDF (uno o todos los deptos del mes), los guarda en la carpeta del mes y la abre.
+  app.post('/api/liquidacion/pdf', async (req, res) => {
+    const { mes, depto } = req.body ?? {};
+    if (!pdf) { res.status(400).json({ error: 'Esta instalación no genera PDF' }); return; }
+    try {
+      const deptos = depto ? [String(depto)] : (db.prepare(`
+        SELECT d.codigo FROM liquidacion l JOIN periodo p ON p.id = l.periodo_id JOIN depto d ON d.id = l.depto_id
+        WHERE p.mes = ? ORDER BY d.codigo`).all(String(mes)) as { codigo: string }[]).map((x) => x.codigo);
+      if (!deptos.length) throw new Error(`${mes} no tiene liquidaciones cerradas: cerrá el mes o elegí un depto.`);
+      for (const codigo of deptos) hojaDepto(db, String(mes), codigo); // valida antes de abrir ventanas
+      // configuracion.pdf.carpeta permite guardarlos en otra carpeta (Drive, por ejemplo), una subcarpeta por mes.
+      const base = (db.prepare(`SELECT valor FROM configuracion WHERE clave = 'pdf.carpeta'`).get() as { valor: string } | undefined)?.valor;
+      const carpeta = base ? join(base, String(mes)) : pdf.carpeta(String(mes));
+      mkdirSync(carpeta, { recursive: true });
+      const archivos: string[] = [];
+      for (const codigo of deptos) {
+        const ruta = join(carpeta, `${codigo}.pdf`);
+        writeFileSync(ruta, await pdf.generar(`/?imprimir=1&mes=${encodeURIComponent(String(mes))}&depto=${encodeURIComponent(codigo)}`));
+        archivos.push(ruta);
+      }
+      pdf.abrir(archivos.length === 1 ? archivos[0] : carpeta);
+      res.json({ carpeta, archivos });
+    } catch (e) {
+      res.status(400).json({ error: mensaje(e) });
+    }
+  });
 
   // Las rutas nuevas van arriba de estas dos: lo que no es /api sigue a Vite/static.
   app.use('/api', (req, res) => {

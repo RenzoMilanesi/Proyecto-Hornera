@@ -262,6 +262,17 @@ export function importarExcel(db: DatabaseSync, contenido: Buffer, ahora = new D
       reporte.deptos++;
     }
     reporte.propietarios = propietariosVistos.size;
+
+    // Datos de la administradora para el encabezado del PDF (filas 6 y 7 de cualquier hoja de depto).
+    const muestra = hojasDepto.values().next().value;
+    if (muestra && actualizar) {
+      const sinEtiqueta = (ref: string) => txt(muestra, ref).replace(/^[^:]*:\s*/, ''); // "CUIT:  27-…" → "27-…"
+      const guardar = db.prepare('INSERT INTO configuracion(clave, valor) VALUES (?, ?) ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor');
+      for (const [clave, valor] of [['empresa.administrador', txt(muestra, 'B6')], ['empresa.cuit', sinEtiqueta('E6')],
+        ['empresa.direccion', sinEtiqueta('A7')], ['empresa.telefono', sinEtiqueta('C7')], ['empresa.email', sinEtiqueta('E7')]]) {
+        if (valor) guardar.run(clave, valor);
+      }
+    }
     for (const codigo of hojasDepto.keys()) {
       if (!deptoIds.has(codigo)) avisos.push(`La hoja ${codigo} no tiene depto en Propiedades: su liquidación no se importa.`);
     }

@@ -7,6 +7,7 @@ import { Stays } from './Stays.tsx';
 import { Liquidacion } from './Liquidacion.tsx';
 import { Movimientos } from './Movimientos.tsx';
 import { Cuentas } from './Cuentas.tsx';
+import { Transferencias } from './Transferencias.tsx';
 
 interface Depto { id: number; codigo: string; nombre: string; estado: string; comision_pct: number; propietario: string }
 interface Propietario { id: number; nombre: string; moneda_liquidacion: string; tiene_cbu: number; deptos: string | null }
@@ -40,6 +41,7 @@ const secciones = {
   deptos: { titulo: 'Deptos', vista: <Listado<Depto> ruta="deptos" columnas={columnasDeptos} /> },
   propietarios: { titulo: 'Propietarios', vista: <Listado<Propietario> ruta="propietarios" columnas={columnasPropietarios} /> },
   liquidacion: { titulo: 'Liquidación', vista: <Liquidacion /> },
+  transferencias: { titulo: 'Transferencias', vista: <Transferencias /> },
   movimientos: { titulo: 'Movimientos', vista: <Movimientos /> },
   cuentas: { titulo: 'Cuentas', vista: <Cuentas /> },
   stays: { titulo: 'Stays', vista: <Stays /> },

@@ -39,7 +39,7 @@ function cuentaActiva(db: DatabaseSync, id: unknown) {
   return c;
 }
 
-function conceptoId(db: DatabaseSync, nombre: string | null): number | null {
+export function conceptoId(db: DatabaseSync, nombre: string | null): number | null {
   const n = nombre?.trim();
   if (!n) return null;
   const fila = db.prepare('SELECT id FROM concepto WHERE lower(nombre) = lower(?)').get(n) as { id: number } | undefined;

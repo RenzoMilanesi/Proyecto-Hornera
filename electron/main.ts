@@ -1,12 +1,12 @@
 // Proceso principal: abre la base, levanta la API y muestra la ventana.
 // En desarrollo, Vite corre como middleware del mismo Express (un solo puerto, con HMR).
-import { app, BrowserWindow, dialog, safeStorage, session } from 'electron';
+import { app, BrowserWindow, dialog, safeStorage, session, shell } from 'electron';
 import express from 'express';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { abrirDb } from '../server/db.ts';
-import { crearApp, type AlmacenCredenciales } from '../server/app.ts';
+import { crearApp, type AlmacenCredenciales, type GeneradorPdf } from '../server/app.ts';
 import { respaldar } from '../server/backup.ts';
 
 const PUERTO = 4310;
@@ -37,9 +37,33 @@ function almacenCredenciales(): AlmacenCredenciales {
   };
 }
 
+// PDF de la hoja de un depto: la vista imprimible de la app en una ventana oculta + printToPDF.
+// La vista marca document.body.dataset.listo ('1' o el mensaje de error) cuando terminó de cargar.
+function generadorPdf(origen: string): GeneradorPdf {
+  return {
+    async generar(ruta) {
+      const ventana = new BrowserWindow({ show: false, width: 900, height: 1200 });
+      try {
+        await ventana.loadURL(origen + ruta);
+        let estado: string | undefined;
+        for (let i = 0; i < 150 && !estado; i++) {
+          estado = await ventana.webContents.executeJavaScript('document.body.dataset.listo');
+          if (!estado) await new Promise((ok) => setTimeout(ok, 100));
+        }
+        if (estado !== '1') throw new Error(`No se pudo armar la hoja: ${estado ?? 'tardó demasiado'}`);
+        return await ventana.webContents.printToPDF({ pageSize: 'A4', printBackground: true });
+      } finally {
+        ventana.destroy();
+      }
+    },
+    carpeta: (mes) => join(app.getPath('documents'), 'Hornera', 'Liquidaciones', mes),
+    abrir: (ruta) => { shell.openPath(ruta); },
+  };
+}
+
 async function iniciar() {
   const db = abrirDb(join(app.getPath('userData'), 'hornera.db'));
-  const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales() });
+  const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales(), pdf: generadorPdf(`http://${HOST}:${PUERTO}`) });
   const http = createServer(api);
 
   if (app.isPackaged) {

@@ -12,9 +12,13 @@ export interface LiquidacionDepto {
   nombre: string;
   propietario: string;
   moneda: 'ARS' | 'USD';
+  comisionPct: number;
+  nochesNoDisponibles: number;
   saldoAnterior: Importe;
+  movimientos: Importe;                       // del período, sin saldo inicial ni pagos de liquidación
   comisiones: Importe;                        // fee del channel manager + las cargadas en las reservas
-  reservas: { id: number; codigo: string }[]; // mismo orden que resultado.reservas
+  // Mismo orden que resultado.reservas. `comision`: la que esta reserva suma en este período.
+  reservas: { id: number; codigo: string; llegada: string; huespedes: number; comision: Importe }[];
   resultado: ResultadoLiquidacion;
 }
 
@@ -104,9 +108,10 @@ export function liquidarPeriodo(db: DatabaseSync, mes: string): LiquidacionPerio
     // las reservas que LLEGAN en el período: una reserva que cruza de mes aparece en los dos y su
     // comisión se cobra una sola vez. ponytail: sin % automático por plataforma (DECISIONES).
     const fee = d.estado === 'activo' || reservas.length ? (d.cm_fee_usd_override ?? p.cm_fee_usd) : 0;
-    const comisiones = reservas
-      .filter((x) => x.llegada >= p.fecha_inicio && x.llegada < p.fecha_cierre_reservas)
-      .reduce((s, x) => sumar(s, { ars: x.ajuste_comision_ars, usd: x.ajuste_comision_usd }), { ars: 0, usd: fee });
+    const comisionDe = (x: any): Importe => (x.llegada >= p.fecha_inicio && x.llegada < p.fecha_cierre_reservas
+      ? { ars: x.ajuste_comision_ars, usd: x.ajuste_comision_usd } : CERO);
+    const comisiones = reservas.reduce((s, x) => sumar(s, comisionDe(x)), { ars: 0, usd: fee });
+    const nochesNoDisponibles = Math.round((nochesBloqueadas.get({ depto: d.id, inicio: p.fecha_inicio, cierre: p.fecha_cierre_reservas }) as { n: number }).n);
 
     const r = liquidar({
       periodo,
@@ -114,7 +119,7 @@ export function liquidarPeriodo(db: DatabaseSync, mes: string): LiquidacionPerio
         codigo: d.codigo, comisionPct: d.comision_pct, tarifaBaseOverride: d.tarifa_base_override,
         adicionalHuespedOverride: d.adicional_huesped_override, monedaLiquidacion: d.moneda_liquidacion,
         comisionCobroUsdPct: d.comision_cobro_usd_pct,
-        nochesNoDisponibles: Math.round((nochesBloqueadas.get({ depto: d.id, inicio: p.fecha_inicio, cierre: p.fecha_cierre_reservas }) as { n: number }).n),
+        nochesNoDisponibles,
       },
       reservas: reservas.map((x) => ({
         llegada: x.llegada, salida: x.salida, huespedes: x.huespedes, canal: x.canal ?? '',
@@ -127,7 +132,9 @@ export function liquidarPeriodo(db: DatabaseSync, mes: string): LiquidacionPerio
     });
     resultado.push({
       deptoId: d.id, codigo: d.codigo, nombre: d.nombre, propietario: d.propietario, moneda: d.moneda_liquidacion,
-      saldoAnterior, comisiones, reservas: reservas.map((x) => ({ id: x.id, codigo: x.codigo })), resultado: r,
+      comisionPct: d.comision_pct, nochesNoDisponibles, saldoAnterior, comisiones,
+      movimientos: movimientos.filter((m) => m.tipo !== 'saldo_inicial').reduce(sumar, CERO),
+      reservas: reservas.map((x) => ({ id: x.id, codigo: x.codigo, llegada: x.llegada, huespedes: x.huespedes, comision: comisionDe(x) })), resultado: r,
     });
   }
   return { ...base, cambio, avisos, deptos: resultado };

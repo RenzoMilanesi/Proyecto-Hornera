@@ -45,6 +45,13 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - Ajustes de reserva (corrección ARS/USD, comisión, observación, excluir) desde la pantalla Stays, con registro en `auditoria` (también los cambios de cotización). La corrección de lo cobrado se prorratea por noches como el ingreso; la comisión cuenta una sola vez, en el mes en que llega la reserva. Los ajustes de una reserva que es parte de un mes cerrado no se cambian (hay que reabrirlo).
 - Si el mes anterior encontrado no es el inmediatamente anterior, se avisa (falta cargar un mes).
 
+## Cierre, transferencias y PDF (`server/liquidacion/cierre.ts`, `pagos.ts`, `hoja.ts`)
+- **Cerrar el mes** guarda la liquidación de cada depto tal como se calculó (`liquidacion` + `liquidacion_reserva`, con los prorrateos redondeados a centavos) y congela el período. Hace falta la cotización y que el mes anterior esté cerrado.
+- **Reabrir** borra ese snapshot y vuelve a calcular. No se puede si el mes siguiente está cerrado, si hay pagos de liquidación vigentes (se anulan antes) ni si el mes se importó del Excel (su liquidación es la del Excel). Cierre y reapertura quedan en la auditoría.
+- **Transferencias** (pantalla): saldo de cada depto en su moneda, lo pagado y lo pendiente; "Marcar pagado" genera el movimiento "Liquidacion periodo" (tipo `liquidacion`, permitido con el mes cerrado) desde la cuenta elegida, con pagos parciales. Si el mes siguiente ya está cerrado, lo pendiente pasó a ese mes como saldo anterior y no se puede pagar desde el mes viejo (se pagaría dos veces). Exportación a Excel para el banco (CBU/CVU, "Nosotros" para el depto propio).
+- **PDF por depto**: mismo contenido y orden que la hoja del Excel, generado con `printToPDF` de Electron desde una vista imprimible de la app. Se guarda en `DocumentosHorneraLiquidaciones<mes><DEPTO>.pdf` (o en `configuracion.pdf.carpeta`) y se abre. Con el mes abierto sirve de vista previa. El detalle de reservas no incluye documento ni razón social de los huéspedes.
+- Los datos de la administradora del encabezado (nombre, CUIT, dirección, teléfono, mail) los toma el importador de la hoja de un depto y quedan en `configuracion` (`empresa.*`), no en el código.
+
 ## Movimientos y cuentas (`server/movimientos.ts`, pantallas "Movimientos" y "Cuentas")
 - Reemplazan a CORRIENTE. Cada movimiento: período, fecha, depto o empresa (INT), tipo, concepto (si no existe se da de alta), detalle, importe en ARS o USD con signo y cuenta opcional.
 - Tipos: gasto, adelanto al propietario y cobro directo por plataforma van negativos; ingreso, positivo; saldo inicial y ajuste, con cualquier signo. Adelantos y cobros directos siempre son de un depto. Los pagos de liquidación los generará "marcar pagado" (fase 5c).

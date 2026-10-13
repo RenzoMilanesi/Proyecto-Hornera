@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Descriptions, InputNumber, Select, Space, Table, Tag, Typography, Upload } from 'antd';
+import { Alert, Button, Card, Descriptions, InputNumber, Popconfirm, Select, Space, Table, Tag, Typography, Upload } from 'antd';
 import type { TableColumnsType } from 'antd';
 import type { LiquidacionDepto, LiquidacionPeriodo } from '../server/liquidacion/servicio.ts';
 import type { ComparacionDepto } from '../server/liquidacion/comparar.ts';
@@ -81,6 +81,28 @@ export function Liquidacion() {
       setError(e instanceof Error ? e.message : String(e));
     }
   };
+  const [ocupado, setOcupado] = useState<string>(); // acción en curso: 'cerrar', 'reabrir', 'pdf', 'pdf:OVL'…
+  const [aviso, setAviso] = useState<string>();
+  const accion = async (cual: string, fn: () => Promise<unknown>, exito?: string) => {
+    setOcupado(cual);
+    setError(undefined);
+    setAviso(undefined);
+    try {
+      await fn();
+      if (exito) setAviso(exito);
+      await cargarPeriodos();
+      if (mes) calcular(mes);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setOcupado(undefined);
+    }
+  };
+  const pdf = (depto?: string) => accion(depto ? `pdf:${depto}` : 'pdf', async () => {
+    const r = await enviar<{ carpeta: string; archivos: string[] }>('liquidacion/pdf', 'POST', { mes, depto });
+    setAviso(`${r.archivos.length === 1 ? 'PDF guardado' : `${r.archivos.length} PDF guardados`} en ${r.carpeta}`);
+  });
+
   const comparar = async (archivo: File) => {
     setComparando(true);
     setError(undefined);
@@ -108,6 +130,13 @@ export function Liquidacion() {
       },
     },
     ...(comparacion ? [{ title: 'Excel', key: 'excel', width: 150, render: (_: unknown, d: LiquidacionDepto) => <Comparacion c={comparacion.get(d.codigo)} /> }] : []),
+    {
+      title: '', key: 'pdf', width: 70,
+      render: (_: unknown, d: LiquidacionDepto) => (
+        <Button size="small" loading={ocupado === `pdf:${d.codigo}`} disabled={!!ocupado} onClick={() => pdf(d.codigo)}
+          title={periodo?.estado === 'abierto' ? 'Vista previa: el mes todavía está abierto' : undefined}>PDF</Button>
+      ),
+    },
   ];
   const resumen = comparacion && [...comparacion.values()].reduce((s, c) => ({ ...s, [c.estado]: (s[c.estado] ?? 0) + 1 }), {} as Record<string, number>);
   const soloExcel = comparacion && [...comparacion.values()].filter((c) => c.estado === 'solo_excel').map((c) => c.codigo);
@@ -129,10 +158,28 @@ export function Liquidacion() {
             beforeUpload={(archivo) => { comparar(archivo); return false; }}>
             <Button loading={comparando} disabled={!datos?.cambio}>Comparar con el Excel del mes</Button>
           </Upload>
+          {periodo?.estado === 'abierto' && (
+            <Popconfirm title={`¿Cerrar ${mes}?`} description="La liquidación queda guardada y el mes congelado. Se puede reabrir mientras no haya pagos."
+              okText="Cerrar mes" cancelText="No" disabled={!datos?.cambio}
+              onConfirm={() => accion('cerrar', () => enviar(`periodos/${mes}/cerrar`, 'POST', {}), `${mes} cerrado.`)}>
+              <Button type="primary" disabled={!datos?.cambio || !!ocupado} loading={ocupado === 'cerrar'}>Cerrar mes</Button>
+            </Popconfirm>
+          )}
+          {periodo?.estado === 'cerrado' && (
+            <>
+              <Button disabled={!!ocupado} loading={ocupado === 'pdf'} onClick={() => pdf()}>PDF de todos los deptos</Button>
+              <Popconfirm title={`¿Reabrir ${mes}?`} description="Se borra la liquidación guardada y se vuelve a calcular. No se puede si ya hay pagos."
+                okText="Reabrir" cancelText="No"
+                onConfirm={() => accion('reabrir', () => enviar(`periodos/${mes}/reabrir`, 'POST', {}), `${mes} reabierto.`)}>
+                <Button danger disabled={!!ocupado} loading={ocupado === 'reabrir'}>Reabrir mes</Button>
+              </Popconfirm>
+            </>
+          )}
         </Space>
       </Card>
 
       {error && <Alert type="error" showIcon title={error} />}
+      {aviso && <Alert type="success" showIcon closable title={aviso} onClose={() => setAviso(undefined)} />}
       {datos?.avisos.length ? <Alert type="warning" showIcon title="Avisos" description={<ul style={{ margin: 0, paddingLeft: 20 }}>{datos.avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>} /> : null}
       {resumen && (
         <Alert type={resumen.distinto || resumen.solo_excel || resumen.solo_app ? 'warning' : 'success'} showIcon
