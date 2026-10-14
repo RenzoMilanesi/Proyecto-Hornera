@@ -8,6 +8,14 @@
       /* Fila desplegada de una tabla y su detalle: se distinguen de las cerradas (tema "Ladrillo"). */
       .fila-abierta > td { background: #F3E3D9 !important; font-weight: 600; transition: none !important; }
       .fila-abierta > td:first-child { box-shadow: inset 4px 0 0 #A8461F; }
+      /* Modales: título separado del formulario y botones abajo con línea, como una ficha. */
+      .ant-modal .ant-modal-header { border-bottom: 1px solid #E6DED3 !important; padding-bottom: 12px !important; margin-bottom: 18px !important; }
+      .ant-modal .ant-modal-footer { border-top: 1px solid #E6DED3 !important; padding-top: 14px !important; margin-top: 20px !important; }
+      /* Resumen arriba de un formulario (a quién, cuánto). */
+      .ficha { background: #FBF4EF; border: 1px solid #E6DED3; border-radius: 6px; padding: 12px 16px; margin-bottom: 18px;
+        display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; align-items: baseline; }
+      .ficha > dt { color: #6E6259; margin: 0; }
+      .ficha > dd { margin: 0; }
       .detalle-abierto > td { background: #FBF4EF !important; box-shadow: inset 4px 0 0 #A8461F; }
     </style>
   </head>

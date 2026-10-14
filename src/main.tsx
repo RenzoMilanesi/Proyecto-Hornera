@@ -32,6 +32,7 @@ const tema: ThemeConfig = {
     Layout: { siderBg: marron },
     Menu: { darkItemBg: marron, darkItemColor: '#E9E1D8', darkItemSelectedBg: '#A8461F', darkItemHoverBg: '#3A2E26', darkGroupTitleColor: '#E8B48F' },
     Table: { headerBg: '#FBF8F4' },
+    Modal: { titleFontSize: 18 },
   },
 };
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
 import type { Transferencia } from '../server/liquidacion/pagos.ts';
-import { enviar, get, pesos } from './api.ts';
+import { entradaPlata, enviar, get, pesos, simbolo } from './api.ts';
 
 interface Periodo { mes: string; estado: string; fecha_pago: string }
 interface Cuenta { id: number; nombre: string; moneda: 'ARS' | 'USD'; activo: number }
@@ -26,16 +26,25 @@ export function FormPago({ t, fecha, cuentas, alCerrar }: { t?: Transferencia; f
     }
   };
   return (
-    <Modal open={!!t} title={t && `Pago de la liquidación de ${t.codigo}`} okText="Marcar pagado" cancelText="Cancelar" onOk={guardar}
+    <Modal open={!!t} title={t && `Pago de la liquidación de ${t.codigo}`} okText="Marcar pagado" cancelText="Cancelar" onOk={guardar} width={560}
       onCancel={() => alCerrar(false)} destroyOnHidden>
-      {t && <Typography.Paragraph>{t.propietario} · CBU/CVU: {t.esHornera ? 'Nosotros' : (t.cbu ?? 'no informado')} · pendiente {pesos(t.pendiente, t.moneda)}</Typography.Paragraph>}
+      {t && (
+        <dl className="ficha">
+          <dt>Propietario</dt><dd><b>{t.propietario}</b></dd>
+          <dt>CBU/CVU</dt>
+          <dd>{t.esHornera ? <Tag>Nosotros</Tag> : t.cbu ? <Typography.Text copyable code>{t.cbu}</Typography.Text> : <Tag color="orange">no informado</Tag>}</dd>
+          <dt>Pendiente</dt><dd><Typography.Text strong style={{ fontSize: 18 }}>{pesos(t.pendiente, t.moneda)}</Typography.Text></dd>
+        </dl>
+      )}
       <Form form={form} layout="vertical">
-        <Space wrap align="start">
-          <Form.Item label="Fecha" name="fecha" rules={[{ required: true }]}><Input type="date" /></Form.Item>
-          <Form.Item label={`Importe ${t?.moneda ?? ''}`} name="importe" rules={[{ required: true }, { type: 'number', min: 0.01, message: 'Mayor que 0' }]}
-            extra="Menos que lo pendiente si se paga en partes."><InputNumber decimalSeparator="," style={{ width: 170 }} /></Form.Item>
+        <Space wrap align="start" size="middle">
+          <Form.Item label="Fecha" name="fecha" rules={[{ required: true }]}><Input type="date" style={{ width: 170 }} /></Form.Item>
+          <Form.Item label="Importe" name="importe" rules={[{ required: true }, { type: 'number', min: 0.01, message: 'Mayor que 0' }]}
+            extra={<>Menos que lo pendiente si se paga en partes. <Typography.Link onClick={() => t && form.setFieldValue('importe', t.pendiente / 100)}>Todo lo pendiente</Typography.Link></>}>
+            <InputNumber {...entradaPlata} prefix={simbolo(t?.moneda)} style={{ width: 220 }} />
+          </Form.Item>
         </Space>
-        <Form.Item label="Sale de la cuenta" name="cuenta_id" extra="Vacío si no sale de una cuenta (por ejemplo, el depto propio).">
+        <Form.Item label="Sale de la cuenta" name="cuenta_id" extra={`Solo cuentas en ${t?.moneda ?? ''}. Vacío si no sale de una cuenta (por ejemplo, el depto propio).`}>
           <Select allowClear placeholder="Sin cuenta" options={cuentas.filter((c) => c.activo && c.moneda === t?.moneda).map((c) => ({ value: c.id, label: c.nombre }))} />
         </Form.Item>
         <Form.Item label="Detalle" name="detalle"><Input /></Form.Item>

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, AutoComplete, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Radio, Select, Space, Switch, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { enviar, get, pesos } from './api.ts';
+import { entradaPlata, enviar, get, pesos, simbolo } from './api.ts';
 
 interface Periodo { mes: string; estado: string }
 interface Cuenta { id: number; nombre: string; moneda: 'ARS' | 'USD'; activo: number }
@@ -96,7 +96,7 @@ function FormMovimiento({ abierto, mes, editando, deptos, cuentas, conceptos, al
         <Space wrap align="start">
           <Form.Item label="Moneda" name="moneda"><Radio.Group optionType="button" options={['ARS', 'USD']} /></Form.Item>
           <Form.Item label="Importe" name="importe" rules={[{ required: true, message: 'Falta el importe' }, { type: 'number', min: 0.01, message: 'Mayor que 0' }]}>
-            <InputNumber style={{ width: 160 }} decimalSeparator="," />
+            <InputNumber {...entradaPlata} prefix={simbolo(moneda)} style={{ width: 180 }} />
           </Form.Item>
           <Form.Item label="Sentido" name="signo">
             <Radio.Group optionType="button" disabled={!!(tipo && SIGNO_FIJO[tipo])}
@@ -141,13 +141,13 @@ function FormTransferencia({ abierto, mes, cuentas, alCerrar }: { abierto: boole
         <Form.Item label="Fecha" name="fecha" rules={[{ required: true }]}><Input type="date" style={{ width: 180 }} /></Form.Item>
         <Space wrap align="start">
           <Form.Item label="Sale de" name="desde" rules={[{ required: true }]} style={{ minWidth: 220 }}><Select options={opciones} /></Form.Item>
-          <Form.Item label={`Importe${desde ? ` ${desde.moneda}` : ''}`} name="sale" rules={[{ required: true }]}><InputNumber min={0.01} decimalSeparator="," /></Form.Item>
+          <Form.Item label={`Importe${desde ? ` ${desde.moneda}` : ''}`} name="sale" rules={[{ required: true }]}><InputNumber {...entradaPlata} min={0.01} prefix={simbolo(desde?.moneda)} style={{ width: 180 }} /></Form.Item>
         </Space>
         <Space wrap align="start">
           <Form.Item label="Entra a" name="hacia" rules={[{ required: true }]} style={{ minWidth: 220 }}><Select options={opciones} /></Form.Item>
           {!mismaMoneda && (
             <Form.Item label={`Importe${hacia ? ` ${hacia.moneda}` : ''}`} name="entra" rules={[{ required: true }]} extra="Compra o venta de dólares: lo que entra en la otra moneda.">
-              <InputNumber min={0.01} decimalSeparator="," />
+              <InputNumber {...entradaPlata} min={0.01} prefix={simbolo(hacia?.moneda)} style={{ width: 180 }} />
             </Form.Item>
           )}
         </Space>

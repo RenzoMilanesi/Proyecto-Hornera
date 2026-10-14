@@ -1,7 +1,7 @@
 // Ajustes manuales de una reserva (las pestañas 🖊 del Excel). "Traer mes" no los pisa.
 import { useEffect, useState } from 'react';
-import { Alert, Form, Input, InputNumber, Modal, Switch } from 'antd';
-import { enviar } from './api.ts';
+import { Alert, Col, Form, Input, InputNumber, Modal, Row, Switch, Typography } from 'antd';
+import { entradaPlata, enviar } from './api.ts';
 
 export interface ReservaAjustable {
   id: number; codigo: string; depto: string;
@@ -38,15 +38,23 @@ export function AjustesReserva({ reserva, alCerrar }: { reserva?: ReservaAjustab
     }
   };
 
-  const numero = { style: { width: '100%' }, step: 100, decimalSeparator: ',' };
+  const numero = { ...entradaPlata, style: { width: '100%' }, step: 100 };
   return (
     <Modal open={!!reserva} title={reserva && `Ajustes de la reserva ${reserva.codigo} (${reserva.depto})`}
       okText="Guardar" cancelText="Cancelar" onOk={guardar} onCancel={() => alCerrar(false)} destroyOnHidden>
       <Form form={form} layout="vertical">
-        <Form.Item label="Corrección de lo cobrado ARS" name="ajuste_ars" extra="Se suma a lo cobrado en Stays (negativo para restar)."><InputNumber {...numero} /></Form.Item>
-        <Form.Item label="Corrección de lo cobrado USD" name="ajuste_usd"><InputNumber {...numero} /></Form.Item>
-        <Form.Item label="Comisión OTA / agente ARS" name="ajuste_comision_ars" extra="Comisión cobrada por la plataforma o el agente (Booking reducida, Alq. Argentina, otros)."><InputNumber {...numero} min={0} /></Form.Item>
-        <Form.Item label="Comisión OTA / agente USD" name="ajuste_comision_usd"><InputNumber {...numero} min={0} /></Form.Item>
+        <Typography.Text strong>Corrección de lo cobrado</Typography.Text>
+        <Typography.Paragraph type="secondary" style={{ margin: '0 0 8px' }}>Se suma a lo cobrado en Stays (negativo para restar).</Typography.Paragraph>
+        <Row gutter={12}>
+          <Col span={12}><Form.Item label="Pesos" name="ajuste_ars"><InputNumber {...numero} prefix="$" /></Form.Item></Col>
+          <Col span={12}><Form.Item label="Dólares" name="ajuste_usd"><InputNumber {...numero} prefix="US$" /></Form.Item></Col>
+        </Row>
+        <Typography.Text strong>Comisión OTA / agente</Typography.Text>
+        <Typography.Paragraph type="secondary" style={{ margin: '0 0 8px' }}>Cobrada por la plataforma o el agente (Booking reducida, Alq. Argentina, otros).</Typography.Paragraph>
+        <Row gutter={12}>
+          <Col span={12}><Form.Item label="Pesos" name="ajuste_comision_ars"><InputNumber {...numero} min={0} prefix="$" /></Form.Item></Col>
+          <Col span={12}><Form.Item label="Dólares" name="ajuste_comision_usd"><InputNumber {...numero} min={0} prefix="US$" /></Form.Item></Col>
+        </Row>
         <Form.Item label="Observación" name="observacion"><Input.TextArea rows={2} /></Form.Item>
         <Form.Item label="Excluir de la liquidación" name="excluida" valuePropName="checked"><Switch /></Form.Item>
       </Form>
