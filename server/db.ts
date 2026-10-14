@@ -41,6 +41,9 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
   ) STRICT;`,
   // 4 → 5: fotos de cada depto, traídas de Stays.
   `ALTER TABLE depto ADD COLUMN fotos TEXT CHECK (fotos IS NULL OR json_valid(fotos));`,
+  // 5 → 6: propietario vinculado con su par de Stays.
+  `ALTER TABLE propietario ADD COLUMN stays_owner_id TEXT;
+   CREATE UNIQUE INDEX uq_propietario_stays ON propietario(stays_owner_id);`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

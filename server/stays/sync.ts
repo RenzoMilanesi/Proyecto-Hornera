@@ -9,6 +9,7 @@
 // - pagos de cada reserva: los mismos que tiene Stays.
 // - alojamientos: avisa deptos activos en uno y no en el otro; completa direcciones vacías
 //   y reemplaza las fotos de cada depto.
+// - propietarios: vincula cada uno con su par de Stays y avisa si un depto cambió de dueño.
 // Si el período no existe se crea con los parámetros del último cargado.
 import type { DatabaseSync } from 'node:sqlite';
 import type { ClienteStays, FilaReserva, MedioStays, PagoStays } from './cliente.ts';
@@ -86,6 +87,10 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
     // Solo sirve para avisar y completar direcciones: si falla, el mes se trae igual.
     const alojamientos = await cliente.alojamientos().catch((e: unknown) => {
       avisos.push(`No se pudo revisar los alojamientos de Stays: ${e instanceof Error ? e.message : String(e)}`);
+      return null;
+    });
+    const duenios = await cliente.propietarios(inicio, cierre).catch((e: unknown) => {
+      avisos.push(`No se pudo revisar los propietarios de Stays: ${e instanceof Error ? e.message : String(e)}`);
       return null;
     });
     // Igual que el script 1: por llegada, por salida (corrida un día: una salida
@@ -270,6 +275,38 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
             .filter((u): u is string => typeof u === 'string' && u.startsWith('https://')))];
           if (!fotos.length && a._t_imagesMeta?.length) avisos.push(`El depto ${d.codigo} tiene fotos en Stays pero no se pudo leer su dirección web.`);
           ponerFotos.run(fotos.length ? JSON.stringify(fotos) : null, d.id);
+        }
+      }
+
+      // Propietarios: cada propietario de Stays tiene que corresponder a uno solo de la app.
+      // Sin comparar nombres (se escriben distinto en cada lado): la primera vez que todos
+      // sus deptos son de un mismo propietario de la app, quedan vinculados por el _id.
+      // ponytail: el vínculo no se edita en pantalla; si quedó mal, se borra stays_owner_id.
+      if (duenios) {
+        const deptoApp = new Map((db.prepare(`
+          SELECT d.codigo, p.id, p.nombre, p.stays_owner_id FROM depto d JOIN propietario p ON p.id = d.propietario_id`)
+          .all() as { codigo: string; id: number; nombre: string; stays_owner_id: string | null }[]).map((d) => [d.codigo, d]));
+        const vinculado = db.prepare('SELECT nombre FROM propietario WHERE stays_owner_id = ?');
+        const vincular = db.prepare('UPDATE propietario SET stays_owner_id = ? WHERE id = ?');
+        for (const o of duenios) {
+          const nombre = texto(o.name) ?? o._id;
+          const deptos = (o.listings ?? []).map((l) => texto(l.internalName)).filter((c) => c !== null && deptoApp.has(c))
+            .map((c) => deptoApp.get(c!)!);
+          const enApp = new Map(deptos.map((d) => [d.id, d]));
+          if (enApp.size > 1) {
+            avisos.push(`En Stays, ${nombre} es dueño de ${deptos.map((d) => `${d.codigo} (en la app de ${d.nombre})`).join(', ')}: en la app son de propietarios distintos.`);
+            continue;
+          }
+          const [p] = enApp.values();
+          if (!p || p.stays_owner_id === o._id) continue;
+          const otro = vinculado.get(o._id) as { nombre: string } | undefined;
+          if (p.stays_owner_id === null && !otro) {
+            vincular.run(o._id, p.id);
+            for (const d of deptoApp.values()) if (d.id === p.id) d.stays_owner_id = o._id;
+            continue;
+          }
+          avisos.push(`En Stays, ${deptos.map((d) => d.codigo).join(', ')} ${deptos.length > 1 ? 'son' : 'es'} de ${nombre}` +
+            `${otro ? ` (en la app, ${otro.nombre})` : ''}, pero en la app ${deptos.length > 1 ? 'son' : 'es'} de ${p.nombre}.`);
         }
       }
 

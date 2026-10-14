@@ -159,12 +159,14 @@ test('abrir una base existente no vuelve a crear el esquema', (t) => {
 
 test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
   // El esquema 1 es el actual con la tabla liquidacion como era antes de la migración 1 → 2
-  // y sin la tabla terminal (3 → 4) ni las fotos del depto (4 → 5).
+  // y sin la tabla terminal (3 → 4) ni las fotos del depto (4 → 5) ni el vínculo del propietario con Stays (5 → 6).
   const actual = readFileSync(new URL('../schema.sql', import.meta.url), 'utf8');
   const v1 = actual
     .replace(/CREATE TABLE terminal \([^;]*;/, '')
     .replace(/^\s*conversion_usd .*\r?\n/m, '')
     .replace(/^\s*fotos .*\r?\n/m, '')
+    .replace(/,\s*\r?\n\s*stays_owner_id .*\r?\n/, '\n')
+    .replace(/CREATE UNIQUE INDEX uq_propietario_stays[^;]*;/, '')
     .replace(/saldo_final_ars\s+INTEGER NOT NULL,\s*\r?\n\s*saldo_final_usd\s+INTEGER NOT NULL,/, 'saldo_final INTEGER NOT NULL,');
   assert.notEqual(v1, actual);
   const ruta = join(temporal(t), 'v1.db');
@@ -187,6 +189,7 @@ test('una base del esquema 1 conserva sus datos al migrar', (t) => {
   const ruta = join(temporal(t), 'v1.db');
   const v1 = new DatabaseSync(ruta);
   v1.exec(`CREATE TABLE depto (id INTEGER PRIMARY KEY) STRICT; -- lo toca la migración 4 → 5
+           CREATE TABLE propietario (id INTEGER PRIMARY KEY) STRICT; -- y la 5 → 6
            CREATE TABLE liquidacion (id INTEGER PRIMARY KEY, conversion_ars INTEGER NOT NULL, saldo_final INTEGER NOT NULL) STRICT;
            INSERT INTO liquidacion VALUES (1, 0, 500); PRAGMA user_version = 1;`);
   v1.close();

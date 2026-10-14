@@ -61,6 +61,10 @@ falla(`INSERT INTO pago(stays_id, reserva_id, tipo, estado, importe, raw_json)
 falla(`UPDATE depto SET fotos = 'no es json' WHERE id = 1`, 'CHECK');
 run(`UPDATE depto SET fotos = '["https://x.stays.net/image/1"]' WHERE id = 1`);
 
+// Propietario: un mismo propietario de Stays no se vincula a dos de la app
+run(`INSERT INTO propietario(nombre, stays_owner_id) VALUES ('Propietario Dos', 's1')`);
+falla(`INSERT INTO propietario(nombre, stays_owner_id) VALUES ('Propietario Tres', 's1')`, 'UNIQUE');
+
 // Terminal: un token por terminal
 run(`INSERT INTO terminal(nombre, token_hash, creada_en) VALUES ('PC 2', 'h1', 'x')`);
 falla(`INSERT INTO terminal(nombre, token_hash, creada_en) VALUES ('PC 3', 'h1', 'x')`, 'UNIQUE');

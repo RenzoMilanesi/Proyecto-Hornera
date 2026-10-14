@@ -37,8 +37,15 @@ export interface AlojamientoStays {
   _t_imagesMeta?: { url?: string }[];
 }
 
+export interface PropietarioStays {
+  _id: string;
+  name?: string;
+  listings?: { internalName?: string }[];   // internalName = depto.codigo
+}
+
 export interface ClienteStays {
   alojamientos(): Promise<AlojamientoStays[]>;
+  propietarios(desde: string, hasta: string): Promise<PropietarioStays[]>;
   mediosDePago(): Promise<MedioStays[]>;
   exportarReservas(desde: string, hasta: string, tipoFecha: 'arrival' | 'departure' | 'included'): Promise<FilaReserva[]>;
   pagos(codigoReserva: string): Promise<PagoStays[]>;
@@ -71,6 +78,7 @@ export function crearClienteStays({ usuario, clave }: Credenciales, base = URL_S
       }
       return todos;
     },
+    propietarios: async (desde, hasta) => (await pedir(`finance/owners?from=${desde}&to=${hasta}`)).json(),
     pagos: async (codigo) => (await pedir(`booking/reservations/${encodeURIComponent(codigo)}/payments`)).json(),
   };
 }

@@ -6,7 +6,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import * as XLSX from 'xlsx';
 import { abrirDb } from '../db.ts';
-import { crearClienteStays, type AlojamientoStays, type FilaReserva, type MedioStays, type PagoStays } from './cliente.ts';
+import { crearClienteStays, type AlojamientoStays, type FilaReserva, type MedioStays, type PagoStays, type PropietarioStays } from './cliente.ts';
 import { fechaStays, sincronizarMes, sumarMeses } from './sync.ts';
 
 const reserva = (codigo: string, depto: string, llegada: string, salida: string, canal: string, moneda = 'USD'): FilaReserva => ({
@@ -18,8 +18,8 @@ const pago = (id: string, medio: string, val: number, extra: Partial<PagoStays> 
   ({ _id: id, _idpaymentProvider: medio, _idreserve: 'int-' + id, type: 'credit', status: 'completed', _f_val: val, paymentDate: '2026-05-02', ...extra });
 
 // Stays simulado: devuelve las mismas reservas para cualquier dateType (el filtro es nuestro)
-// y anota cada pedido. `fallan`: reservas cuyos pagos responden 500 ('listings': los alojamientos).
-interface DatosStays { reservas: FilaReserva[]; pagos: Record<string, PagoStays[]>; alojamientos: AlojamientoStays[]; fallan: Set<string>; pedidos: string[] }
+// y anota cada pedido. `fallan`: reservas cuyos pagos responden 500 ('listings' y 'owners': alojamientos y propietarios).
+interface DatosStays { reservas: FilaReserva[]; pagos: Record<string, PagoStays[]>; alojamientos: AlojamientoStays[]; duenios: PropietarioStays[]; fallan: Set<string>; pedidos: string[] }
 async function conStays(fn: (url: string, datos: DatosStays, medios: MedioStays[]) => Promise<void>) {
   const medios: MedioStays[] = [
     { _id: 'mp', type: 'mercadopago', status: 'active', internalName: 'Mercado Pago Prueba', currencies: ['ARS'] },
@@ -49,6 +49,7 @@ async function conStays(fn: (url: string, datos: DatosStays, medios: MedioStays[
       // 20 dados de baja: obligan a pedir una segunda página.
       ...Array.from({ length: 20 }, (_, i) => ({ _id: `lv${i}`, internalName: `VIEJO${i}`, status: 'inactive' })),
     ] as AlojamientoStays[],
+    duenios: [{ _id: 's1', name: 'Dueño Uno', listings: [{ internalName: 'AAA' }, { internalName: 'BBB' }, { internalName: 'ZZZ' }] }] as PropietarioStays[],
     fallan: new Set<string>(),
     pedidos: [] as string[],
   };
@@ -58,6 +59,10 @@ async function conStays(fn: (url: string, datos: DatosStays, medios: MedioStays[
     const url = new URL(req.url!, 'http://x');
     datos.pedidos.push(req.url!);
     if (url.pathname === '/finance/payment-providers') { res.end(JSON.stringify(medios)); return; }
+    if (url.pathname === '/finance/owners') {
+      res.writeHead(datos.fallan.has('owners') ? 403 : 200).end(datos.fallan.has('owners') ? 'sin permiso' : JSON.stringify(datos.duenios));
+      return;
+    }
     if (url.pathname === '/content/listings') {
       if (datos.fallan.has('listings')) { res.writeHead(403).end('sin permiso'); return; }
       const skip = Number(url.searchParams.get('skip')), limit = Number(url.searchParams.get('limit'));
@@ -330,9 +335,51 @@ test('alojamientos: avisa los que no coinciden con la app, completa direcciones 
   assert.deepEqual(fotos, ['AAA: ["https://prueba.stays.net/image/f1","https://prueba.stays.net/image/f2"]', 'BBB: null', 'CCC: null', 'DDD: null']);
 }));
 
-test('si Stays no deja leer los alojamientos, el mes se trae igual con un aviso', () => conStays(async (url, datos) => {
+test('si Stays no deja leer los alojamientos ni los propietarios, el mes se trae igual con un aviso', () => conStays(async (url, datos) => {
   datos.fallan.add('listings');
+  datos.fallan.add('owners');
   const r = await sincronizarMes(baseConAbril(), crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url), '2026-05');
   assert.equal(r.reservas, 3);
-  assert.ok(r.avisos.some((a) => a.startsWith('No se pudo revisar los alojamientos de Stays')), JSON.stringify(r.avisos));
+  for (const que of ['alojamientos', 'propietarios']) {
+    assert.ok(r.avisos.some((a) => a.startsWith(`No se pudo revisar los ${que} de Stays`)), JSON.stringify(r.avisos));
+  }
+}));
+
+test('propietarios: se vinculan con Stays por sus deptos y se avisa si un depto cambió de dueño', () => conStays(async (url, datos) => {
+  const db = baseConAbril();
+  db.exec(`INSERT INTO propietario(nombre) VALUES ('Propietario Dos');
+           INSERT INTO depto(codigo, nombre, propietario_id) VALUES ('CCC', 'Depto C', 2);`);
+  datos.alojamientos.push({ _id: 'lc', internalName: 'CCC', status: 'active' });
+  const cliente = crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url);
+  const vinculos = () => db.prepare('SELECT nombre, stays_owner_id FROM propietario ORDER BY id').all().map((x: any) => `${x.nombre}: ${x.stays_owner_id}`);
+  const deDuenios = (r: { avisos: string[] }) => r.avisos.filter((a) => a.startsWith('En Stays'));
+
+  // Primera vez: Dueño Uno tiene AAA y BBB, los dos de Propietario Uno: quedan vinculados.
+  // Propietario Dos no aparece en Stays (CCC sin dueño allá): no se vincula ni se avisa.
+  let r = await sincronizarMes(db, cliente, '2026-05');
+  assert.deepEqual(deDuenios(r), []);
+  assert.deepEqual(vinculos(), ['Propietario Uno: s1', 'Propietario Dos: null']);
+  assert.ok(datos.pedidos.includes('/finance/owners?from=2026-05-01&to=2026-06-01'));
+
+  // BBB pasa en Stays a un dueño nuevo; CCC queda con Dueño Dos, que se vincula.
+  datos.duenios = [
+    { _id: 's1', name: 'Dueño Uno', listings: [{ internalName: 'AAA' }] },
+    { _id: 's3', name: 'Dueño Nuevo', listings: [{ internalName: 'BBB' }] },
+    { _id: 's2', name: 'Dueño Dos', listings: [{ internalName: 'CCC' }] },
+  ];
+  r = await sincronizarMes(db, cliente, '2026-05');
+  assert.deepEqual(deDuenios(r), ['En Stays, BBB es de Dueño Nuevo, pero en la app es de Propietario Uno.']);
+  assert.deepEqual(vinculos(), ['Propietario Uno: s1', 'Propietario Dos: s2']);
+
+  // Un dueño de Stays con deptos de dos propietarios de la app; y CCC pasa a Dueño Uno.
+  datos.duenios = [
+    { _id: 's3', name: 'Dueño Nuevo', listings: [{ internalName: 'BBB' }, { internalName: 'CCC' }] },
+    { _id: 's1', name: 'Dueño Uno', listings: [{ internalName: 'CCC' }] },
+  ];
+  r = await sincronizarMes(db, cliente, '2026-05');
+  assert.deepEqual(deDuenios(r), [
+    'En Stays, Dueño Nuevo es dueño de BBB (en la app de Propietario Uno), CCC (en la app de Propietario Dos): en la app son de propietarios distintos.',
+    'En Stays, CCC es de Dueño Uno (en la app, Propietario Uno), pero en la app es de Propietario Dos.',
+  ]);
+  assert.deepEqual(vinculos(), ['Propietario Uno: s1', 'Propietario Dos: s2']);
 }));
