@@ -83,8 +83,10 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
 
   app.get('/api/deptos', (_req, res) => {
     res.json(db.prepare(`
-      SELECT d.id, d.codigo, d.nombre, d.estado, d.comision_pct, p.nombre AS propietario
-      FROM depto d JOIN propietario p ON p.id = d.propietario_id ORDER BY d.codigo`).all());
+      SELECT d.id, d.codigo, d.nombre, d.direccion, d.estado, d.comision_pct, p.nombre AS propietario,
+             COALESCE(d.fotos, '[]') AS fotos
+      FROM depto d JOIN propietario p ON p.id = d.propietario_id ORDER BY d.codigo`).all()
+      .map((d) => ({ ...d, fotos: JSON.parse(d.fotos as string) })));
   });
 
   // El archivo viaja como application/octet-stream: no es un tipo "simple" de CORS,

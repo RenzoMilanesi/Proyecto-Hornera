@@ -6,7 +6,7 @@ propietarios de HORNERA (alquileres temporarios, Rosario). Contexto y decisiones
 
 ## Comandos
 - `npm install`: dependencias; activa el hook de pre-commit (typecheck + tests).
-- `npm start`: abre la app (Electron; en desarrollo Vite corre dentro del mismo Express).
+- `npm run dev`: abre la app (Electron; en desarrollo Vite corre dentro del mismo Express).
   Con datos de prueba: `npx electron . --user-data-dir=<carpeta temporal>`.
 - `npm test`: tests (`node --test "server/**/*.test.ts"`) y `node schema.check.mjs`.
 - `npm run typecheck`: `tsc` solo chequea tipos (no compila).

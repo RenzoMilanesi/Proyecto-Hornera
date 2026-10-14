@@ -66,6 +66,7 @@ CREATE TABLE depto (
     id_alquiler_argentina     TEXT,
     id_booking                TEXT,
     id_alohar                 TEXT,
+    fotos                     TEXT    CHECK (fotos IS NULL OR json_valid(fotos)),  -- JSON: URLs de Stays, la principal primero
     CONSTRAINT uq_depto_codigo UNIQUE (codigo),
     CONSTRAINT fk_depto_propietario FOREIGN KEY (propietario_id)
         REFERENCES propietario(id) ON DELETE RESTRICT ON UPDATE CASCADE

@@ -41,7 +41,9 @@ async function conStays(fn: (url: string, datos: DatosStays, medios: MedioStays[
       R5: [pago('p6', 'efe', 20000)],
     } as Record<string, PagoStays[]>,
     alojamientos: [
-      { _id: 'la', internalName: 'AAA', status: 'active', address: { street: 'Calle Falsa', streetNumber: '123' } },
+      { _id: 'la', internalName: 'AAA', status: 'active', address: { street: 'Calle Falsa', streetNumber: '123', additional: '4B' },
+        _t_mainImageMeta: { url: 'https://prueba.stays.net/image/f1' },
+        _t_imagesMeta: [{ url: 'https://prueba.stays.net/image/f1' }, { url: 'https://prueba.stays.net/image/f2' }, { url: 'http://inseguro/f3' }] },
       { _id: 'lb', internalName: 'BBB', status: 'active' },
       { _id: 'lz', internalName: 'ZZZ', status: 'active' },
       // 20 dados de baja: obligan a pedir una segunda página.
@@ -305,10 +307,10 @@ test('clave incorrecta o período cerrado: no se escribe nada', () => conStays(a
   await assert.rejects(sincronizarMes(abrirDb(':memory:'), crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url), '2026-05'), /importá primero el Excel/);
 }));
 
-test('alojamientos: avisa los que no coinciden con la app y completa direcciones vacías', () => conStays(async (url, datos) => {
+test('alojamientos: avisa los que no coinciden con la app, completa direcciones vacías y trae las fotos', () => conStays(async (url, datos) => {
   const db = baseConAbril();
   db.exec(`INSERT INTO depto(codigo, nombre, propietario_id, direccion) VALUES ('CCC', 'Depto C', 1, NULL), ('DDD', 'Depto D', 1, 'Editada a mano')`);
-  datos.alojamientos.push({ _id: 'ld', internalName: 'DDD', status: 'active', address: { street: 'Otra', streetNumber: '1' } });
+  datos.alojamientos.push({ _id: 'ld', internalName: 'DDD', status: 'active', address: { street: 'Otra', streetNumber: '1' }, _t_imagesMeta: [{}] });
   datos.alojamientos[1].status = 'hidden';
   const r = await sincronizarMes(db, crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url), '2026-05');
 
@@ -319,9 +321,13 @@ test('alojamientos: avisa los que no coinciden con la app y completa direcciones
     'El alojamiento "ZZZ" está activo en Stays pero no es un depto cargado en la app.',
     'El depto BBB está activo en la app pero en Stays está "hidden".',
     'El depto CCC está activo en la app pero no existe en Stays.',
+    'El depto DDD tiene fotos en Stays pero no se pudo leer su dirección web.',
   ]);
   const direcciones = db.prepare(`SELECT codigo, direccion FROM depto ORDER BY codigo`).all().map((x: any) => `${x.codigo}: ${x.direccion}`);
-  assert.deepEqual(direcciones, ['AAA: Calle Falsa 123', 'BBB: null', 'CCC: null', 'DDD: Editada a mano']);
+  assert.deepEqual(direcciones, ['AAA: Calle Falsa 123 4B', 'BBB: null', 'CCC: null', 'DDD: Editada a mano']);
+  // La principal primero, sin repetir y solo https.
+  const fotos = db.prepare(`SELECT codigo, fotos FROM depto ORDER BY codigo`).all().map((x: any) => `${x.codigo}: ${x.fotos}`);
+  assert.deepEqual(fotos, ['AAA: ["https://prueba.stays.net/image/f1","https://prueba.stays.net/image/f2"]', 'BBB: null', 'CCC: null', 'DDD: null']);
 }));
 
 test('si Stays no deja leer los alojamientos, el mes se trae igual con un aviso', () => conStays(async (url, datos) => {

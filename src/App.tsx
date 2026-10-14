@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Layout, Menu, Table, Tag, Typography } from 'antd';
+import { Alert, Image, Layout, Menu, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType as ColumnsType } from 'antd';
 import { get } from './api.ts';
 import { Importar } from './Importar.tsx';
@@ -12,12 +12,19 @@ import { Terminales } from './Terminales.tsx';
 import { Resumen } from './Resumen.tsx';
 import { Emparejar } from './Emparejar.tsx';
 
-interface Depto { id: number; codigo: string; nombre: string; estado: string; comision_pct: number; propietario: string }
+interface Depto { id: number; codigo: string; nombre: string; direccion: string | null; estado: string; comision_pct: number; propietario: string; fotos: string[] }
 interface Propietario { id: number; nombre: string; moneda_liquidacion: string; tiene_cbu: number; deptos: string | null }
 
 const columnasDeptos: ColumnsType<Depto> = [
+  // La principal en miniatura; al tocarla se recorren todas. Vienen de Stays ("traer mes").
+  { title: 'Fotos', dataIndex: 'fotos', width: 90, render: (fotos: string[]) => fotos.length > 0 && (
+    <Image.PreviewGroup items={fotos}>
+      <Image src={fotos[0]} width={64} height={48} style={{ objectFit: 'cover', borderRadius: 4 }} alt="" />
+    </Image.PreviewGroup>
+  ) },
   { title: 'Código', dataIndex: 'codigo', width: 90 },
   { title: 'Nombre', dataIndex: 'nombre' },
+  { title: 'Dirección', dataIndex: 'direccion' },
   { title: 'Propietario', dataIndex: 'propietario' },
   { title: 'Comisión', dataIndex: 'comision_pct', width: 100, align: 'right', render: (v: number) => `${Math.round(v * 100)} %` },
   { title: 'Estado', dataIndex: 'estado', width: 110, render: (v: string) => <Tag color={v === 'activo' ? 'green' : 'default'}>{v}</Tag> },

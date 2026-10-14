@@ -39,6 +39,8 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
       creada_en   TEXT    NOT NULL,
       revocada_en TEXT
   ) STRICT;`,
+  // 4 → 5: fotos de cada depto, traídas de Stays.
+  `ALTER TABLE depto ADD COLUMN fotos TEXT CHECK (fotos IS NULL OR json_valid(fotos));`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

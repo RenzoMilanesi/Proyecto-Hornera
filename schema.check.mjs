@@ -57,6 +57,10 @@ run(`INSERT INTO reserva(codigo, depto_id, llegada, salida, moneda, raw_json, si
 falla(`INSERT INTO pago(stays_id, reserva_id, tipo, estado, importe, raw_json)
        VALUES ('p1', 1, 'credit', 'completed', 100, '{}')`, 'NOT NULL');
 
+// Fotos del depto: JSON válido o nada
+falla(`UPDATE depto SET fotos = 'no es json' WHERE id = 1`, 'CHECK');
+run(`UPDATE depto SET fotos = '["https://x.stays.net/image/1"]' WHERE id = 1`);
+
 // Terminal: un token por terminal
 run(`INSERT INTO terminal(nombre, token_hash, creada_en) VALUES ('PC 2', 'h1', 'x')`);
 falla(`INSERT INTO terminal(nombre, token_hash, creada_en) VALUES ('PC 3', 'h1', 'x')`, 'UNIQUE');

@@ -7,7 +7,8 @@
 // - reservas: alta o actualización; los ajustes manuales (ajuste_*, observacion,
 //   excluida) no se tocan. Las del período que Stays ya no devuelve se borran.
 // - pagos de cada reserva: los mismos que tiene Stays.
-// - alojamientos: avisa deptos activos en uno y no en el otro; completa direcciones vacías.
+// - alojamientos: avisa deptos activos en uno y no en el otro; completa direcciones vacías
+//   y reemplaza las fotos de cada depto.
 // Si el período no existe se crea con los parámetros del último cargado.
 import type { DatabaseSync } from 'node:sqlite';
 import type { ClienteStays, FilaReserva, MedioStays, PagoStays } from './cliente.ts';
@@ -254,13 +255,21 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
           if (a.status === 'active' && !codigosApp.has(codigo)) avisos.push(`El alojamiento "${codigo}" está activo en Stays pero no es un depto cargado en la app.`);
         }
         const ponerDireccion = db.prepare('UPDATE depto SET direccion = ? WHERE id = ?');
+        const ponerFotos = db.prepare('UPDATE depto SET fotos = ? WHERE id = ?');
         for (const d of enApp) {
           const a = enStays.get(d.codigo);
           if (d.estado === 'activo' && a?.status !== 'active') {
             avisos.push(`El depto ${d.codigo} está activo en la app pero ${a ? `en Stays está "${a.status}"` : 'no existe en Stays'}.`);
           }
-          const direccion = texto([a?.address?.street, a?.address?.streetNumber].filter(Boolean).join(' '));
+          if (!a) continue; // sin alojamiento en Stays se conserva lo que había
+          const { street, streetNumber, additional } = a.address ?? {};
+          const direccion = texto([street, streetNumber, additional].filter(Boolean).join(' '));
           if (!d.direccion && direccion) ponerDireccion.run(direccion, d.id);
+          // Las fotos son de Stays: se reemplazan siempre. Solo https, porque la app las muestra.
+          const fotos = [...new Set([a._t_mainImageMeta?.url, ...(a._t_imagesMeta ?? []).map((f) => f?.url)]
+            .filter((u): u is string => typeof u === 'string' && u.startsWith('https://')))];
+          if (!fotos.length && a._t_imagesMeta?.length) avisos.push(`El depto ${d.codigo} tiene fotos en Stays pero no se pudo leer su dirección web.`);
+          ponerFotos.run(fotos.length ? JSON.stringify(fotos) : null, d.id);
         }
       }
 

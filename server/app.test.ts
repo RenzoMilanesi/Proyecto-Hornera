@@ -49,7 +49,7 @@ test('la API lista deptos con su propietario', () => {
            INSERT INTO depto(codigo, nombre, propietario_id) VALUES ('AAA', 'Depto A', 1)`);
   return conApi(db, async (base) => {
     const deptos = await (await fetch(`${base}/api/deptos`)).json();
-    assert.deepEqual(deptos.map((d: any) => [d.codigo, d.propietario]), [['AAA', 'Propietario Uno']]);
+    assert.deepEqual(deptos.map((d: any) => [d.codigo, d.propietario, d.fotos]), [['AAA', 'Propietario Uno', []]]);
   });
 });
 
@@ -159,11 +159,12 @@ test('abrir una base existente no vuelve a crear el esquema', (t) => {
 
 test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
   // El esquema 1 es el actual con la tabla liquidacion como era antes de la migración 1 → 2
-  // y sin la tabla terminal (3 → 4).
+  // y sin la tabla terminal (3 → 4) ni las fotos del depto (4 → 5).
   const actual = readFileSync(new URL('../schema.sql', import.meta.url), 'utf8');
   const v1 = actual
     .replace(/CREATE TABLE terminal \([^;]*;/, '')
     .replace(/^\s*conversion_usd .*\r?\n/m, '')
+    .replace(/^\s*fotos .*\r?\n/m, '')
     .replace(/saldo_final_ars\s+INTEGER NOT NULL,\s*\r?\n\s*saldo_final_usd\s+INTEGER NOT NULL,/, 'saldo_final INTEGER NOT NULL,');
   assert.notEqual(v1, actual);
   const ruta = join(temporal(t), 'v1.db');
@@ -185,7 +186,8 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
 test('una base del esquema 1 conserva sus datos al migrar', (t) => {
   const ruta = join(temporal(t), 'v1.db');
   const v1 = new DatabaseSync(ruta);
-  v1.exec(`CREATE TABLE liquidacion (id INTEGER PRIMARY KEY, conversion_ars INTEGER NOT NULL, saldo_final INTEGER NOT NULL) STRICT;
+  v1.exec(`CREATE TABLE depto (id INTEGER PRIMARY KEY) STRICT; -- lo toca la migración 4 → 5
+           CREATE TABLE liquidacion (id INTEGER PRIMARY KEY, conversion_ars INTEGER NOT NULL, saldo_final INTEGER NOT NULL) STRICT;
            INSERT INTO liquidacion VALUES (1, 0, 500); PRAGMA user_version = 1;`);
   v1.close();
   const db = abrirDb(ruta);

@@ -1,6 +1,6 @@
 {
   "name": "hornera",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "HORNERA — liquidación mensual a propietarios",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "start": "electron .",
+    "dev": "electron .",
     "build": "vite build",
     "test": "node --test \"server/**/*.test.ts\" && node schema.check.mjs",
     "typecheck": "tsc",

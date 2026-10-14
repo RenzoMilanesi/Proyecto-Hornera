@@ -31,7 +31,10 @@ export interface AlojamientoStays {
   _id: string;
   internalName?: string;   // = depto.codigo
   status: string;          // active | inactive | hidden | draft
-  address?: { street?: string; streetNumber?: string };
+  address?: { street?: string; streetNumber?: string; additional?: string };  // additional: piso/depto
+  // La documentación no muestra la forma de cada foto: se toma `url` donde venga.
+  _t_mainImageMeta?: { url?: string };
+  _t_imagesMeta?: { url?: string }[];
 }
 
 export interface ClienteStays {
