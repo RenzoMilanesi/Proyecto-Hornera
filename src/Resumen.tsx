@@ -1,6 +1,6 @@
 // Resumen interno (fase 6): KPIs del mes por depto, resultado de Hornera, saldos de cuentas y evolución.
 import { useEffect, useState } from 'react';
-import { Alert, Card, Col, Descriptions, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { Alert, Card, Col, Descriptions, Row, Select, Space, Statistic, Table, Tag, Typography, theme } from 'antd';
 import type { KpiDepto, resumenDelMes } from '../server/resumen.ts';
 import { get, pesos } from './api.ts';
 
@@ -14,8 +14,9 @@ const porNoche = (bruto: number, noches: number) => (noches ? pesos(Math.round(b
 
 // Barra horizontal proporcional al máximo de la columna (sin librería de gráficos).
 function Barra({ valor, maximo }: { valor: number | null; maximo: number }) {
+  const { token } = theme.useToken();
   if (valor == null || maximo <= 0) return null;
-  return <div style={{ height: 8, width: `${Math.max(0, (100 * valor) / maximo)}%`, background: '#1677ff', borderRadius: 4, minWidth: valor > 0 ? 2 : 0 }} />;
+  return <div style={{ height: 8, width: `${Math.max(0, (100 * valor) / maximo)}%`, background: token.colorPrimary, borderRadius: 4, minWidth: valor > 0 ? 2 : 0 }} />;
 }
 
 export function Resumen() {
@@ -60,7 +61,7 @@ export function Resumen() {
         <Col span={4}><Card size="small"><Statistic title="Reservas" value={t?.reservas ?? '—'} /></Card></Col>
         <Col span={5}><Card size="small"><Statistic title="Bruto" value={t ? pesos(t.bruto) : '—'} /></Card></Col>
         <Col span={5}><Card size="small"><Statistic title="Resultado Hornera" value={r ? pesos(r.total_ars) : '—'}
-          styles={{ content: { color: r && r.total_ars < 0 ? '#cf1322' : undefined } }} /></Card></Col>
+          styles={{ content: { color: r && r.total_ars < 0 ? '#B42318' : undefined } }} /></Card></Col>
       </Row>
 
       <Row gutter={16}>

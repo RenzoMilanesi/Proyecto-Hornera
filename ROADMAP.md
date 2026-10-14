@@ -17,7 +17,7 @@ Versión `1.0.0` = reemplaza al Excel en producción, después de correr 1-2 mes
 | — | Instalador de Windows (`npm run dist`) y guía de prueba (`GUIA-PRUEBAS.md`) | A testear |
 | — | Fuera de la v1: mails, ARCA, mantenimiento, obligaciones, checklist | — |
 
-Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, versión `0.12.0`) está **a testear**: tiene tests automáticos y se
+Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, tema visual "Ladrillo", versión `0.12.1`) está **a testear**: tiene tests automáticos y se
 probó en la app con datos de prueba, pero falta revisarlo a mano con los dueños y con datos reales.
 
 ## Checklist de prueba (próxima sesión)

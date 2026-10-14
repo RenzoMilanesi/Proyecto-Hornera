@@ -78,14 +78,15 @@ export function App() {
   if (emparejar) return <Emparejar />;
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Layout.Sider theme="light" width={200}>
-        <Typography.Title level={4} style={{ padding: '16px 24px', margin: 0 }}>Hornera</Typography.Title>
+      <Layout.Sider width={200}>
+        <Typography.Title level={4} style={{ padding: '16px 24px', margin: 0, color: '#fff' }}>Hornera</Typography.Title>
         <Menu
+          theme="dark"
           selectedKeys={[seccion]}
           onClick={(e) => setSeccion(e.key as Seccion)}
           items={Object.entries(secciones).filter(([key]) => local || key !== 'terminales').map(([key, s]) => ({ key, label: s.titulo }))}
         />
-        <Typography.Text type="secondary" style={{ position: 'absolute', bottom: 12, left: 24 }}>v{version}</Typography.Text>
+        <Typography.Text style={{ position: 'absolute', bottom: 12, left: 24, color: '#B3A698' }}>v{version}</Typography.Text>
       </Layout.Sider>
       <Layout.Content style={{ padding: 24 }}>
         <Typography.Title level={3}>{secciones[seccion].titulo}</Typography.Title>
