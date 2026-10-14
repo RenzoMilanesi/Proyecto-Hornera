@@ -27,7 +27,15 @@ export interface MedioStays {
   currencies?: string[];
 }
 
+export interface AlojamientoStays {
+  _id: string;
+  internalName?: string;   // = depto.codigo
+  status: string;          // active | inactive | hidden | draft
+  address?: { street?: string; streetNumber?: string };
+}
+
 export interface ClienteStays {
+  alojamientos(): Promise<AlojamientoStays[]>;
   mediosDePago(): Promise<MedioStays[]>;
   exportarReservas(desde: string, hasta: string, tipoFecha: 'arrival' | 'departure' | 'included'): Promise<FilaReserva[]>;
   pagos(codigoReserva: string): Promise<PagoStays[]>;
@@ -48,6 +56,17 @@ export function crearClienteStays({ usuario, clave }: Credenciales, base = URL_S
       const res = await pedir(`booking/reservations-export?from=${desde}&to=${hasta}&dateType=${tipoFecha}`);
       const wb = XLSX.read(new Uint8Array(await res.arrayBuffer()), { type: 'array' });
       return XLSX.utils.sheet_to_json<FilaReserva>(wb.Sheets[wb.SheetNames[0]], { defval: null });
+    },
+    // Stays pagina de a 20 como máximo.
+    async alojamientos() {
+      const todos: AlojamientoStays[] = [];
+      // ponytail: tope de 50 páginas (1000 alojamientos) por si Stays ignorara skip y repitiera la misma.
+      for (let skip = 0; skip < 1000; skip += 20) {
+        const lote: AlojamientoStays[] = await (await pedir(`content/listings?skip=${skip}&limit=20`)).json();
+        todos.push(...lote);
+        if (lote.length < 20) break;
+      }
+      return todos;
     },
     pagos: async (codigo) => (await pedir(`booking/reservations/${encodeURIComponent(codigo)}/payments`)).json(),
   };

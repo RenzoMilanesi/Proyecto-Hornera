@@ -6,7 +6,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import * as XLSX from 'xlsx';
 import { abrirDb } from '../db.ts';
-import { crearClienteStays, type FilaReserva, type MedioStays, type PagoStays } from './cliente.ts';
+import { crearClienteStays, type AlojamientoStays, type FilaReserva, type MedioStays, type PagoStays } from './cliente.ts';
 import { fechaStays, sincronizarMes, sumarMeses } from './sync.ts';
 
 const reserva = (codigo: string, depto: string, llegada: string, salida: string, canal: string, moneda = 'USD'): FilaReserva => ({
@@ -18,8 +18,8 @@ const pago = (id: string, medio: string, val: number, extra: Partial<PagoStays> 
   ({ _id: id, _idpaymentProvider: medio, _idreserve: 'int-' + id, type: 'credit', status: 'completed', _f_val: val, paymentDate: '2026-05-02', ...extra });
 
 // Stays simulado: devuelve las mismas reservas para cualquier dateType (el filtro es nuestro)
-// y anota cada pedido. `fallan`: reservas cuyos pagos responden 500.
-interface DatosStays { reservas: FilaReserva[]; pagos: Record<string, PagoStays[]>; fallan: Set<string>; pedidos: string[] }
+// y anota cada pedido. `fallan`: reservas cuyos pagos responden 500 ('listings': los alojamientos).
+interface DatosStays { reservas: FilaReserva[]; pagos: Record<string, PagoStays[]>; alojamientos: AlojamientoStays[]; fallan: Set<string>; pedidos: string[] }
 async function conStays(fn: (url: string, datos: DatosStays, medios: MedioStays[]) => Promise<void>) {
   const medios: MedioStays[] = [
     { _id: 'mp', type: 'mercadopago', status: 'active', internalName: 'Mercado Pago Prueba', currencies: ['ARS'] },
@@ -40,6 +40,13 @@ async function conStays(fn: (url: string, datos: DatosStays, medios: MedioStays[
       R2: [pago('p4', 'mp', 100000, { _f_tax: 5000 }), pago('p5', 'mp', 50000)],  // p5: MP sin comisión
       R5: [pago('p6', 'efe', 20000)],
     } as Record<string, PagoStays[]>,
+    alojamientos: [
+      { _id: 'la', internalName: 'AAA', status: 'active', address: { street: 'Calle Falsa', streetNumber: '123' } },
+      { _id: 'lb', internalName: 'BBB', status: 'active' },
+      { _id: 'lz', internalName: 'ZZZ', status: 'active' },
+      // 20 dados de baja: obligan a pedir una segunda página.
+      ...Array.from({ length: 20 }, (_, i) => ({ _id: `lv${i}`, internalName: `VIEJO${i}`, status: 'inactive' })),
+    ] as AlojamientoStays[],
     fallan: new Set<string>(),
     pedidos: [] as string[],
   };
@@ -49,6 +56,12 @@ async function conStays(fn: (url: string, datos: DatosStays, medios: MedioStays[
     const url = new URL(req.url!, 'http://x');
     datos.pedidos.push(req.url!);
     if (url.pathname === '/finance/payment-providers') { res.end(JSON.stringify(medios)); return; }
+    if (url.pathname === '/content/listings') {
+      if (datos.fallan.has('listings')) { res.writeHead(403).end('sin permiso'); return; }
+      const skip = Number(url.searchParams.get('skip')), limit = Number(url.searchParams.get('limit'));
+      res.end(JSON.stringify(datos.alojamientos.slice(skip, skip + Math.min(limit, 20))));
+      return;
+    }
     if (url.pathname === '/booking/reservations-export') {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(datos.reservas), 'Sheet1');
@@ -290,4 +303,30 @@ test('clave incorrecta o período cerrado: no se escribe nada', () => conStays(a
 
   await assert.rejects(sincronizarMes(db, crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url), '2026-04'), /2026-04 está cerrado/);
   await assert.rejects(sincronizarMes(abrirDb(':memory:'), crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url), '2026-05'), /importá primero el Excel/);
+}));
+
+test('alojamientos: avisa los que no coinciden con la app y completa direcciones vacías', () => conStays(async (url, datos) => {
+  const db = baseConAbril();
+  db.exec(`INSERT INTO depto(codigo, nombre, propietario_id, direccion) VALUES ('CCC', 'Depto C', 1, NULL), ('DDD', 'Depto D', 1, 'Editada a mano')`);
+  datos.alojamientos.push({ _id: 'ld', internalName: 'DDD', status: 'active', address: { street: 'Otra', streetNumber: '1' } });
+  datos.alojamientos[1].status = 'hidden';
+  const r = await sincronizarMes(db, crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url), '2026-05');
+
+  assert.deepEqual(datos.pedidos.filter((p) => p.startsWith('/content/listings')),
+    ['/content/listings?skip=0&limit=20', '/content/listings?skip=20&limit=20']);
+  const alojamientos = r.avisos.filter((a) => a.startsWith('El alojamiento') || a.startsWith('El depto'));
+  assert.deepEqual(alojamientos.sort(), [
+    'El alojamiento "ZZZ" está activo en Stays pero no es un depto cargado en la app.',
+    'El depto BBB está activo en la app pero en Stays está "hidden".',
+    'El depto CCC está activo en la app pero no existe en Stays.',
+  ]);
+  const direcciones = db.prepare(`SELECT codigo, direccion FROM depto ORDER BY codigo`).all().map((x: any) => `${x.codigo}: ${x.direccion}`);
+  assert.deepEqual(direcciones, ['AAA: Calle Falsa 123', 'BBB: null', 'CCC: null', 'DDD: Editada a mano']);
+}));
+
+test('si Stays no deja leer los alojamientos, el mes se trae igual con un aviso', () => conStays(async (url, datos) => {
+  datos.fallan.add('listings');
+  const r = await sincronizarMes(baseConAbril(), crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url), '2026-05');
+  assert.equal(r.reservas, 3);
+  assert.ok(r.avisos.some((a) => a.startsWith('No se pudo revisar los alojamientos de Stays')), JSON.stringify(r.avisos));
 }));

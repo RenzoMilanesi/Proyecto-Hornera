@@ -7,6 +7,7 @@
 // - reservas: alta o actualización; los ajustes manuales (ajuste_*, observacion,
 //   excluida) no se tocan. Las del período que Stays ya no devuelve se borran.
 // - pagos de cada reserva: los mismos que tiene Stays.
+// - alojamientos: avisa deptos activos en uno y no en el otro; completa direcciones vacías.
 // Si el período no existe se crea con los parámetros del último cargado.
 import type { DatabaseSync } from 'node:sqlite';
 import type { ClienteStays, FilaReserva, MedioStays, PagoStays } from './cliente.ts';
@@ -81,6 +82,11 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
   try {
     // ---- 1. Bajar todo de Stays
     const medios = await cliente.mediosDePago();
+    // Solo sirve para avisar y completar direcciones: si falla, el mes se trae igual.
+    const alojamientos = await cliente.alojamientos().catch((e: unknown) => {
+      avisos.push(`No se pudo revisar los alojamientos de Stays: ${e instanceof Error ? e.message : String(e)}`);
+      return null;
+    });
     // Igual que el script 1: por llegada, por salida (corrida un día: una salida
     // el día 1 no tiene noches en el mes) e incluidas; después se filtra.
     const lotes = await Promise.all([
@@ -237,6 +243,26 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
         }
       });
       for (const canal of canalesDesconocidos) avisos.push(`Canal "${canal}" no está en Plataformas: esas reservas quedan sin plataforma.`);
+
+      // Alojamientos: Stays y la app tienen que coincidir en qué deptos están activos.
+      // La dirección se completa solo si en la app está vacía (si se editó, se respeta).
+      if (alojamientos) {
+        const enStays = new Map(alojamientos.filter((a) => texto(a.internalName)).map((a) => [texto(a.internalName)!, a]));
+        const enApp = db.prepare('SELECT id, codigo, estado, direccion FROM depto').all() as { id: number; codigo: string; estado: string; direccion: string | null }[];
+        const codigosApp = new Set(enApp.map((d) => d.codigo));
+        for (const [codigo, a] of enStays) {
+          if (a.status === 'active' && !codigosApp.has(codigo)) avisos.push(`El alojamiento "${codigo}" está activo en Stays pero no es un depto cargado en la app.`);
+        }
+        const ponerDireccion = db.prepare('UPDATE depto SET direccion = ? WHERE id = ?');
+        for (const d of enApp) {
+          const a = enStays.get(d.codigo);
+          if (d.estado === 'activo' && a?.status !== 'active') {
+            avisos.push(`El depto ${d.codigo} está activo en la app pero ${a ? `en Stays está "${a.status}"` : 'no existe en Stays'}.`);
+          }
+          const direccion = texto([a?.address?.street, a?.address?.streetNumber].filter(Boolean).join(' '));
+          if (!d.direccion && direccion) ponerDireccion.run(direccion, d.id);
+        }
+      }
 
       // Reservas del período que Stays ya no devuelve (canceladas o borradas allá).
       // Se compara contra todo lo que devolvió Stays, no contra lo guardado: una

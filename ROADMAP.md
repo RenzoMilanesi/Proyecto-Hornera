@@ -17,7 +17,7 @@ Versión `1.0.0` = reemplaza al Excel en producción, después de correr 1-2 mes
 | — | Instalador de Windows (`npm run dist`) y guía de prueba (`GUIA-PRUEBAS.md`) | A testear |
 | — | Fuera de la v1: mails, ARCA, mantenimiento, obligaciones, checklist | — |
 
-Todo lo construido (fases 0 a 6 e instalador, versión `0.8.2`) está **a testear**: tiene tests automáticos y se
+Todo lo construido (fases 0 a 6, instalador y alojamientos de Stays, versión `0.9.0`) está **a testear**: tiene tests automáticos y se
 probó en la app con datos de prueba, pero falta revisarlo a mano con los dueños y con datos reales.
 
 ## Checklist de prueba (próxima sesión)
@@ -40,6 +40,7 @@ Cómo probar cada punto, paso a paso: `GUIA-PRUEBAS.md`.
 **Fase 4 · Stays** (necesita la contraseña nueva)
 - [ ] Cargar usuario y clave; "traer mes" de abril y mayo contra el Stays real.
 - [ ] Cotejar reservas y cobros con la hoja RESERVAS; revisar los avisos (comisión MP/PayPal, canales, deptos).
+- [ ] Revisar los avisos de alojamientos (activos en Stays y no en la app, y al revés) y las direcciones completadas desde Stays.
 
 **Fase 5a · Liquidación**
 - [ ] Cargar la cotización; revisar saldos y detalle por depto.
