@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hornera</title>
+    <style>
+      /* Fila desplegada de una tabla y su detalle: se distinguen de las cerradas (tema "Ladrillo"). */
+      .fila-abierta > td { background: #F3E3D9 !important; font-weight: 600; transition: none !important; }
+      .fila-abierta > td:first-child { box-shadow: inset 4px 0 0 #A8461F; }
+      .detalle-abierto > td { background: #FBF4EF !important; box-shadow: inset 4px 0 0 #A8461F; }
+    </style>
   </head>
   <body style="margin: 0">
     <div id="root"></div>

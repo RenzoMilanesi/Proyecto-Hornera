@@ -57,6 +57,7 @@ export function Liquidacion() {
   const [comparacion, setComparacion] = useState<Map<string, ComparacionDepto>>();
   const [comparando, setComparando] = useState(false);
   const [texto, setTexto] = useState('');
+  const [abiertos, setAbiertos] = useState<number[]>([]); // deptos desplegados: se resaltan
 
   const cargarPeriodos = () => get<Periodo[]>('periodos').then((ps) => {
     setPeriodos(ps);
@@ -205,7 +206,11 @@ export function Liquidacion() {
       </Space>
       <Table<LiquidacionDepto> rowKey="deptoId" size="small" pagination={false} sticky scroll={{ x: "max-content" }} loading={!datos && !error}
         dataSource={visibles} columns={columnas}
-        expandable={{ expandedRowRender: (d) => <Detalle d={d} comparacion={comparacion?.get(d.codigo)} /> }} />
+        rowClassName={(d) => (abiertos.includes(d.deptoId) ? 'fila-abierta' : '')}
+        expandable={{
+          expandedRowKeys: abiertos, onExpandedRowsChange: (k) => setAbiertos(k as number[]), expandedRowClassName: () => 'detalle-abierto',
+          expandedRowRender: (d) => <Detalle d={d} comparacion={comparacion?.get(d.codigo)} />,
+        }} />
     </Space>
   );
 }
