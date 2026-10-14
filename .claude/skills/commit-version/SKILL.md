@@ -83,7 +83,7 @@ Tipos en uso: `Fix:`, `Feature:`, `Merge:`, `Refactor:`, `Docs:`, `Chore:`.
 versión se instala en las PCs de Hornera (build del `.exe`):
 
 ```
-git tag v0.6.0        # sobre el commit del bump que se entrega
+git tag -a v0.6.0 -m "v0.6.0"   # anotado: --follow-tags solo sube tags anotados
 git push --follow-tags
 ```
 
@@ -112,5 +112,5 @@ commitear, revisar que `git status` no muestre nada de eso.
 [ ] ¿Toca datos? → schema.sql + migración + check sincronizados
 [ ] ¿Nada sensible en git status?
 [ ] Commit con Tipo:, porqué y footer
-[ ] ¿Es entrega? → tag vX.Y.Z + push --follow-tags. Si no, push a secas
+[ ] ¿Es entrega? → tag -a vX.Y.Z + push --follow-tags. Si no, push a secas
 ```
