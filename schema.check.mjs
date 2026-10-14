@@ -65,6 +65,10 @@ run(`UPDATE depto SET fotos = '["https://x.stays.net/image/1"]' WHERE id = 1`);
 run(`INSERT INTO propietario(nombre, stays_owner_id) VALUES ('Propietario Dos', 's1')`);
 falla(`INSERT INTO propietario(nombre, stays_owner_id) VALUES ('Propietario Tres', 's1')`, 'UNIQUE');
 
+// Reserva: desglose de Stays como JSON válido
+falla(`UPDATE reserva SET desglose_json = 'no es json'`, 'CHECK');
+falla(`UPDATE reserva SET cancelada = 2`, 'CHECK');
+
 // Terminal: un token por terminal
 run(`INSERT INTO terminal(nombre, token_hash, creada_en) VALUES ('PC 2', 'h1', 'x')`);
 falla(`INSERT INTO terminal(nombre, token_hash, creada_en) VALUES ('PC 3', 'h1', 'x')`, 'UNIQUE');

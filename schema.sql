@@ -200,6 +200,12 @@ CREATE TABLE reserva (
     ajuste_comision_usd         INTEGER NOT NULL DEFAULT 0,
     observacion                 TEXT,
     excluida                    INTEGER NOT NULL DEFAULT 0 CHECK (excluida IN (0,1)),  -- sacar de la liquidación sin borrar
+    -- Cancelada en Stays: se ve en la lista pero no liquida ni trae pagos. La pone la sync.
+    cancelada                   INTEGER NOT NULL DEFAULT 0 CHECK (cancelada IN (0,1)),
+    -- Del detalle de la reserva en Stays; informativos (la liquidación usa las columnas de arriba).
+    hora_llegada                TEXT,               -- checkInTime "14:00"
+    hora_salida                 TEXT,               -- checkOutTime "10:00"
+    desglose_json               TEXT    CHECK (desglose_json IS NULL OR json_valid(desglose_json)),  -- price de Stays
     CONSTRAINT uq_reserva_codigo UNIQUE (codigo),
     CONSTRAINT ck_reserva_fechas CHECK (llegada <= salida),
     CONSTRAINT fk_reserva_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE RESTRICT ON UPDATE CASCADE,

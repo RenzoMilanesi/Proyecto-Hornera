@@ -4,10 +4,35 @@ import type { TableColumnsType } from 'antd';
 import { enviar, get, pesos } from './api.ts';
 import { AjustesReserva, type ReservaAjustable } from './AjustesReserva.tsx';
 
-interface Reporte { mes: string; periodoCreado: boolean; reservas: number; pagos: number; medios: number; eliminadas: number; avisos: string[] }
+interface Reporte { mes: string; periodoCreado: boolean; reservas: number; pagos: number; medios: number; eliminadas: number; canceladas: number; avisos: string[] }
 interface Reserva extends ReservaAjustable {
   llegada: string; salida: string; huespedes: number; plataforma: string | null; estado_stays: string | null;
   cobrado_ars: number; cobrado_usd: number; falta_comision: number | null;
+  cancelada: number; hora_llegada: string | null; hora_salida: string | null; desglose_json: string | null;
+}
+
+// Desglose de precio tal como lo da Stays (importes en unidades, no centavos). Solo informativo.
+interface Cargo { name?: string; _f_val?: number }
+interface Parte { _f_nightPrice?: number; fees?: Cargo[]; extraServices?: Cargo[]; discounts?: Cargo[]; _f_total?: number }
+interface Precio { currency?: string; _f_total?: number; hostingDetails?: Parte; extrasDetails?: Parte }
+
+function Desglose({ json }: { json: string }) {
+  const p = JSON.parse(json) as Precio;
+  const plata = (v?: number) => (typeof v === 'number' ? pesos(Math.round(v * 100), p.currency === 'USD' ? 'USD' : 'ARS') : '');
+  const filas = (titulo: string, x?: Parte) => x && [
+    <tr key={titulo}><th colSpan={2} style={{ textAlign: 'left', paddingTop: 6 }}>{titulo}</th></tr>,
+    ...(x._f_nightPrice != null ? [<tr key={`${titulo}-noche`}><td>Precio por noche</td><td align="right">{plata(x._f_nightPrice)}</td></tr>] : []),
+    ...[...(x.fees ?? []), ...(x.extraServices ?? [])].map((c, i) => <tr key={`${titulo}-c${i}`}><td>{c.name ?? 'Cargo'}</td><td align="right">{plata(c._f_val)}</td></tr>),
+    ...(x.discounts ?? []).map((c, i) => <tr key={`${titulo}-d${i}`}><td>{c.name ?? 'Descuento'}</td><td align="right">{plata(c._f_val)}</td></tr>),
+    <tr key={`${titulo}-total`}><td><i>Subtotal</i></td><td align="right"><i>{plata(x._f_total)}</i></td></tr>,
+  ];
+  return (
+    <table style={{ width: 'auto', minWidth: 320 }}><tbody>
+      {filas('Hospedaje', p.hostingDetails)}
+      {filas('Extras', p.extrasDetails)}
+      <tr><th style={{ textAlign: 'left', paddingTop: 6 }}>Total</th><th style={{ textAlign: 'right', paddingTop: 6 }}>{plata(p._f_total)}</th></tr>
+    </tbody></table>
+  );
 }
 
 const enUnaLinea = { onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }) };
@@ -15,8 +40,8 @@ const enUnaLinea = { onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }
 const columnas = (alEditar: (r: Reserva) => void): TableColumnsType<Reserva> => [
   { title: 'Depto', dataIndex: 'depto', width: 80 },
   { title: 'Reserva', dataIndex: 'codigo', width: 90 },
-  { title: 'Llegada', dataIndex: 'llegada', ...enUnaLinea },
-  { title: 'Salida', dataIndex: 'salida', ...enUnaLinea },
+  { title: 'Llegada', dataIndex: 'llegada', ...enUnaLinea, render: (v: string, r) => `${v} ${r.hora_llegada ?? ''}` },
+  { title: 'Salida', dataIndex: 'salida', ...enUnaLinea, render: (v: string, r) => `${v} ${r.hora_salida ?? ''}` },
   { title: 'Huésp.', dataIndex: 'huespedes', width: 70, align: 'right' },
   { title: 'Plataforma', dataIndex: 'plataforma', render: (v: string | null) => v ?? <Tag color="orange">sin plataforma</Tag> },
   { title: 'Cobrado ARS', dataIndex: 'cobrado_ars', align: 'right', ...enUnaLinea, render: (v: number) => (v ? pesos(v) : '') },
@@ -24,13 +49,15 @@ const columnas = (alEditar: (r: Reserva) => void): TableColumnsType<Reserva> => 
   {
     title: '', key: 'marcas', width: 150,
     render: (_: unknown, r) => <>
+      {r.cancelada ? <Tag color="red">cancelada</Tag> : null}
       {r.falta_comision ? <Tag color="red">falta comisión</Tag> : null}
       {r.ajuste_ars || r.ajuste_usd ? <Tag color="blue">ajuste</Tag> : null}
       {r.ajuste_comision_ars || r.ajuste_comision_usd ? <Tag color="purple">comisión</Tag> : null}
       {r.excluida ? <Tag>excluida</Tag> : null}
     </>,
   },
-  { title: '', key: 'editar', width: 90, render: (_: unknown, r) => <Button size="small" onClick={() => alEditar(r)}>Ajustes</Button> },
+  // Una cancelada no se liquida: sus ajustes no cambian nada.
+  { title: '', key: 'editar', width: 90, render: (_: unknown, r) => !r.cancelada && <Button size="small" onClick={() => alEditar(r)}>Ajustes</Button> },
 ];
 
 // En hora local: con toISOString (UTC) el último día del mes después de las 21 h daría el mes siguiente.
@@ -108,16 +135,17 @@ export function Stays() {
           <Button type="primary" onClick={traer} loading={trayendo} disabled={!usuario}>Traer mes de Stays</Button>
         </Space>
         <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
-          Trae reservas, pagos y medios de pago. Se puede repetir: los ajustes manuales se conservan.
+          Trae reservas (también las canceladas, que no se liquidan), pagos y medios de pago. Se puede repetir: los ajustes manuales se conservan.
         </Typography.Paragraph>
         {error && <Alert style={{ marginTop: 12 }} type="error" showIcon title={error} />}
         {reporte && (
           <>
-            <Descriptions style={{ marginTop: 12 }} size="small" bordered column={4} items={[
+            <Descriptions style={{ marginTop: 12 }} size="small" bordered column={5} items={[
               { label: 'Reservas', children: reporte.reservas },
               { label: 'Pagos', children: reporte.pagos },
               { label: 'Medios de pago', children: reporte.medios },
               { label: 'Borradas', children: reporte.eliminadas },
+              { label: 'Canceladas', children: reporte.canceladas },
             ]} />
             {reporte.avisos.length > 0 && (
               <Alert style={{ marginTop: 12 }} type="warning" showIcon title={`Avisos (${reporte.avisos.length})`}
@@ -128,7 +156,9 @@ export function Stays() {
       </Card>
 
       <Card size="small" title={`Reservas de ${mes}${reservas ? ` (${reservas.length})` : ''}`}>
-        <Table<Reserva> rowKey="id" size="small" pagination={false} scroll={{ x: "max-content" }} loading={!reservas} dataSource={reservas} columns={columnas(setEditando)} />
+        <Table<Reserva> rowKey="id" size="small" pagination={false} scroll={{ x: "max-content" }} loading={!reservas} dataSource={reservas} columns={columnas(setEditando)}
+          onRow={(r) => (r.cancelada ? { style: { opacity: 0.5 } } : {})}
+          expandable={{ rowExpandable: (r) => !!r.desglose_json, expandedRowRender: (r) => <Desglose json={r.desglose_json!} /> }} />
         <AjustesReserva reserva={editando} alCerrar={(guardado) => { setEditando(undefined); if (guardado) setVersion((v) => v + 1); }} />
       </Card>
     </Space>

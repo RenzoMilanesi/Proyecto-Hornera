@@ -17,7 +17,7 @@ Versión `1.0.0` = reemplaza al Excel en producción, después de correr 1-2 mes
 | — | Instalador de Windows (`npm run dist`) y guía de prueba (`GUIA-PRUEBAS.md`) | A testear |
 | — | Fuera de la v1: mails, ARCA, mantenimiento, obligaciones, checklist | — |
 
-Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos y propietarios de Stays, versión `0.11.0`) está **a testear**: tiene tests automáticos y se
+Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, versión `0.12.0`) está **a testear**: tiene tests automáticos y se
 probó en la app con datos de prueba, pero falta revisarlo a mano con los dueños y con datos reales.
 
 ## Checklist de prueba (próxima sesión)
@@ -40,7 +40,7 @@ Cómo probar cada punto, paso a paso: `GUIA-PRUEBAS.md`.
 **Fase 4 · Stays** (necesita la contraseña nueva)
 - [ ] Cargar usuario y clave; "traer mes" de abril y mayo contra el Stays real.
 - [ ] Cotejar reservas y cobros con la hoja RESERVAS; revisar los avisos (comisión MP/PayPal, canales, deptos).
-- [ ] Revisar los avisos de alojamientos (activos en Stays y no en la app, y al revés), las direcciones completadas desde Stays, que las fotos se vean en Deptos y los avisos de propietarios (deptos con otro dueño en Stays).
+- [ ] Revisar los avisos de alojamientos (activos en Stays y no en la app, y al revés), las direcciones completadas desde Stays, que las fotos se vean en Deptos, los avisos de propietarios (deptos con otro dueño en Stays), y que las canceladas, los horarios y el desglose de precio lleguen bien.
 
 **Fase 5a · Liquidación**
 - [ ] Cargar la cotización; revisar saldos y detalle por depto.
@@ -71,4 +71,4 @@ Cómo probar cada punto, paso a paso: `GUIA-PRUEBAS.md`.
 
 **Preguntas para los dueños** (`DECISIONES.md`, "Pendiente"): contraseña de Stays, meses del Sheet,
 RIO/AND, 4 % de R64, qué plataformas cobran comisión, fee de AND, honorarios en meses sin reservas,
-qué es el resultado de Hornera.
+qué es el resultado de Hornera, cómo cargan en Stays las estadías del propietario y los bloqueos.

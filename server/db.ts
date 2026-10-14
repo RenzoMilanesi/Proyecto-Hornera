@@ -44,6 +44,11 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
   // 5 → 6: propietario vinculado con su par de Stays.
   `ALTER TABLE propietario ADD COLUMN stays_owner_id TEXT;
    CREATE UNIQUE INDEX uq_propietario_stays ON propietario(stays_owner_id);`,
+  // 6 → 7: reservas canceladas, horarios y desglose de precio de Stays.
+  `ALTER TABLE reserva ADD COLUMN cancelada INTEGER NOT NULL DEFAULT 0 CHECK (cancelada IN (0,1));
+   ALTER TABLE reserva ADD COLUMN hora_llegada TEXT;
+   ALTER TABLE reserva ADD COLUMN hora_salida TEXT;
+   ALTER TABLE reserva ADD COLUMN desglose_json TEXT CHECK (desglose_json IS NULL OR json_valid(desglose_json));`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

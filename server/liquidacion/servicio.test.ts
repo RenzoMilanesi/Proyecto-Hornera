@@ -31,7 +31,12 @@ test('arma la liquidación del mes abierto desde la base', () => {
     INSERT INTO pago(stays_id, reserva_id, medio_pago_id, tipo, estado, importe, comision, raw_json) VALUES
       ('p1', 1, 1, 'credit', 'completed', 10000000, 500000, '{}'),
       ('p2', 2, 1, 'credit', 'completed', 9900000, 1, '{}');
-    INSERT INTO bloqueo(depto_id, desde, hasta) VALUES (1, '2026-05-28', '2026-06-05');`);
+    INSERT INTO bloqueo(depto_id, desde, hasta) VALUES (1, '2026-05-28', '2026-06-05');
+    -- Cancelada en Stays: no suma noches, reservas ni cobros.
+    INSERT INTO reserva(codigo, depto_id, llegada, salida, moneda, raw_json, sincronizada_en, cancelada)
+      VALUES ('R3', 1, '2026-05-23', '2026-05-25', 'ARS', '{}', 'x', 1);
+    INSERT INTO pago(stays_id, reserva_id, medio_pago_id, tipo, estado, importe, comision, raw_json)
+      VALUES ('p3', 3, 1, 'credit', 'completed', 7700000, 1, '{}');`);
   // Abril cerrado: AAA quedó con $1.500 a favor y se le pagaron $1.000 → arrastra $500.
   db.prepare(`
     INSERT INTO liquidacion(periodo_id, depto_id, cambio, comision_pct, noches_disponibles, noches_ocupadas, cant_reservas,

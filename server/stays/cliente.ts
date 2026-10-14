@@ -37,6 +37,13 @@ export interface AlojamientoStays {
   _t_imagesMeta?: { url?: string }[];
 }
 
+// Detalle de una reserva (GET /booking/reservations/{id}): solo lo que se guarda.
+export interface DetalleStays {
+  checkInTime?: string;    // "14:00"
+  checkOutTime?: string;
+  price?: unknown;         // desglose: hostingDetails, extrasDetails, _f_total; se guarda tal cual
+}
+
 export interface PropietarioStays {
   _id: string;
   name?: string;
@@ -47,7 +54,9 @@ export interface ClienteStays {
   alojamientos(): Promise<AlojamientoStays[]>;
   propietarios(desde: string, hasta: string): Promise<PropietarioStays[]>;
   mediosDePago(): Promise<MedioStays[]>;
-  exportarReservas(desde: string, hasta: string, tipoFecha: 'arrival' | 'departure' | 'included'): Promise<FilaReserva[]>;
+  // canceladas: Stays por defecto exporta solo las vigentes (reserved, booked, contract).
+  exportarReservas(desde: string, hasta: string, tipoFecha: 'arrival' | 'departure' | 'included', canceladas?: boolean): Promise<FilaReserva[]>;
+  detalle(codigoReserva: string): Promise<DetalleStays>;
   pagos(codigoReserva: string): Promise<PagoStays[]>;
 }
 
@@ -62,8 +71,8 @@ export function crearClienteStays({ usuario, clave }: Credenciales, base = URL_S
   return {
     // Sin filtrar por activos: un pago viejo puede usar un medio dado de baja.
     mediosDePago: async () => (await pedir('finance/payment-providers')).json(),
-    async exportarReservas(desde, hasta, tipoFecha) {
-      const res = await pedir(`booking/reservations-export?from=${desde}&to=${hasta}&dateType=${tipoFecha}`);
+    async exportarReservas(desde, hasta, tipoFecha, canceladas = false) {
+      const res = await pedir(`booking/reservations-export?from=${desde}&to=${hasta}&dateType=${tipoFecha}${canceladas ? '&type=canceled' : ''}`);
       const wb = XLSX.read(new Uint8Array(await res.arrayBuffer()), { type: 'array' });
       return XLSX.utils.sheet_to_json<FilaReserva>(wb.Sheets[wb.SheetNames[0]], { defval: null });
     },
@@ -79,6 +88,7 @@ export function crearClienteStays({ usuario, clave }: Credenciales, base = URL_S
       return todos;
     },
     propietarios: async (desde, hasta) => (await pedir(`finance/owners?from=${desde}&to=${hasta}`)).json(),
+    detalle: async (codigo) => (await pedir(`booking/reservations/${encodeURIComponent(codigo)}`)).json(),
     pagos: async (codigo) => (await pedir(`booking/reservations/${encodeURIComponent(codigo)}/payments`)).json(),
   };
 }

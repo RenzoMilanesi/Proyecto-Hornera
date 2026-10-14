@@ -85,7 +85,7 @@ export function liquidarPeriodo(db: DatabaseSync, mes: string): LiquidacionPerio
            COALESCE((SELECT SUM(v.importe_neto) FROM v_pago_liquidable v WHERE v.reserva_id = r.id AND v.moneda = 'ARS'), 0) AS cobrado_ars,
            COALESCE((SELECT SUM(v.importe_neto) FROM v_pago_liquidable v WHERE v.reserva_id = r.id AND v.moneda = 'USD'), 0) AS cobrado_usd
     FROM reserva r LEFT JOIN plataforma pl ON pl.id = r.plataforma_id
-    WHERE r.depto_id = :depto AND r.excluida = 0 AND ${SQL_EN_PERIODO}
+    WHERE r.depto_id = :depto AND r.excluida = 0 AND r.cancelada = 0 AND ${SQL_EN_PERIODO}
     ORDER BY r.llegada, r.codigo`);
   const movimientosDe = db.prepare(`
     SELECT tipo, importe_ars AS ars, importe_usd AS usd FROM movimiento

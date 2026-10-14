@@ -159,6 +159,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     res.json(db.prepare(`
       SELECT r.id, r.codigo, d.codigo AS depto, r.llegada, r.salida, r.huespedes, p.nombre AS plataforma,
              r.estado_stays, r.ajuste_ars, r.ajuste_usd, r.ajuste_comision_ars, r.ajuste_comision_usd, r.observacion, r.excluida,
+             r.cancelada, r.hora_llegada, r.hora_salida, r.desglose_json,
              COALESCE(SUM(CASE v.moneda WHEN 'ARS' THEN v.importe_neto END), 0) AS cobrado_ars,
              COALESCE(SUM(CASE v.moneda WHEN 'USD' THEN v.importe_neto END), 0) AS cobrado_usd,
              MAX(v.falta_comision) AS falta_comision

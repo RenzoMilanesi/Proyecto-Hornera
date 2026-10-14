@@ -7,12 +7,14 @@
 // - reservas: alta o actualización; los ajustes manuales (ajuste_*, observacion,
 //   excluida) no se tocan. Las del período que Stays ya no devuelve se borran.
 // - pagos de cada reserva: los mismos que tiene Stays.
+// - canceladas: se guardan marcadas, sin pagos, y no liquidan. Horario y desglose de precio
+//   de cada reserva (informativos) salen del detalle de Stays.
 // - alojamientos: avisa deptos activos en uno y no en el otro; completa direcciones vacías
 //   y reemplaza las fotos de cada depto.
 // - propietarios: vincula cada uno con su par de Stays y avisa si un depto cambió de dueño.
 // Si el período no existe se crea con los parámetros del último cargado.
 import type { DatabaseSync } from 'node:sqlite';
-import type { ClienteStays, FilaReserva, MedioStays, PagoStays } from './cliente.ts';
+import type { ClienteStays, DetalleStays, FilaReserva, MedioStays, PagoStays } from './cliente.ts';
 import { enPeriodo, SQL_EN_PERIODO } from '../periodo.ts';
 
 export interface ReporteSync {
@@ -22,6 +24,7 @@ export interface ReporteSync {
   pagos: number;
   medios: number;
   eliminadas: number;
+  canceladas: number;
   avisos: string[];
 }
 
@@ -95,18 +98,25 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
     });
     // Igual que el script 1: por llegada, por salida (corrida un día: una salida
     // el día 1 no tiene noches en el mes) e incluidas; después se filtra.
-    const lotes = await Promise.all([
-      cliente.exportarReservas(inicio, cierre, 'arrival'),
-      cliente.exportarReservas(sumarDias(inicio, 1), sumarDias(cierre, 1), 'departure'),
-      cliente.exportarReservas(inicio, cierre, 'included'),
-    ]);
+    // Las canceladas se piden aparte con las mismas tres consultas: se ven en la lista pero no liquidan.
+    const bajar = (canceladas: boolean) => Promise.all([
+      cliente.exportarReservas(inicio, cierre, 'arrival', canceladas),
+      cliente.exportarReservas(sumarDias(inicio, 1), sumarDias(cierre, 1), 'departure', canceladas),
+      cliente.exportarReservas(inicio, cierre, 'included', canceladas),
+    ]).then((lotes) => lotes.flat());
+    const [vigentes, filasCanceladas] = await Promise.all([bajar(false), bajar(true)]);
     const porCodigo = new Map<string, FilaReserva>();
-    for (const fila of lotes.flat()) {
+    for (const fila of vigentes) {
       const codigo = texto(fila.Reserva);
       if (codigo) porCodigo.set(codigo, fila);
     }
+    const canceladas = new Map<string, FilaReserva>();
+    for (const fila of filasCanceladas) {
+      const codigo = texto(fila.Reserva);
+      if (codigo && !porCodigo.has(codigo)) canceladas.set(codigo, fila);
+    }
     // Entra si tiene noches en el período o si llega en el período (cancelación de 0 noches).
-    const delPeriodo = [...porCodigo.entries()].filter(([codigo, fila]) => {
+    const delPeriodo = (filas: Map<string, FilaReserva>) => [...filas.entries()].filter(([codigo, fila]) => {
       const llegada = fechaStays(fila.Llegada);
       const salida = fechaStays(fila['Fecha de salida']);
       if (!llegada || !salida) {
@@ -115,10 +125,22 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
       }
       return enPeriodo(llegada, salida, inicio, cierre);
     });
-    const pagosPorReserva = await enParalelo(delPeriodo, 4, ([codigo]) => cliente.pagos(codigo));
+    const vigentesDelPeriodo = delPeriodo(porCodigo);
+    const canceladasDelPeriodo = delPeriodo(canceladas);
+    const pagosPorReserva = await enParalelo(vigentesDelPeriodo, 4, ([codigo]) => cliente.pagos(codigo));
+    // Horarios y desglose: informativos, así que si el detalle falla la reserva se trae igual.
+    const sinDetalle: string[] = [];
+    let errorDetalle = '';
+    const todas = [...vigentesDelPeriodo, ...canceladasDelPeriodo];
+    const detalles = await enParalelo(todas, 4, ([codigo]) => cliente.detalle(codigo).catch((e: unknown) => {
+      sinDetalle.push(codigo);
+      errorDetalle ||= e instanceof Error ? e.message : String(e);
+      return null;
+    }));
+    if (sinDetalle.length) avisos.push(`No se pudo traer el horario y el desglose de ${sinDetalle.sort().join(', ')}: ${errorDetalle}`);
 
     // ---- 2. Escribir
-    const reporte: ReporteSync = { mes, periodoCreado: !existente, reservas: 0, pagos: 0, medios: medios.length, eliminadas: 0, avisos };
+    const reporte: ReporteSync = { mes, periodoCreado: !existente, reservas: 0, pagos: 0, medios: medios.length, eliminadas: 0, canceladas: 0, avisos };
     db.exec('BEGIN');
     try {
       let periodoId = existente?.id;
@@ -160,8 +182,9 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
       const altaReserva = db.prepare(`
         INSERT INTO reserva(codigo, stays_id, depto_id, plataforma_id, codigo_ota, llegada, salida, huespedes, estado_stays,
           moneda, total_factura, forward_fee_all, precio_compra, tasa_propietario_airbnb, cargo_limpieza,
-          tasa_propietario_limpieza, huesped_nombre, huesped_doc_tipo, huesped_doc_numero, raw_json, sincronizada_en)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          tasa_propietario_limpieza, huesped_nombre, huesped_doc_tipo, huesped_doc_numero, raw_json, sincronizada_en,
+          cancelada, hora_llegada, hora_salida, desglose_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(codigo) DO UPDATE SET stays_id = COALESCE(excluded.stays_id, reserva.stays_id), depto_id = excluded.depto_id,
           plataforma_id = excluded.plataforma_id, codigo_ota = excluded.codigo_ota, llegada = excluded.llegada,
           salida = excluded.salida, huespedes = excluded.huespedes, estado_stays = excluded.estado_stays,
@@ -170,8 +193,18 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
           cargo_limpieza = excluded.cargo_limpieza, tasa_propietario_limpieza = excluded.tasa_propietario_limpieza,
           huesped_nombre = excluded.huesped_nombre, huesped_doc_tipo = excluded.huesped_doc_tipo,
           huesped_doc_numero = excluded.huesped_doc_numero, raw_json = excluded.raw_json,
-          sincronizada_en = excluded.sincronizada_en
+          sincronizada_en = excluded.sincronizada_en, cancelada = excluded.cancelada,
+          -- Si el detalle no se pudo traer esta vez, queda el de la sincronización anterior.
+          hora_llegada = COALESCE(excluded.hora_llegada, reserva.hora_llegada),
+          hora_salida = COALESCE(excluded.hora_salida, reserva.hora_salida),
+          desglose_json = COALESCE(excluded.desglose_json, reserva.desglose_json)
         RETURNING id`);
+      const previa = db.prepare(`
+        SELECT cancelada,
+               ajuste_ars <> 0 OR ajuste_usd <> 0 OR ajuste_comision_ars <> 0 OR ajuste_comision_usd <> 0
+                 OR observacion IS NOT NULL OR excluida = 1 AS tenia_ajuste,
+               EXISTS (SELECT 1 FROM liquidacion_reserva lr WHERE lr.reserva_id = r.id) AS liquidada
+        FROM reserva r WHERE codigo = ?`);
       const borrarPagosViejos = db.prepare(`DELETE FROM pago WHERE reserva_id = ? AND stays_id NOT IN (SELECT value FROM json_each(?))`);
       const altaPago = db.prepare(`
         INSERT INTO pago(stays_id, reserva_id, medio_pago_id, tipo, estado, descripcion, importe, comision, fecha_pago, raw_json)
@@ -182,25 +215,35 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
 
       const traidas: string[] = [];
       const canalesDesconocidos = new Set<string>();
-      const traerReserva = ([codigo, fila]: [string, FilaReserva], i: number) => {
+      // pagos = null: reserva cancelada (no liquida ni trae pagos; los avisos de datos faltantes no aplican).
+      const traerReserva = ([codigo, fila]: [string, FilaReserva], pagos: PagoStays[] | null, detalle: DetalleStays | null) => {
+        const cancelada = pagos === null;
         const depto = texto(fila['Nombre interno del alojamiento']);
         const deptoId = depto ? deptos.get(depto) : undefined;
         if (deptoId === undefined) {
-          avisos.push(`Reserva ${codigo}: el alojamiento "${depto ?? ''}" no es un depto cargado, no se trae.`);
+          if (!cancelada) avisos.push(`Reserva ${codigo}: el alojamiento "${depto ?? ''}" no es un depto cargado, no se trae.`);
           return;
+        }
+        const antes = previa.get(codigo) as { cancelada: number; tenia_ajuste: number; liquidada: number } | undefined;
+        if (cancelada && antes && !antes.cancelada) {
+          if (antes.liquidada) {
+            avisos.push(`Reserva ${codigo}: se canceló en Stays pero es parte de una liquidación cerrada; se conserva.`);
+            return;
+          }
+          if (antes.tenia_ajuste) avisos.push(`Reserva ${codigo}: se canceló en Stays y tenía ajustes cargados a mano; quedan guardados, pero ya no se liquida.`);
         }
         const canal = texto(fila.Canal) ?? 'Carga Agente'; // sin canal = carga manual del agente (script 3)
         const plataformaId = plataformas.get(canal) ?? null;
-        if (plataformaId === null) canalesDesconocidos.add(canal);
+        if (plataformaId === null && !cancelada) canalesDesconocidos.add(canal);
         const doc = texto(fila['Tipo de documento']);
-        const pagos = pagosPorReserva[i];
         const monedaStays = texto(fila.Moneda);
-        if (monedaStays !== 'ARS' && monedaStays !== 'USD') {
+        if (monedaStays !== 'ARS' && monedaStays !== 'USD' && !cancelada) {
           avisos.push(`Reserva ${codigo}: moneda "${monedaStays ?? ''}" desconocida, se toma USD.`);
         }
         const moneda = monedaStays === 'ARS' ? 'ARS' : 'USD';
+        const hora = (v: unknown) => (typeof v === 'string' && /^\d{2}:\d{2}$/.test(v) ? v : null);
         const { id: reservaId } = altaReserva.get(
-          codigo, pagos.find((p) => p._idreserve)?._idreserve ?? null, deptoId, plataformaId,
+          codigo, pagos?.find((p) => p._idreserve)?._idreserve ?? null, deptoId, plataformaId,
           texto(fila['Código externo de reserva OTA']), fechaStays(fila.Llegada), fechaStays(fila['Fecha de salida']),
           Number(fila['Total de huéspedes']) || 1, texto(fila['Estatus de reserva']), moneda,
           centavos(fila['Total de factura de hospedaje']), centavos(fila['Total Forward Fee All']),
@@ -209,12 +252,18 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
           centavos(fila['Tasa del propietario: Tasa de Limpieza']), texto(fila['Nombre del huésped']),
           doc === null ? null : doc === 'ID' ? 'DNI' : doc === 'Pasaporte' ? 'Pasaporte' : 'Otro',
           texto(fila['Numero de documento']), JSON.stringify(fila), marca,
+          cancelada ? 1 : 0, hora(detalle?.checkInTime), hora(detalle?.checkOutTime),
+          detalle?.price == null ? null : JSON.stringify(detalle.price),
         ) as { id: number };
+
+        borrarPagosViejos.run(reservaId, JSON.stringify((pagos ?? []).map((p) => p._id)));
+        if (!pagos) {
+          reporte.canceladas++;
+          return;
+        }
         traidas.push(codigo);
         reporte.reservas++;
-
-        borrarPagosViejos.run(reservaId, JSON.stringify(pagos.map((p) => p._id)));
-        for (const p of pagos as PagoStays[]) {
+        for (const p of pagos) {
           if (!texto(p._id)) {
             avisos.push(`Reserva ${codigo}: un pago de ${p._f_val ?? '?'} no tiene identificador en Stays, no se trae.`);
             continue;
@@ -241,9 +290,9 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
         }
       };
       // Si un dato de Stays viene con una forma inesperada, el error dice de qué reserva es.
-      delPeriodo.forEach((x, i) => {
+      todas.forEach((x, i) => {
         try {
-          traerReserva(x, i);
+          traerReserva(x, i < vigentesDelPeriodo.length ? pagosPorReserva[i] : null, detalles[i]);
         } catch (e) {
           throw new Error(`Reserva ${x[0]}: ${e instanceof Error ? e.message : String(e)}`);
         }
@@ -322,7 +371,7 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
                EXISTS (SELECT 1 FROM liquidacion_reserva lr WHERE lr.reserva_id = r.id) AS liquidada
         FROM reserva r
         WHERE r.codigo NOT IN (SELECT value FROM json_each(:devueltas)) AND ${SQL_EN_PERIODO}`)
-        .all({ devueltas: JSON.stringify([...porCodigo.keys()]), inicio, cierre }) as { id: number; codigo: string; tenia_ajuste: number; liquidada: number }[];
+        .all({ devueltas: JSON.stringify([...porCodigo.keys(), ...canceladas.keys()]), inicio, cierre }) as { id: number; codigo: string; tenia_ajuste: number; liquidada: number }[];
       if (porCodigo.size === 0 && viejas.length) {
         // Un export vacío con reservas en la base huele a error de Stays: mejor no borrar nada.
         avisos.push(`Stays no devolvió ninguna reserva para ${mes} y en la app hay ${viejas.length}: no se borró ninguna. Revisá Stays y volvé a traer el mes.`);

@@ -6,7 +6,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import * as XLSX from 'xlsx';
 import { abrirDb } from '../db.ts';
-import { crearClienteStays, type AlojamientoStays, type FilaReserva, type MedioStays, type PagoStays, type PropietarioStays } from './cliente.ts';
+import { crearClienteStays, type AlojamientoStays, type DetalleStays, type FilaReserva, type MedioStays, type PagoStays, type PropietarioStays } from './cliente.ts';
 import { fechaStays, sincronizarMes, sumarMeses } from './sync.ts';
 
 const reserva = (codigo: string, depto: string, llegada: string, salida: string, canal: string, moneda = 'USD'): FilaReserva => ({
@@ -18,8 +18,9 @@ const pago = (id: string, medio: string, val: number, extra: Partial<PagoStays> 
   ({ _id: id, _idpaymentProvider: medio, _idreserve: 'int-' + id, type: 'credit', status: 'completed', _f_val: val, paymentDate: '2026-05-02', ...extra });
 
 // Stays simulado: devuelve las mismas reservas para cualquier dateType (el filtro es nuestro)
-// y anota cada pedido. `fallan`: reservas cuyos pagos responden 500 ('listings' y 'owners': alojamientos y propietarios).
-interface DatosStays { reservas: FilaReserva[]; pagos: Record<string, PagoStays[]>; alojamientos: AlojamientoStays[]; duenios: PropietarioStays[]; fallan: Set<string>; pedidos: string[] }
+// y anota cada pedido. `fallan`: reservas cuyos pagos responden 500 ('listings' y 'owners': alojamientos y propietarios;
+// 'detalle:R1': el detalle de R1). `canceladas`: lo que devuelve el export con type=canceled.
+interface DatosStays { reservas: FilaReserva[]; canceladas: FilaReserva[]; detalles: Record<string, DetalleStays>; pagos: Record<string, PagoStays[]>; alojamientos: AlojamientoStays[]; duenios: PropietarioStays[]; fallan: Set<string>; pedidos: string[] }
 async function conStays(fn: (url: string, datos: DatosStays, medios: MedioStays[]) => Promise<void>) {
   const medios: MedioStays[] = [
     { _id: 'mp', type: 'mercadopago', status: 'active', internalName: 'Mercado Pago Prueba', currencies: ['ARS'] },
@@ -34,6 +35,10 @@ async function conStays(fn: (url: string, datos: DatosStays, medios: MedioStays[
       reserva('R4', 'AAA', '20 abr. 2026', '01 may. 2026', 'API airbnb'),   // sale el 1: 0 noches en mayo
       reserva('R5', 'AAA', '31 may. 2026', '31 may. 2026', 'VRBO nuevo'),   // cancelación de 0 noches; canal nuevo
     ],
+    canceladas: [] as FilaReserva[],
+    detalles: {
+      R1: { checkInTime: '15:00', checkOutTime: '10:00', price: { currency: 'USD', _f_total: 311.45, hostingDetails: { _f_nightPrice: 70, fees: [{ name: 'Tasa de Limpieza', _f_val: 31.45 }], _f_total: 311.45 } } },
+    } as Record<string, DetalleStays>,
     pagos: {
       R1: [pago('p1', 'payo', 300), pago('p2', 'payo', 48.28, { type: 'debit', name: 'res. fee API airbnb' }),
         pago('p3', 'payo', 48.28, { name: 'res. fee API airbnb' })],
@@ -71,10 +76,14 @@ async function conStays(fn: (url: string, datos: DatosStays, medios: MedioStays[
     }
     if (url.pathname === '/booking/reservations-export') {
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(datos.reservas), 'Sheet1');
+      const filas = url.searchParams.get('type') === 'canceled' ? datos.canceladas : datos.reservas;
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Sheet1');
       res.end(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
       return;
     }
+    const d = /^\/booking\/reservations\/([^/]+)$/.exec(url.pathname);
+    if (d && datos.fallan.has(`detalle:${d[1]}`)) { res.writeHead(500).end('error interno'); return; }
+    if (d) { res.end(JSON.stringify(datos.detalles[d[1]] ?? {})); return; }
     const m = /^\/booking\/reservations\/([^/]+)\/payments$/.exec(url.pathname);
     if (m && datos.fallan.has(m[1])) { res.writeHead(500).end('error interno'); return; }
     if (m) { res.end(JSON.stringify(datos.pagos[m[1]] ?? [])); return; }
@@ -263,8 +272,11 @@ test('pide a Stays las tres consultas del período con el rango correcto', () =>
   const exports = datos.pedidos.filter((p) => p.startsWith('/booking/reservations-export')).sort();
   assert.deepEqual(exports, [
     '/booking/reservations-export?from=2026-05-01&to=2026-06-01&dateType=arrival',
+    '/booking/reservations-export?from=2026-05-01&to=2026-06-01&dateType=arrival&type=canceled',
     '/booking/reservations-export?from=2026-05-01&to=2026-06-01&dateType=included',
+    '/booking/reservations-export?from=2026-05-01&to=2026-06-01&dateType=included&type=canceled',
     '/booking/reservations-export?from=2026-05-02&to=2026-06-02&dateType=departure',
+    '/booking/reservations-export?from=2026-05-02&to=2026-06-02&dateType=departure&type=canceled',
   ]);
 }));
 
@@ -382,4 +394,52 @@ test('propietarios: se vinculan con Stays por sus deptos y se avisa si un depto 
     'En Stays, CCC es de Dueño Uno (en la app, Propietario Uno), pero en la app es de Propietario Dos.',
   ]);
   assert.deepEqual(vinculos(), ['Propietario Uno: s1', 'Propietario Dos: s2']);
+}));
+
+test('canceladas: se ven marcadas, sin pagos y fuera de la liquidación; una que se cancela conserva sus ajustes', () => conStays(async (url, datos) => {
+  const db = baseConAbril();
+  const cliente = crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url);
+  datos.canceladas = [
+    reserva('C1', 'AAA', '10 may. 2026', '12 may. 2026', 'Canal raro'),  // canal desconocido: sin aviso
+    reserva('C2', 'ZZZ', '10 may. 2026', '12 may. 2026', 'API airbnb'),  // depto desconocido: sin aviso
+    reserva('C3', 'AAA', '10 jun. 2026', '12 jun. 2026', 'API airbnb'),  // otro mes
+  ];
+  datos.pagos.C1 = [pago('pc1', 'payo', 100)];
+  let r = await sincronizarMes(db, cliente, '2026-05');
+  assert.deepEqual([r.reservas, r.canceladas], [3, 1]);
+  assert.ok(!r.avisos.some((a) => /C1|C2|Canal raro/.test(a)), JSON.stringify(r.avisos));
+  assert.ok(!datos.pedidos.includes('/booking/reservations/C1/payments'));
+  const estado = () => db.prepare(`SELECT codigo, cancelada, (SELECT count(*) FROM pago WHERE reserva_id = r.id) pagos FROM reserva r ORDER BY codigo`)
+    .all().map((x: any) => `${x.codigo}:${x.cancelada}:${x.pagos}`);
+  assert.deepEqual(estado(), ['C1:1:0', 'R1:0:3', 'R2:0:2', 'R5:0:1']);
+
+  // R2 tenía un ajuste y se cancela: queda cancelada (no se borra), sin pagos, con su ajuste y un aviso.
+  db.exec(`UPDATE reserva SET observacion = 'descuento' WHERE codigo = 'R2'`);
+  datos.canceladas.push(datos.reservas.find((x) => x.Reserva === 'R2')!);
+  datos.reservas = datos.reservas.filter((x) => x.Reserva !== 'R2');
+  r = await sincronizarMes(db, cliente, '2026-05');
+  assert.equal(r.eliminadas, 0);
+  assert.ok(r.avisos.includes('Reserva R2: se canceló en Stays y tenía ajustes cargados a mano; quedan guardados, pero ya no se liquida.'), JSON.stringify(r.avisos));
+  assert.deepEqual(estado(), ['C1:1:0', 'R1:0:3', 'R2:1:0', 'R5:0:1']);
+  assert.equal((db.prepare(`SELECT observacion FROM reserva WHERE codigo = 'R2'`).get() as any).observacion, 'descuento');
+
+  // Se reactiva en Stays: vuelve a liquidar con sus pagos.
+  datos.reservas.push(datos.canceladas.pop()!);
+  r = await sincronizarMes(db, cliente, '2026-05');
+  assert.deepEqual(estado(), ['C1:1:0', 'R1:0:3', 'R2:0:2', 'R5:0:1']);
+}));
+
+test('horario y desglose: se guardan del detalle; si el detalle falla, se trae igual y queda el anterior', () => conStays(async (url, datos) => {
+  const db = baseConAbril();
+  const cliente = crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url);
+  const r1 = () => ({ ...(db.prepare(`SELECT hora_llegada, hora_salida, json_extract(desglose_json, '$.hostingDetails.fees[0].name') cargo FROM reserva WHERE codigo = 'R1'`).get() as any) });
+  await sincronizarMes(db, cliente, '2026-05');
+  assert.deepEqual(r1(), { hora_llegada: '15:00', hora_salida: '10:00', cargo: 'Tasa de Limpieza' });
+  assert.equal((db.prepare(`SELECT hora_llegada h FROM reserva WHERE codigo = 'R2'`).get() as any).h, null); // sin detalle en Stays
+
+  datos.fallan.add('detalle:R1').add('detalle:R5');
+  const r = await sincronizarMes(db, cliente, '2026-05');
+  assert.equal(r.reservas, 3);
+  assert.ok(r.avisos.some((a) => a.startsWith('No se pudo traer el horario y el desglose de R1, R5: Stays respondió 500')), JSON.stringify(r.avisos));
+  assert.deepEqual(r1(), { hora_llegada: '15:00', hora_salida: '10:00', cargo: 'Tasa de Limpieza' });
 }));
