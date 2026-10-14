@@ -37,7 +37,13 @@ export function Importar() {
         disabled={cargando}
         beforeUpload={(archivo) => { importar(archivo); return false; }}
       >
-        <p style={{ fontSize: 16 }}>{cargando ? 'Importando…' : 'Soltá el .xlsx o hacé clic para elegirlo'}</p>
+        <div style={{ padding: '24px 0' }}>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true" style={{ opacity: 0.6 }}>
+            <path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <p style={{ fontSize: 16, margin: '8px 0 4px' }}>{cargando ? 'Importando…' : 'Soltá el .xlsx o hacé clic para elegirlo'}</p>
+          <Typography.Text type="secondary">Solo archivos .xlsx exportados del Google Sheet</Typography.Text>
+        </div>
       </Upload.Dragger>
 
       {error && <Alert style={{ marginTop: 16 }} type="error" showIcon title={error} />}

@@ -26,6 +26,10 @@ const fechaPorDefecto = (mes: string) => {
 };
 const aCentavos = (v: number | null | undefined) => Math.round((v ?? 0) * 100);
 const derecha = { align: 'right' as const, onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }) };
+const COLOR_TIPO: Record<string, string> = {
+  gasto: 'orange', ingreso: 'green', pre_liquidacion: 'purple', pago_directo: 'cyan', saldo_inicial: 'default', ajuste: 'gold', liquidacion: 'blue', transferencia: 'geekblue',
+};
+const importe = (v: number, moneda?: 'USD') => (v ? <Typography.Text type={v < 0 ? 'danger' : undefined}>{pesos(v, moneda)}</Typography.Text> : '');
 
 function FormMovimiento({ abierto, mes, editando, deptos, cuentas, conceptos, alCerrar }: {
   abierto: boolean; mes: string; editando?: Movimiento; deptos: string[]; cuentas: Cuenta[]; conceptos: string[];
@@ -163,6 +167,7 @@ export function Movimientos() {
   const [conceptos, setConceptos] = useState<string[]>([]);
   const [filtroDepto, setFiltroDepto] = useState<string>();
   const [verAnulados, setVerAnulados] = useState(false);
+  const [texto, setTexto] = useState('');
   const [form, setForm] = useState<{ editando?: Movimiento } | null>(null);
   const [transferencia, setTransferencia] = useState(false);
   const [error, setError] = useState<string>();
@@ -179,9 +184,13 @@ export function Movimientos() {
   }, [mes, version]);
 
   const abierto = periodos.find((p) => p.mes === mes)?.estado === 'abierto';
-  const visibles = useMemo(() => (movimientos ?? []).filter((m) =>
-    (verAnulados || m.estado === 'vigente')
-    && (!filtroDepto || (filtroDepto === EMPRESA ? m.depto === null : m.depto === filtroDepto))), [movimientos, verAnulados, filtroDepto]);
+  const visibles = useMemo(() => {
+    const t = texto.trim().toLowerCase();
+    return (movimientos ?? []).filter((m) =>
+      (verAnulados || m.estado === 'vigente')
+      && (!filtroDepto || (filtroDepto === EMPRESA ? m.depto === null : m.depto === filtroDepto))
+      && (!t || [m.concepto, m.detalle, m.cuenta].some((c) => c?.toLowerCase().includes(t))));
+  }, [movimientos, verAnulados, filtroDepto, texto]);
   const total = visibles.filter((m) => m.estado === 'vigente').reduce((s, m) => ({ ars: s.ars + m.importe_ars, usd: s.usd + m.importe_usd }), { ars: 0, usd: 0 });
 
   const anular = async (m: Movimiento) => {
@@ -197,11 +206,11 @@ export function Movimientos() {
   const columnas: TableColumnsType<Movimiento> = [
     { title: 'Fecha', dataIndex: 'fecha', ...derecha, align: 'left' },
     { title: 'Depto', dataIndex: 'depto', render: (v: string | null) => v ?? <Typography.Text type="secondary">INT</Typography.Text> },
-    { title: 'Tipo', dataIndex: 'tipo', render: (v: string) => TIPOS[v] ?? v },
+    { title: 'Tipo', dataIndex: 'tipo', render: (v: string) => <Tag color={COLOR_TIPO[v]}>{TIPOS[v] ?? v}</Tag> },
     { title: 'Concepto', dataIndex: 'concepto' },
     { title: 'Detalle', dataIndex: 'detalle', ellipsis: true },
-    { title: 'ARS', dataIndex: 'importe_ars', ...derecha, render: (v: number) => (v ? pesos(v) : '') },
-    { title: 'USD', dataIndex: 'importe_usd', ...derecha, render: (v: number) => (v ? pesos(v, 'USD') : '') },
+    { title: 'ARS', dataIndex: 'importe_ars', ...derecha, render: (v: number) => importe(v) },
+    { title: 'USD', dataIndex: 'importe_usd', ...derecha, render: (v: number) => importe(v, 'USD') },
     { title: 'Cuenta', dataIndex: 'cuenta' },
     {
       title: '', key: 'acciones', ...derecha,
@@ -225,14 +234,15 @@ export function Movimientos() {
             options={periodos.map((p) => ({ value: p.mes, label: `${p.mes} · ${p.estado}` }))} />
           <Select style={{ width: 180 }} allowClear placeholder="Todos los deptos" value={filtroDepto} onChange={setFiltroDepto}
             options={[{ value: EMPRESA, label: 'Empresa (INT)' }, ...deptos.map((d) => ({ value: d, label: d }))]} />
+          <Input.Search allowClear placeholder="Buscar concepto, detalle o cuenta" style={{ width: 260 }} value={texto} onChange={(e) => setTexto(e.target.value)} />
           <Space><Switch size="small" checked={verAnulados} onChange={setVerAnulados} /> Ver anulados</Space>
           <Button type="primary" disabled={!abierto} onClick={() => setForm({})}>Nuevo movimiento</Button>
           <Button disabled={!abierto} onClick={() => setTransferencia(true)}>Transferencia entre cuentas</Button>
         </Space>
-        {!abierto && mes && <Typography.Paragraph type="secondary" style={{ margin: '8px 0 0' }}>El período {mes} está cerrado: solo lectura.</Typography.Paragraph>}
       </Card>
+      {!abierto && mes && <Alert type="info" showIcon title={`El período ${mes} está cerrado: solo lectura.`} />}
       {error && <Alert type="error" showIcon closable title={error} onClose={() => setError(undefined)} />}
-      <Table<Movimiento> rowKey="id" size="small" pagination={false} scroll={{ x: 'max-content' }} loading={!movimientos}
+      <Table<Movimiento> rowKey="id" size="small" pagination={false} sticky scroll={{ x: 'max-content' }} loading={!movimientos}
         dataSource={visibles} columns={columnas}
         rowClassName={(m) => (m.estado === 'vigente' ? '' : 'ant-typography-secondary')}
         summary={() => visibles.length ? (

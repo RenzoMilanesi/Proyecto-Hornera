@@ -30,7 +30,7 @@ const tema: ThemeConfig = {
   },
   components: {
     Layout: { siderBg: marron },
-    Menu: { darkItemBg: marron, darkItemColor: '#E9E1D8', darkItemSelectedBg: '#A8461F', darkItemHoverBg: '#3A2E26' },
+    Menu: { darkItemBg: marron, darkItemColor: '#E9E1D8', darkItemSelectedBg: '#A8461F', darkItemHoverBg: '#3A2E26', darkGroupTitleColor: '#E8B48F' },
     Table: { headerBg: '#FBF8F4' },
   },
 };

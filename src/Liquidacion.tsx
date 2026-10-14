@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Descriptions, InputNumber, Popconfirm, Select, Space, Table, Tag, Typography, Upload } from 'antd';
+import { Alert, Button, Card, Descriptions, Input, InputNumber, Popconfirm, Select, Space, Table, Tag, Typography, Upload } from 'antd';
 import type { TableColumnsType } from 'antd';
 import type { LiquidacionDepto, LiquidacionPeriodo } from '../server/liquidacion/servicio.ts';
 import type { ComparacionDepto } from '../server/liquidacion/comparar.ts';
@@ -56,6 +56,7 @@ export function Liquidacion() {
   const [cotizacion, setCotizacion] = useState<number | null>(null);
   const [comparacion, setComparacion] = useState<Map<string, ComparacionDepto>>();
   const [comparando, setComparando] = useState(false);
+  const [texto, setTexto] = useState('');
 
   const cargarPeriodos = () => get<Periodo[]>('periodos').then((ps) => {
     setPeriodos(ps);
@@ -117,8 +118,8 @@ export function Liquidacion() {
   };
 
   const columnas: TableColumnsType<LiquidacionDepto> = [
-    { title: 'Depto', dataIndex: 'codigo', width: 80 },
-    { title: 'Propietario', dataIndex: 'propietario', ellipsis: true },
+    { title: 'Depto', dataIndex: 'codigo', width: 80, render: (v: string) => <b>{v}</b>, sorter: (a, b) => a.codigo.localeCompare(b.codigo) },
+    { title: 'Propietario', dataIndex: 'propietario', ellipsis: true, sorter: (a, b) => a.propietario.localeCompare(b.propietario) },
     { title: 'Noches', key: 'noches', width: 90, render: (_: unknown, d) => `${d.resultado.nochesOcupadas} / ${d.resultado.nochesDisponibles}` },
     { title: 'Bruto', key: 'bruto', ...derecha, render: (_: unknown, d) => pesos(d.resultado.bruto) },
     { title: 'Honorarios', key: 'hon', ...derecha, render: (_: unknown, d) => pesos(d.resultado.honorarios) },
@@ -138,6 +139,11 @@ export function Liquidacion() {
       ),
     },
   ];
+  const t = texto.trim().toLowerCase();
+  const visibles = (datos?.deptos ?? []).filter((d) => !t || d.codigo.toLowerCase().includes(t) || d.propietario.toLowerCase().includes(t));
+  const suma = (f: (d: LiquidacionDepto) => number) => visibles.reduce((s, d) => s + f(d), 0);
+  // Saldos a favor de los propietarios; lo que falta transferir (descontando pagos) está en Transferencias.
+  const saldos = (m: 'ARS' | 'USD') => suma((d) => (d.moneda === m ? Math.max(0, m === 'USD' ? d.resultado.saldo.usd : d.resultado.saldo.ars) : 0));
   const resumen = comparacion && [...comparacion.values()].reduce((s, c) => ({ ...s, [c.estado]: (s[c.estado] ?? 0) + 1 }), {} as Record<string, number>);
   const soloExcel = comparacion && [...comparacion.values()].filter((c) => c.estado === 'solo_excel').map((c) => c.codigo);
 
@@ -147,7 +153,7 @@ export function Liquidacion() {
         <Space wrap size="large">
           <Select style={{ width: 160 }} value={mes} onChange={setMes} placeholder="Mes"
             options={periodos.map((p) => ({ value: p.mes, label: `${p.mes} · ${p.estado}` }))} />
-          {periodo && <Tag color={periodo.estado === 'abierto' ? 'blue' : 'default'}>{periodo.estado}</Tag>}
+          {periodo && <Tag color={periodo.estado === 'abierto' ? 'blue' : 'green'}>{periodo.estado === 'abierto' ? 'abierto: los números todavía cambian' : 'cerrado'}</Tag>}
           <Space>
             <span>Dólar cripto al cierre</span>
             <InputNumber min={1} value={cotizacion} onChange={setCotizacion} disabled={periodo?.estado !== 'abierto'} style={{ width: 120 }} />
@@ -188,8 +194,17 @@ export function Liquidacion() {
           description={soloExcel?.length ? `Hojas del Excel sin liquidación en la app: ${soloExcel.join(', ')}` : undefined} />
       )}
 
-      <Table<LiquidacionDepto> rowKey="deptoId" size="small" pagination={false} scroll={{ x: "max-content" }} loading={!datos && !error}
-        dataSource={datos?.deptos} columns={columnas}
+      <Space wrap size="middle">
+        <Input.Search allowClear placeholder="Buscar depto o propietario" style={{ width: 280 }} value={texto} onChange={(e) => setTexto(e.target.value)} />
+        {datos && (
+          <Typography.Text type="secondary">
+            {visibles.length} deptos · Bruto <b>{pesos(suma((d) => d.resultado.bruto))}</b> · Honorarios <b>{pesos(suma((d) => d.resultado.honorarios))}</b>
+            {' '}· Saldos <b>{pesos(saldos('ARS'))}</b> · <b>{pesos(saldos('USD'), 'USD')}</b>
+          </Typography.Text>
+        )}
+      </Space>
+      <Table<LiquidacionDepto> rowKey="deptoId" size="small" pagination={false} sticky scroll={{ x: "max-content" }} loading={!datos && !error}
+        dataSource={visibles} columns={columnas}
         expandable={{ expandedRowRender: (d) => <Detalle d={d} comparacion={comparacion?.get(d.codigo)} /> }} />
     </Space>
   );

@@ -4,6 +4,7 @@ import { Alert, Button, Card, Form, Input, Modal, Radio, Select, Space, Switch, 
 import { enviar, get, pesos } from './api.ts';
 
 interface Cuenta { id: number; nombre: string; moneda: 'ARS' | 'USD'; activo: number; saldo: number; saldo_desde: string | null }
+const total = (cs: readonly Cuenta[], moneda: 'ARS' | 'USD') => cs.filter((c) => c.moneda === moneda).reduce((s, c) => s + c.saldo, 0);
 interface Medio { id: number; nombre: string; tipo_stays: string; moneda: 'ARS' | 'USD'; descuenta_comision: number; cuenta_id: number | null; activo: number; pagos: number }
 
 export function Cuentas() {
@@ -51,11 +52,19 @@ export function Cuentas() {
         </Form>
         <Table<Cuenta> rowKey="id" size="small" pagination={false} loading={!cuentas} dataSource={cuentas} columns={[
           { title: 'Cuenta', dataIndex: 'nombre', render: (v: string, c) => <>{v} {!c.activo && <Tag>de baja</Tag>}</> },
-          { title: 'Moneda', dataIndex: 'moneda', width: 90 },
+          { title: 'Moneda', dataIndex: 'moneda', width: 90, render: (v: string) => <Tag color={v === 'USD' ? 'green' : 'default'}>{v}</Tag> },
           { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (v: number, c) => <Typography.Text type={v < 0 ? 'danger' : undefined}>{pesos(v, c.moneda)}</Typography.Text> },
           { title: 'Desde', dataIndex: 'saldo_desde', render: (v: string | null) => (v ? v.split('-').reverse().join('/') : <Typography.Text type="secondary">sin saldo inicial</Typography.Text>) },
           { title: '', key: 'editar', width: 90, render: (_: unknown, c) => <Button size="small" onClick={() => setEditando(c)}>Editar</Button> },
-        ]} />
+        ]} summary={(filas) => (
+          <Table.Summary.Row>
+            <Table.Summary.Cell index={0} colSpan={2}><b>Total</b></Table.Summary.Cell>
+            <Table.Summary.Cell index={2} align="right">
+              <b>{pesos(total(filas, 'ARS'))} · {pesos(total(filas, 'USD'), 'USD')}</b>
+            </Table.Summary.Cell>
+            <Table.Summary.Cell index={3} colSpan={2} />
+          </Table.Summary.Row>
+        )} />
         <Typography.Paragraph type="secondary" style={{ margin: '8px 0 0' }}>
           El saldo suma los movimientos con esa cuenta y lo cobrado en Stays por los medios de pago asociados (neto de comisión).
           El saldo de arranque se carga en Movimientos como "Saldo inicial", con la cuenta y sin depto (Empresa): desde esa fecha se suma todo lo demás (lo anterior ya está incluido en ese saldo).

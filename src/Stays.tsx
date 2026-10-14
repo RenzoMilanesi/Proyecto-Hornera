@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Descriptions, Form, Input, Space, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Descriptions, Form, Input, Space, Switch, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { enviar, get, pesos } from './api.ts';
 import { AjustesReserva, type ReservaAjustable } from './AjustesReserva.tsx';
@@ -38,7 +38,7 @@ function Desglose({ json }: { json: string }) {
 const enUnaLinea = { onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }) };
 
 const columnas = (alEditar: (r: Reserva) => void): TableColumnsType<Reserva> => [
-  { title: 'Depto', dataIndex: 'depto', width: 80 },
+  { title: 'Depto', dataIndex: 'depto', width: 80, render: (v: string) => <b>{v}</b>, sorter: (a, b) => a.depto.localeCompare(b.depto) },
   { title: 'Reserva', dataIndex: 'codigo', width: 90 },
   { title: 'Llegada', dataIndex: 'llegada', ...enUnaLinea, render: (v: string, r) => `${v} ${r.hora_llegada ?? ''}` },
   { title: 'Salida', dataIndex: 'salida', ...enUnaLinea, render: (v: string, r) => `${v} ${r.hora_salida ?? ''}` },
@@ -106,9 +106,15 @@ export function Stays() {
   const [reservas, setReservas] = useState<Reserva[]>();
   const [editando, setEditando] = useState<Reserva>();
   const [version, setVersion] = useState(0); // fuerza recargar la tabla después de guardar ajustes
+  const [texto, setTexto] = useState('');
+  const [verCanceladas, setVerCanceladas] = useState(true);
 
   useEffect(() => { get<{ usuario: string | null }>('stays').then((r) => setUsuario(r.usuario), () => {}); }, []);
   useEffect(() => { get<Reserva[]>(`reservas?mes=${mes}`).then(setReservas, () => setReservas([])); }, [mes, reporte, version]);
+
+  const t = texto.trim().toLowerCase();
+  const visibles = (reservas ?? []).filter((r) => (verCanceladas || !r.cancelada)
+    && (!t || [r.depto, r.codigo, r.plataforma].some((c) => c?.toLowerCase().includes(t))));
 
   const traer = async () => {
     setTrayendo(true);
@@ -155,8 +161,13 @@ export function Stays() {
         )}
       </Card>
 
-      <Card size="small" title={`Reservas de ${mes}${reservas ? ` (${reservas.length})` : ''}`}>
-        <Table<Reserva> rowKey="id" size="small" pagination={false} scroll={{ x: "max-content" }} loading={!reservas} dataSource={reservas} columns={columnas(setEditando)}
+      <Card size="small" title={`Reservas de ${mes}${reservas ? ` (${visibles.length})` : ''}`} extra={
+        <Space wrap>
+          <Input.Search allowClear size="small" placeholder="Depto, reserva o plataforma" style={{ width: 240 }} value={texto} onChange={(e) => setTexto(e.target.value)} />
+          <Space><Switch size="small" checked={verCanceladas} onChange={setVerCanceladas} /> Ver canceladas</Space>
+        </Space>
+      }>
+        <Table<Reserva> rowKey="id" size="small" pagination={false} sticky scroll={{ x: "max-content" }} loading={!reservas} dataSource={visibles} columns={columnas(setEditando)}
           onRow={(r) => (r.cancelada ? { style: { opacity: 0.5 } } : {})}
           expandable={{ rowExpandable: (r) => !!r.desglose_json, expandedRowRender: (r) => <Desglose json={r.desglose_json!} /> }} />
         <AjustesReserva reserva={editando} alCerrar={(guardado) => { setEditando(undefined); if (guardado) setVersion((v) => v + 1); }} />

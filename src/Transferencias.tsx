@@ -1,7 +1,7 @@
 // Transferencias a propietarios de un mes cerrado: qué se le paga a cada uno, "marcar pagado"
 // (genera el movimiento "Liquidacion periodo") y la lista para el banco en Excel.
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
 import type { Transferencia } from '../server/liquidacion/pagos.ts';
 import { enviar, get, pesos } from './api.ts';
@@ -51,6 +51,7 @@ export function Transferencias() {
   const [filas, setFilas] = useState<Transferencia[]>();
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);
   const [pagando, setPagando] = useState<Transferencia>();
+  const [soloPendientes, setSoloPendientes] = useState(false);
   const [error, setError] = useState<string>();
   const [version, setVersion] = useState(0);
 
@@ -80,7 +81,7 @@ export function Transferencias() {
   };
 
   const columnas: TableColumnsType<Transferencia> = [
-    { title: 'Depto', dataIndex: 'codigo', width: 70 },
+    { title: 'Depto', dataIndex: 'codigo', width: 70, render: (v: string) => <b>{v}</b> },
     { title: 'Propietario', dataIndex: 'propietario', ellipsis: true },
     { title: 'CBU/CVU', key: 'cbu', render: (_: unknown, t) => (t.esHornera ? <Tag>Nosotros</Tag> : t.cbu ?? <Tag color="orange">no informado</Tag>) },
     { title: 'Saldo', key: 'saldo', ...derecha, render: (_: unknown, t) => <Typography.Text type={t.saldo < 0 ? 'danger' : undefined}>{pesos(t.saldo, t.moneda)}</Typography.Text> },
@@ -101,13 +102,14 @@ export function Transferencias() {
         <Space wrap size="large">
           <Select style={{ width: 160 }} value={mes} onChange={setMes} placeholder="Mes cerrado" options={periodos.map((p) => ({ value: p.mes, label: p.mes }))} />
           <Button disabled={!mes} onClick={exportar}>Exportar a Excel</Button>
+          <Space><Switch size="small" checked={soloPendientes} onChange={setSoloPendientes} /> Solo pendientes</Space>
           {filas && <Typography.Text>Pendiente: <b>{pesos(totales('ARS'))}</b> · <b>{pesos(totales('USD'), 'USD')}</b> ({aPagar.length} deptos)</Typography.Text>}
         </Space>
-        {!periodos.length && <Typography.Paragraph type="secondary" style={{ margin: '8px 0 0' }}>No hay meses cerrados: las transferencias salen al cerrar el mes en Liquidación.</Typography.Paragraph>}
       </Card>
+      {!periodos.length && <Alert type="info" showIcon title="No hay meses cerrados: las transferencias salen al cerrar el mes en Liquidación." />}
       {error && <Alert type="error" showIcon closable title={error} onClose={() => setError(undefined)} />}
-      <Table<Transferencia> rowKey="liquidacionId" size="small" pagination={false} scroll={{ x: 'max-content' }} loading={!!mes && !filas}
-        dataSource={filas} columns={columnas}
+      <Table<Transferencia> rowKey="liquidacionId" size="small" pagination={false} sticky scroll={{ x: 'max-content' }} loading={!!mes && !filas}
+        dataSource={soloPendientes ? aPagar : filas} columns={columnas}
         expandable={{
           rowExpandable: (t) => t.pagos.length > 0,
           expandedRowRender: (t) => (
