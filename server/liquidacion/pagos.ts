@@ -8,8 +8,10 @@ import { conceptoId } from '../movimientos.ts';
 
 export interface Transferencia {
   liquidacionId: number;
+  deptoId: number;
   codigo: string;
   depto: string;
+  propietarioId: number;       // el dueño al cerrar el mes (no necesariamente el actual)
   propietario: string;
   cbu: string | null;          // null + esHornera = "Nosotros" (depto de los dueños)
   esHornera: boolean;
@@ -24,10 +26,10 @@ export interface Transferencia {
 
 export function listarTransferencias(db: DatabaseSync, mes: string): Transferencia[] {
   const filas = db.prepare(`
-    SELECT l.id, l.periodo_id, l.depto_id, d.codigo, d.nombre AS depto, pr.nombre AS propietario, pr.cbu, pr.es_hornera,
+    SELECT l.id, l.periodo_id, l.depto_id, d.codigo, d.nombre AS depto, pr.id AS propietario_id, pr.nombre AS propietario, pr.cbu, pr.es_hornera,
            pr.moneda_liquidacion AS moneda, l.saldo_final_ars, l.saldo_final_usd
     FROM liquidacion l JOIN periodo p ON p.id = l.periodo_id JOIN depto d ON d.id = l.depto_id
-    JOIN propietario pr ON pr.id = d.propietario_id
+    JOIN propietario pr ON pr.id = COALESCE(l.propietario_id, d.propietario_id) -- el dueño de ese mes
     WHERE p.mes = ? ORDER BY d.codigo`).all(mes) as any[];
   const siguiente = db.prepare('SELECT mes, estado FROM periodo WHERE mes > ? ORDER BY mes LIMIT 1').get(mes) as { mes: string; estado: string } | undefined;
   const arrastradoA = siguiente?.estado === 'cerrado' ? siguiente.mes : null;
@@ -41,7 +43,7 @@ export function listarTransferencias(db: DatabaseSync, mes: string): Transferenc
     const saldo = usd ? f.saldo_final_usd : f.saldo_final_ars;
     const pagado = pagos.reduce((s, x) => s + x.importe, 0);
     return {
-      liquidacionId: f.id, codigo: f.codigo, depto: f.depto, propietario: f.propietario, cbu: f.cbu, esHornera: !!f.es_hornera,
+      liquidacionId: f.id, deptoId: f.depto_id, codigo: f.codigo, depto: f.depto, propietarioId: f.propietario_id, propietario: f.propietario, cbu: f.cbu, esHornera: !!f.es_hornera,
       moneda: f.moneda, saldo, pagado, pendiente: saldo - pagado, arrastradoA, pagos,
     };
   });

@@ -36,6 +36,7 @@ run(`INSERT INTO liquidacion(periodo_id, depto_id, cambio, comision_pct, noches_
       honorarios, saldo_anterior_ars, saldo_anterior_usd, movimientos_ars, movimientos_usd, conversion_ars,
       conversion_usd, saldo_final_ars, saldo_final_usd, calculada_en)
      VALUES (1,1,1400.6,0.2,30,29,2,0,0,0,0,0,0,0,0,0,0,0,0,0,84171700,0,'x')`);
+assert.equal(db.prepare('SELECT propietario_id FROM liquidacion').get().propietario_id, null); // NULL = dueño actual
 run(`UPDATE periodo SET estado = 'cerrado' WHERE id = 1`);
 falla(mov('tipo, importe_ars', `'gasto', -1`), 'periodo cerrado');
 falla(`UPDATE movimiento SET detalle = 'x' WHERE id = 1`, 'periodo cerrado');

@@ -357,6 +357,7 @@ CREATE TABLE liquidacion (
     id                     INTEGER PRIMARY KEY,
     periodo_id             INTEGER NOT NULL,
     depto_id               INTEGER NOT NULL,
+    propietario_id         INTEGER REFERENCES propietario(id),  -- dueño al cerrar; NULL = el actual del depto
     cambio                 REAL    NOT NULL,     -- cotización × (1 − descuento)
     comision_pct           REAL    NOT NULL,
     noches_disponibles     INTEGER NOT NULL,
@@ -390,6 +391,7 @@ CREATE TABLE liquidacion (
     CONSTRAINT fk_liq_mov_pago FOREIGN KEY (movimiento_pago_id) REFERENCES movimiento(id) ON DELETE SET NULL ON UPDATE CASCADE
 ) STRICT;
 CREATE INDEX ix_liq_depto ON liquidacion(depto_id);
+CREATE INDEX ix_liq_propietario ON liquidacion(propietario_id);
 CREATE INDEX ix_liq_mov_pago ON liquidacion(movimiento_pago_id);
 
 -- Reabrir borra las liquidaciones del período para recalcular. Una ya pagada

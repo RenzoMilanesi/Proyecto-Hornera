@@ -39,6 +39,7 @@ test('cerrar el mes guarda la liquidación tal como se calculó y congela el per
   assert.equal(l.bruto, calculo.bruto);
   assert.equal(l.movimientos_ars, -100000);
   assert.equal(l.comisiones_ars, 50000);
+  assert.equal(l.propietario_id, 1); // el dueño al cerrar
   const lr = db.prepare(`SELECT * FROM liquidacion_reserva`).all() as any[];
   assert.deepEqual(lr.map((x) => [x.codigo_interno.trim(), x.noches_periodo, x.importe_periodo_ars, x.comision_ars]), [['260510AAA2X05N', 5, 10000000, 50000]]);
   assert.equal((db.prepare(`SELECT estado FROM periodo WHERE mes = '2026-05'`).get() as any).estado, 'cerrado');

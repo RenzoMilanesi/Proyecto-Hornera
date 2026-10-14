@@ -160,7 +160,7 @@ test('abrir una base existente no vuelve a crear el esquema', (t) => {
 test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
   // El esquema 1 es el actual con la tabla liquidacion como era antes de la migración 1 → 2
   // y sin la tabla terminal (3 → 4) ni las fotos del depto (4 → 5) ni el vínculo del propietario con Stays (5 → 6)
-  // ni los datos nuevos de la reserva (6 → 7).
+  // ni los datos nuevos de la reserva (6 → 7) ni el dueño de la liquidación (7 → 8).
   const actual = readFileSync(new URL('../schema.sql', import.meta.url), 'utf8');
   const v1 = actual
     .replace(/CREATE TABLE terminal \([^;]*;/, '')
@@ -168,6 +168,8 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
     .replace(/^\s*fotos .*\r?\n/m, '')
     .replace(/,\s*\r?\n\s*stays_owner_id .*\r?\n/, '\n')
     .replace(/CREATE UNIQUE INDEX uq_propietario_stays[^;]*;/, '')
+    .replace(/^\s*propietario_id\s+INTEGER REFERENCES.*\r?\n/m, '')
+    .replace(/CREATE INDEX ix_liq_propietario[^;]*;/, '')
     .replace(/^\s*(-- Cancelada en Stays|cancelada |-- Del detalle de la reserva|hora_llegada |hora_salida |desglose_json ).*\r?\n/gm, '')
     .replace(/saldo_final_ars\s+INTEGER NOT NULL,\s*\r?\n\s*saldo_final_usd\s+INTEGER NOT NULL,/, 'saldo_final INTEGER NOT NULL,');
   assert.notEqual(v1, actual);
@@ -190,11 +192,11 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
 test('una base del esquema 1 conserva sus datos al migrar', (t) => {
   const ruta = join(temporal(t), 'v1.db');
   const v1 = new DatabaseSync(ruta);
-  v1.exec(`CREATE TABLE depto (id INTEGER PRIMARY KEY) STRICT; -- lo toca la migración 4 → 5
+  v1.exec(`CREATE TABLE depto (id INTEGER PRIMARY KEY, propietario_id INTEGER) STRICT; -- lo tocan las migraciones 4 → 5 y 7 → 8
            CREATE TABLE propietario (id INTEGER PRIMARY KEY) STRICT; -- y la 5 → 6
            CREATE TABLE reserva (id INTEGER PRIMARY KEY) STRICT; -- y la 6 → 7
-           CREATE TABLE liquidacion (id INTEGER PRIMARY KEY, conversion_ars INTEGER NOT NULL, saldo_final INTEGER NOT NULL) STRICT;
-           INSERT INTO liquidacion VALUES (1, 0, 500); PRAGMA user_version = 1;`);
+           CREATE TABLE liquidacion (id INTEGER PRIMARY KEY, depto_id INTEGER, conversion_ars INTEGER NOT NULL, saldo_final INTEGER NOT NULL) STRICT;
+           INSERT INTO liquidacion VALUES (1, NULL, 0, 500); PRAGMA user_version = 1;`);
   v1.close();
   const db = abrirDb(ruta);
   assert.deepEqual({ ...(db.prepare('SELECT saldo_final_ars, saldo_final_usd, conversion_usd FROM liquidacion').get() as any) },

@@ -37,8 +37,9 @@ export function cerrarPeriodo(db: DatabaseSync, mes: string): { liquidaciones: n
       INSERT INTO liquidacion(periodo_id, depto_id, cambio, comision_pct, noches_disponibles, noches_no_disponibles,
         noches_ocupadas, noches_propietario, cant_reservas, ingresos_ars, ingresos_usd, costos_operativos,
         comisiones_ars, comisiones_usd, bruto, honorarios, saldo_anterior_ars, saldo_anterior_usd,
-        movimientos_ars, movimientos_usd, conversion_ars, conversion_usd, saldo_final_ars, saldo_final_usd, calculada_en)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`);
+        movimientos_ars, movimientos_usd, conversion_ars, conversion_usd, saldo_final_ars, saldo_final_usd, calculada_en, propietario_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        (SELECT propietario_id FROM depto WHERE id = ?2)) RETURNING id`); // ?2 = depto_id: el dueño al cerrar
     const altaReserva = db.prepare(`
       INSERT INTO liquidacion_reserva(liquidacion_id, reserva_id, codigo_interno, noches_totales, noches_periodo, importe_ars,
         importe_periodo_ars, importe_usd, importe_periodo_usd, tarifa, tarifa_periodo, comision_ars, comision_usd, pago_plataforma_usd)

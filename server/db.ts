@@ -49,6 +49,10 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
    ALTER TABLE reserva ADD COLUMN hora_llegada TEXT;
    ALTER TABLE reserva ADD COLUMN hora_salida TEXT;
    ALTER TABLE reserva ADD COLUMN desglose_json TEXT CHECK (desglose_json IS NULL OR json_valid(desglose_json));`,
+  // 7 → 8: dueño del depto al cerrar cada liquidación (historial por propietario).
+  `ALTER TABLE liquidacion ADD COLUMN propietario_id INTEGER REFERENCES propietario(id);
+   UPDATE liquidacion SET propietario_id = (SELECT propietario_id FROM depto WHERE depto.id = liquidacion.depto_id);
+   CREATE INDEX ix_liq_propietario ON liquidacion(propietario_id);`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

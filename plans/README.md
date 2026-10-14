@@ -32,11 +32,13 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 025 | [No se paga un mes cuyo saldo ya pasó al siguiente cerrado](025-no-pagar-saldo-arrastrado.md) | P1 | S | — | A TESTEAR |
 | 026 | [Cotización del dólar desde una API, con histórico del mes](026-cotizacion-dolar-api.md) | P2 | M | decisión del usuario | TODO |
 | 027 | [La terminal no queda trabada si el servidor responde con error](027-terminal-sin-salida-ante-error-http.md) | P2 | S | — | A TESTEAR |
+| 028 | [Historial de pagos por depto y por propietario](028-historial-de-pagos.md) | P2 | M | — | A TESTEAR |
 
-Los planes 001 a 025 y 027 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
+Los planes 001 a 025, 027 y 028 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 
 Planes 006-008: revisión `improve deep` del importador (fase 3), 2026-10-12.
 Planes 009-010: revisión de la sincronización con Stays (fase 4), 2026-10-12.
+Plan 028: feature pedida por el usuario, definida con `grill-me` el 2026-10-14 (decisiones en el plan).
 Plan 027: revisión de la fase 5d (servidor/terminal), 2026-10-13.
 Plan 025: revisión de cierre, transferencias y PDF (fase 5c), 2026-10-12.
 Plan 024: revisión de movimientos y cuentas (fase 5b), 2026-10-12.

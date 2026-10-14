@@ -1,8 +1,9 @@
 // Deptos: buscador, filtro por estado y tabla con fotos (vienen de Stays, "traer mes").
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Input, Segmented, Space, Table, Tag, Typography, theme } from 'antd';
+import { Alert, Button, Drawer, Image, Input, Segmented, Space, Table, Tag, Typography, theme } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { get } from './api.ts';
+import { Historial } from './Historial.tsx';
 
 interface Depto { id: number; codigo: string; nombre: string; direccion: string | null; estado: string; comision_pct: number; propietario: string; fotos: string[] }
 
@@ -30,7 +31,7 @@ function SinFoto() {
   );
 }
 
-const columnas: TableColumnsType<Depto> = [
+const columnas = (verHistorial: (d: Depto) => void): TableColumnsType<Depto> => [
   { title: 'Fotos', dataIndex: 'fotos', width: 88, render: (fotos: string[]) => fotos.length > 0 ? (
     <Image.PreviewGroup items={fotos}>
       <Image src={fotos[0]} width={64} height={48} style={{ objectFit: 'cover', borderRadius: 4 }} alt="" />
@@ -43,6 +44,7 @@ const columnas: TableColumnsType<Depto> = [
   { title: 'Comisión', dataIndex: 'comision_pct', width: 100, align: 'right', render: (v: number) => `${Math.round(v * 100)} %` },
   { title: 'Estado', dataIndex: 'estado', width: 120, render: (v: string) => <Tag color={estados[v]?.color}>{estados[v]?.label ?? v}</Tag>,
     sorter: (a, b) => rango(a.estado) - rango(b.estado) },
+  { title: '', key: 'historial', width: 100, render: (_: unknown, d) => <Button size="small" onClick={() => verHistorial(d)}>Historial</Button> },
 ];
 
 export function Deptos() {
@@ -50,6 +52,7 @@ export function Deptos() {
   const [error, setError] = useState<string>();
   const [texto, setTexto] = useState('');
   const [estado, setEstado] = useState('todos');
+  const [historial, setHistorial] = useState<Depto>();
   useEffect(() => {
     get<Depto[]>('deptos').then(setDeptos, (e) => setError(String(e)));
   }, []);
@@ -77,7 +80,11 @@ export function Deptos() {
         <Segmented value={estado} onChange={setEstado} options={opciones} />
         <Typography.Text type="secondary">{visibles.length} {visibles.length === 1 ? 'depto' : 'deptos'}</Typography.Text>
       </Space>
-      <Table<Depto> rowKey="id" size="small" pagination={false} sticky loading={!deptos} dataSource={visibles} columns={columnas} />
+      <Table<Depto> rowKey="id" size="small" pagination={false} sticky loading={!deptos} dataSource={visibles} columns={columnas(setHistorial)} />
+      <Drawer open={!!historial} onClose={() => setHistorial(undefined)} size={900} destroyOnHidden
+        title={historial && `Historial de ${historial.codigo} · ${historial.nombre}`}>
+        {historial && <Historial deptoId={historial.id} />}
+      </Drawer>
     </Space>
   );
 }

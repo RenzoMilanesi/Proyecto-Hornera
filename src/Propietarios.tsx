@@ -1,7 +1,8 @@
 // Propietarios: buscador, filtro de los que no tienen CBU y sus deptos.
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Input, Segmented, Space, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Drawer, Input, Segmented, Space, Table, Tag, Typography } from 'antd';
 import { get } from './api.ts';
+import { Historial } from './Historial.tsx';
 
 interface Propietario { id: number; nombre: string; moneda_liquidacion: string; tiene_cbu: number; deptos: string | null }
 
@@ -10,6 +11,7 @@ export function Propietarios() {
   const [error, setError] = useState<string>();
   const [texto, setTexto] = useState('');
   const [filtro, setFiltro] = useState('todos');
+  const [historial, setHistorial] = useState<Propietario>();
   useEffect(() => {
     get<Propietario[]>('propietarios').then(setFilas, (e) => setError(String(e)));
   }, []);
@@ -38,7 +40,12 @@ export function Propietarios() {
         { title: 'Deptos', dataIndex: 'deptos', render: (v: string | null) => v?.split(',').map((d) => <Tag key={d}>{d.trim()}</Tag>) },
         { title: 'Liquida en', dataIndex: 'moneda_liquidacion', width: 110, render: (v: string) => <Tag color={v === 'USD' ? 'green' : 'default'}>{v}</Tag> },
         { title: 'CBU', dataIndex: 'tiene_cbu', width: 90, render: (v: number) => (v ? 'Cargado' : <Tag color="orange">Falta</Tag>) },
+        { title: '', key: 'historial', width: 100, render: (_: unknown, p) => <Button size="small" onClick={() => setHistorial(p)}>Historial</Button> },
       ]} />
+      <Drawer open={!!historial} onClose={() => setHistorial(undefined)} size={900} destroyOnHidden
+        title={historial && `Historial de ${historial.nombre}`}>
+        {historial && <Historial propietarioId={historial.id} />}
+      </Drawer>
     </Space>
   );
 }
