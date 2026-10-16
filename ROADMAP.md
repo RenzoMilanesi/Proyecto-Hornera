@@ -15,6 +15,7 @@ Versión `1.0.0` = reemplaza al Excel en producción, después de correr 1-2 mes
 | 5d | Modo servidor/terminal en la LAN, con emparejamiento | A testear |
 | 6 | Resumen: KPIs, resultado Hornera, saldos de cuentas, histórico | A testear |
 | — | Instalador de Windows (`npm run dist`) y guía de prueba (`GUIA-PRUEBAS.md`) | A testear |
+| — | Variables operativas: las del mes (Liquidación) y las de cada depto (Deptos) | A testear |
 | — | Fuera de la v1: mails, ARCA, mantenimiento, obligaciones, checklist | — |
 
 Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, tema visual "Ladrillo", buscadores y filtros en todas las pantallas, historial de pagos por depto y propietario, cotización del dólar desde la API, variables operativas editables, versión `0.16.0`) está **a testear**: tiene tests automáticos y se
@@ -29,7 +30,7 @@ probó en la app con datos de prueba, pero falta revisarlo a mano con los dueño
    - Ingreso bruto × Comisión (Lautaro y Amancay) = Valor liquidación inicial
    - Valor liquidación inicial − Costos excepcionales = Valor liquidación final
 3. **Auditoría por usuario**: registrar los movimientos que hace cada usuario, sobre todo los de dinero.
-4. ~~**Variables operativas** administrables~~ → hecho, a testear: Liquidación → "Variables del mes"
+4. **Variables operativas** administrables — **A testear**: Liquidación → "Variables del mes"
    (tarifas de limpieza, lavandería, tramos, channel manager, descuento del dólar) y Deptos → "Variables"
    (comisión y tarifas propias). Solo el mes abierto; queda en la auditoría.
 5. **Tarjetas**: vincular los gastos de la tarjeta con el costo que representan en cada depto. Hoy
