@@ -1,6 +1,6 @@
 // Deptos: buscador, filtro por estado y tabla con fotos (vienen de Stays, "traer mes").
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Drawer, Form, Image, Input, InputNumber, Modal, Segmented, Space, Table, Tag, Typography, theme } from 'antd';
+import { Alert, Button, Col, Drawer, Form, Image, Input, InputNumber, Modal, Row, Segmented, Space, Table, Tag, Typography, theme } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { entradaPlata, enviar, get, pesos } from './api.ts';
 import { Historial } from './Historial.tsx';
@@ -123,23 +123,39 @@ function VariablesDepto({ depto, alCerrar }: { depto?: Depto; alCerrar: (guardad
   };
 
   const tarifa = (name: string, label: string, prefix = '$') => (
-    <Form.Item name={name} label={label} extra="Vacío = la del mes">
-      <InputNumber {...entradaPlata} prefix={prefix} min={0} style={{ width: 220 }} />
+    <Form.Item name={name} label={label}>
+      <InputNumber {...entradaPlata} prefix={prefix} min={0} placeholder="La del mes" style={{ width: '100%' }} />
     </Form.Item>
   );
   return (
-    <Modal open={!!depto} title={depto && `Variables de ${depto.codigo} · ${depto.nombre}`} okText="Guardar" cancelText="Cancelar"
+    <Modal open={!!depto} title={depto && `Variables de ${depto.codigo} · ${depto.nombre}`} width={560} okText="Guardar" cancelText="Cancelar"
       onOk={guardar} onCancel={() => alCerrar(false)} destroyOnHidden>
+      {depto && (
+        <dl className="ficha">
+          <dt>Depto</dt><dd><b>{depto.codigo}</b> · {depto.nombre} <Tag color={estados[depto.estado]?.color}>{estados[depto.estado]?.label ?? depto.estado}</Tag></dd>
+          <dt>Propietario</dt><dd>{depto.propietario}</dd>
+          <dt>Se aplica</dt><dd>A los meses abiertos; los cerrados quedan como se liquidaron.</dd>
+        </dl>
+      )}
       <Form form={form} layout="vertical">
-        <Form.Item name="comision_pct" label="Comisión de Hornera" rules={[{ required: true, message: 'Falta la comisión' }]}>
-          <InputNumber min={0} max={100} suffix="%" style={{ width: 220 }} />
-        </Form.Item>
-        {tarifa('tarifa_base_override', 'Tarifa base por reserva')}
-        {tarifa('adicional_huesped_override', 'Adicional por cada par de huéspedes extra')}
-        {tarifa('cm_fee_usd_override', 'Channel manager por mes', 'US$')}
+        <Typography.Text strong>Comisión</Typography.Text>
+        <Typography.Paragraph type="secondary" style={{ margin: '0 0 8px' }}>Lo que cobra Hornera sobre el ingreso bruto del depto.</Typography.Paragraph>
+        <Row gutter={12}>
+          <Col span={12}>
+            <Form.Item name="comision_pct" label="Comisión de Hornera" rules={[{ required: true, message: 'Falta la comisión' }]}>
+              <InputNumber min={0} max={100} suffix="%" style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+        </Row>
+        <Typography.Text strong>Tarifas propias</Typography.Text>
+        <Typography.Paragraph type="secondary" style={{ margin: '0 0 8px' }}>Vacías usan las del mes (Liquidación → Variables del mes).</Typography.Paragraph>
+        <Row gutter={12}>
+          <Col span={12}>{tarifa('tarifa_base_override', 'Tarifa base por reserva')}</Col>
+          <Col span={12}>{tarifa('adicional_huesped_override', 'Por cada par de huéspedes extra')}</Col>
+          <Col span={12}>{tarifa('cm_fee_usd_override', 'Channel manager por mes', 'US$')}</Col>
+        </Row>
       </Form>
       {error && <Alert type="error" showIcon title={error} />}
-      <Typography.Text type="secondary">Se aplica a los meses abiertos; los cerrados quedan como se liquidaron.</Typography.Text>
     </Modal>
   );
 }

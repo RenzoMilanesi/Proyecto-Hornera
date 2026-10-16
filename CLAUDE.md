@@ -34,5 +34,6 @@ propietarios de HORNERA (alquileres temporarios, Rosario). Contexto y decisiones
   `schema.check.mjs`, juntos.
 - Estilo mínimo: sin abstracciones especulativas; un comentario `ponytail:` marca una
   simplificación hecha a propósito.
+- Modales y ventanas: skill `modales` (ficha, secciones, plata con `entradaPlata`), igual que las existentes.
 - Commits: skill `commit-version` (bump de versión, mensaje, push).
 - Responder en español.
