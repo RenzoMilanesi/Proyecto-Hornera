@@ -10,6 +10,7 @@ import { SQL_EN_PERIODO } from './periodo.ts';
 import { liquidarPeriodo } from './liquidacion/servicio.ts';
 import { compararConExcel } from './liquidacion/comparar.ts';
 import { auditar } from './auditoria.ts';
+import { actualizarCotizacion, type Fetch } from './cotizacion.ts';
 import { anularMovimiento, crearMovimiento, editarMovimiento, listarMovimientos, transferir } from './movimientos.ts';
 import { cerrarPeriodo, reabrirPeriodo } from './liquidacion/cierre.ts';
 import { excelTransferencias, listarTransferencias, pagarLiquidacion } from './liquidacion/pagos.ts';
@@ -52,9 +53,9 @@ function hostPermitido(host: string) {
   return h === '127.0.0.1' || h === 'localhost' || nombresDeEstaPc().includes(h);
 }
 
-export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf } = {}) {
+export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf; fetchDolar?: Fetch } = {}) {
   const app = express();
-  const { credenciales, urlStays = URL_STAYS, pdf } = opciones;
+  const { credenciales, urlStays = URL_STAYS, pdf, fetchDolar = fetch } = opciones;
   app.use((req, res, next) => {
     if (hostPermitido(req.headers.host ?? '')) return next();
     res.status(403).json({ error: 'Host no permitido' });
@@ -140,7 +141,15 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
       // configuracion.stays.url permite apuntar a otra cuenta de Stays (o a un Stays de prueba).
       const url = (db.prepare(`SELECT valor FROM configuracion WHERE clave = 'stays.url'`).get() as { valor: string } | undefined)?.valor ?? urlStays;
       if (!urlStaysPermitida(url)) throw new Error(`URL de Stays no permitida: ${url} (tiene que ser https://….stays.net).`);
-      res.json(await sincronizarMes(db, crearClienteStays(creds, url), String(req.body?.mes ?? '')));
+      const reporte = await sincronizarMes(db, crearClienteStays(creds, url), String(req.body?.mes ?? ''));
+      // El dólar viene con "traer mes"; si falla, Stays queda traído igual y se avisa.
+      try {
+        const { aviso } = await actualizarCotizacion(db, reporte.mes, false, fetchDolar);
+        if (aviso) reporte.avisos.push(aviso);
+      } catch (e) {
+        reporte.avisos.push(`${mensaje(e)} Cargala a mano en Liquidación.`);
+      }
+      res.json(reporte);
     } catch (e) {
       res.status(400).json({ error: mensaje(e) });
     } finally {
@@ -205,17 +214,29 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
 
   // ---- Períodos y liquidación
   app.get('/api/periodos', (_req, res) => {
-    res.json(db.prepare('SELECT mes, estado, usd_cotizacion, usd_descuento_pct, fecha_pago FROM periodo ORDER BY mes DESC').all());
+    // provisoria: de la API pero de un día anterior al cierre (server/cotizacion.ts).
+    res.json(db.prepare(`SELECT mes, estado, usd_cotizacion, usd_cotizacion_fuente, usd_cotizacion_fecha, usd_descuento_pct, fecha_pago,
+        usd_cotizacion_fuente = 'api' AND usd_cotizacion_fecha < date(fecha_cierre_reservas, '-1 day') AS provisoria
+      FROM periodo ORDER BY mes DESC`).all());
   });
 
-  // Cotización del dólar cripto al cierre (manual por ahora; ponytail: la consulta automática viene después).
+  // Volver a pedir la cotización a la API, aunque esté cargada a mano.
+  app.post('/api/periodos/:mes/cotizacion/traer', async (req, res) => {
+    try {
+      res.json(await actualizarCotizacion(db, req.params.mes, true, fetchDolar));
+    } catch (e) {
+      res.status(/^No se pudo traer/.test(mensaje(e)) ? 502 : 400).json({ error: mensaje(e) });
+    }
+  });
+
+  // Cotización del dólar cripto al cierre cargada a mano: "traer mes" ya no la pisa.
   app.put('/api/periodos/:mes/cotizacion', (req, res) => {
     const cotizacion = req.body?.cotizacion;
     const p = db.prepare('SELECT id, estado, usd_cotizacion FROM periodo WHERE mes = ?').get(req.params.mes) as { id: number; estado: string; usd_cotizacion: number | null } | undefined;
     if (!p) { res.status(404).json({ error: 'No existe el período' }); return; }
     if (p.estado !== 'abierto') { res.status(400).json({ error: 'El período está cerrado' }); return; }
     if (typeof cotizacion !== 'number' || !(cotizacion > 0)) { res.status(400).json({ error: 'Cotización inválida' }); return; }
-    db.prepare(`UPDATE periodo SET usd_cotizacion = ?, usd_cotizacion_fuente = 'manual' WHERE id = ?`).run(cotizacion, p.id);
+    db.prepare(`UPDATE periodo SET usd_cotizacion = ?, usd_cotizacion_fuente = 'manual', usd_cotizacion_fecha = NULL WHERE id = ?`).run(cotizacion, p.id);
     auditar(db, 'periodo', p.id, 'modificacion', { usd_cotizacion: p.usd_cotizacion }, { usd_cotizacion: cotizacion });
     res.json({ cotizacion });
   });

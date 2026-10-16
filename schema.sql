@@ -145,6 +145,8 @@ CREATE TABLE periodo (
     -- Tipo de cambio: dólar cripto (automático) con override manual.
     usd_cotizacion           REAL,                -- 1490
     usd_cotizacion_fuente    TEXT    CHECK (usd_cotizacion_fuente IN ('api','manual')),
+    -- Día del valor de la API; antes del cierre del período = provisoria. NULL si es manual.
+    usd_cotizacion_fecha     TEXT    CHECK (usd_cotizacion_fecha IS NULL OR date(usd_cotizacion_fecha) IS usd_cotizacion_fecha),
     usd_descuento_pct        REAL    NOT NULL DEFAULT 0.06,
     -- Parámetros de tarifa (centavos ARS). La UI los propone desde costo_hora_limpieza.
     costo_hora_limpieza      INTEGER NOT NULL,    -- B13 "Costo hora Vale"

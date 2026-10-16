@@ -53,6 +53,9 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
   `ALTER TABLE liquidacion ADD COLUMN propietario_id INTEGER REFERENCES propietario(id);
    UPDATE liquidacion SET propietario_id = (SELECT propietario_id FROM depto WHERE depto.id = liquidacion.depto_id);
    CREATE INDEX ix_liq_propietario ON liquidacion(propietario_id);`,
+  // 8 → 9: día de la cotización traída de la API (provisoria si es anterior al cierre).
+  `ALTER TABLE periodo ADD COLUMN usd_cotizacion_fecha TEXT
+     CHECK (usd_cotizacion_fecha IS NULL OR date(usd_cotizacion_fecha) IS usd_cotizacion_fecha);`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

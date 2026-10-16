@@ -70,6 +70,10 @@ falla(`INSERT INTO propietario(nombre, stays_owner_id) VALUES ('Propietario Tres
 falla(`UPDATE reserva SET desglose_json = 'no es json'`, 'CHECK');
 falla(`UPDATE reserva SET cancelada = 2`, 'CHECK');
 
+// Período: la fecha de la cotización es YYYY-MM-DD
+falla(`UPDATE periodo SET usd_cotizacion_fecha = '16/10/2026'`, 'CHECK');
+run(`UPDATE periodo SET usd_cotizacion_fecha = '2026-04-30'`);
+
 // Terminal: un token por terminal
 run(`INSERT INTO terminal(nombre, token_hash, creada_en) VALUES ('PC 2', 'h1', 'x')`);
 falla(`INSERT INTO terminal(nombre, token_hash, creada_en) VALUES ('PC 3', 'h1', 'x')`, 'UNIQUE');

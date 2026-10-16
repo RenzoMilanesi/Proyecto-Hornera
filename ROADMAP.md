@@ -17,7 +17,7 @@ Versión `1.0.0` = reemplaza al Excel en producción, después de correr 1-2 mes
 | — | Instalador de Windows (`npm run dist`) y guía de prueba (`GUIA-PRUEBAS.md`) | A testear |
 | — | Fuera de la v1: mails, ARCA, mantenimiento, obligaciones, checklist | — |
 
-Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, tema visual "Ladrillo", buscadores y filtros en todas las pantallas, historial de pagos por depto y propietario, versión `0.14.2`) está **a testear**: tiene tests automáticos y se
+Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, tema visual "Ladrillo", buscadores y filtros en todas las pantallas, historial de pagos por depto y propietario, cotización del dólar desde la API, versión `0.15.0`) está **a testear**: tiene tests automáticos y se
 probó en la app con datos de prueba, pero falta revisarlo a mano con los dueños y con datos reales.
 
 ## Checklist de prueba (próxima sesión)
@@ -44,6 +44,7 @@ Cómo probar cada punto, paso a paso: `GUIA-PRUEBAS.md`.
 
 **Fase 5a · Liquidación**
 - [ ] Cargar la cotización; revisar saldos y detalle por depto.
+- [ ] "Traer mes" del mes en curso deja la cotización "provisoria"; uno cargado a mano queda "manual" y otro "traer mes" no lo pisa (avisa); "Pedir a la API" la reemplaza.
 - [ ] "Comparar con el Excel del mes" con el mes traído de Stays: las diferencias tienen que tener explicación.
 - [ ] Ajustes de reserva (corrección, comisión, excluir) desde Stays y su efecto en la liquidación.
 

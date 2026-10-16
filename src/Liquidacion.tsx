@@ -5,7 +5,11 @@ import type { LiquidacionDepto, LiquidacionPeriodo } from '../server/liquidacion
 import type { ComparacionDepto } from '../server/liquidacion/comparar.ts';
 import { enviar, get, pesos, subirArchivo } from './api.ts';
 
-interface Periodo { mes: string; estado: string; usd_cotizacion: number | null; usd_descuento_pct: number }
+interface Periodo {
+  mes: string; estado: string; usd_cotizacion: number | null; usd_descuento_pct: number;
+  usd_cotizacion_fuente: 'api' | 'manual' | null; usd_cotizacion_fecha: string | null; provisoria: number;
+}
+const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
 const derecha = { align: 'right' as const, onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }) };
 const ars = (c: number) => (c ? pesos(c) : '');
@@ -159,6 +163,17 @@ export function Liquidacion() {
             <span>Dólar cripto al cierre</span>
             <InputNumber min={1} value={cotizacion} onChange={setCotizacion} disabled={periodo?.estado !== 'abierto'} style={{ width: 120 }} />
             {periodo?.estado === 'abierto' && <Button onClick={guardarCotizacion} disabled={!cotizacion || cotizacion === datos?.cotizacion}>Guardar</Button>}
+            {periodo?.usd_cotizacion_fuente === 'manual' && <Tag>manual</Tag>}
+            {periodo?.usd_cotizacion_fuente === 'api' && periodo.usd_cotizacion_fecha && (
+              <Tag color={periodo.provisoria ? 'orange' : 'green'}>{periodo.provisoria ? 'provisoria' : 'API'} · {ddmm(periodo.usd_cotizacion_fecha)}</Tag>
+            )}
+            {periodo?.estado === 'abierto' && (
+              <Button loading={ocupado === 'dolar'} disabled={!!ocupado}
+                onClick={() => accion('dolar', async () => {
+                  const r = await enviar<{ aviso?: string }>(`periodos/${mes}/cotizacion/traer`, 'POST', {});
+                  if (r.aviso) setAviso(r.aviso);
+                })}>Pedir a la API</Button>
+            )}
             {datos?.cambio != null && <Typography.Text type="secondary">cambio: {datos.cambio.toLocaleString('es-AR', { maximumFractionDigits: 2 })}</Typography.Text>}
           </Space>
           <Upload accept=".xlsx" showUploadList={false} disabled={!datos?.cambio || comparando}
@@ -166,7 +181,10 @@ export function Liquidacion() {
             <Button loading={comparando} disabled={!datos?.cambio}>Comparar con el Excel del mes</Button>
           </Upload>
           {periodo?.estado === 'abierto' && (
-            <Popconfirm title={`¿Cerrar ${mes}?`} description="La liquidación queda guardada y el mes congelado. Se puede reabrir mientras no haya pagos."
+            <Popconfirm title={`¿Cerrar ${mes}?`}
+              description={<>La liquidación queda guardada y el mes congelado. Se puede reabrir mientras no haya pagos.
+                {periodo.provisoria && periodo.usd_cotizacion_fecha
+                  ? <><br /><Typography.Text type="warning">La cotización es provisoria (del {ddmm(periodo.usd_cotizacion_fecha)}), no la del cierre.</Typography.Text></> : null}</>}
               okText="Cerrar mes" cancelText="No" disabled={!datos?.cambio}
               onConfirm={() => accion('cerrar', () => enviar(`periodos/${mes}/cerrar`, 'POST', {}), `${mes} cerrado.`)}>
               <Button type="primary" disabled={!datos?.cambio || !!ocupado} loading={ocupado === 'cerrar'}>Cerrar mes</Button>
