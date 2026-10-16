@@ -17,8 +17,23 @@ Versión `1.0.0` = reemplaza al Excel en producción, después de correr 1-2 mes
 | — | Instalador de Windows (`npm run dist`) y guía de prueba (`GUIA-PRUEBAS.md`) | A testear |
 | — | Fuera de la v1: mails, ARCA, mantenimiento, obligaciones, checklist | — |
 
-Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, tema visual "Ladrillo", buscadores y filtros en todas las pantallas, historial de pagos por depto y propietario, cotización del dólar desde la API, versión `0.15.0`) está **a testear**: tiene tests automáticos y se
+Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, tema visual "Ladrillo", buscadores y filtros en todas las pantallas, historial de pagos por depto y propietario, cotización del dólar desde la API, variables operativas editables, versión `0.16.0`) está **a testear**: tiene tests automáticos y se
 probó en la app con datos de prueba, pero falta revisarlo a mano con los dueños y con datos reales.
+
+## Pendientes (pedidos 2026-10-16)
+
+1. **Gastos varios**: hoy los llevan en un Excel. Importarlo y encajar esos gastos en la liquidación
+   como otro concepto.
+2. **Cuenta de la liquidación** explícita, con cada concepto adjunto, controlable y editable por el usuario:
+   - Ingresos operativos − Costos = Ingreso bruto
+   - Ingreso bruto × Comisión (Lautaro y Amancay) = Valor liquidación inicial
+   - Valor liquidación inicial − Costos excepcionales = Valor liquidación final
+3. **Auditoría por usuario**: registrar los movimientos que hace cada usuario, sobre todo los de dinero.
+4. ~~**Variables operativas** administrables~~ → hecho, a testear: Liquidación → "Variables del mes"
+   (tarifas de limpieza, lavandería, tramos, channel manager, descuento del dólar) y Deptos → "Variables"
+   (comisión y tarifas propias). Solo el mes abierto; queda en la auditoría.
+5. **Tarjetas**: vincular los gastos de la tarjeta con el costo que representan en cada depto. Hoy
+   usan un Excel; falta recibir esa información.
 
 ## Checklist de prueba (próxima sesión)
 
@@ -64,6 +79,11 @@ Cómo probar cada punto, paso a paso: `GUIA-PRUEBAS.md`.
 - [ ] Emparejar con el código; cargar un movimiento desde la terminal y verlo en el servidor (y en la auditoría con el nombre de la terminal).
 - [ ] Revocar la terminal: tiene que volver a pedir el código.
 - [ ] Cerrar Hornera en el servidor: la terminal avisa que no puede conectar; al reabrirlo, "Conectar" vuelve a entrar.
+
+**Variables operativas**
+- [ ] Cambiar el costo hora en el mes abierto, "Recalcular" y comparar la tarifa base con la del Excel.
+- [ ] Cambiar la comisión o la tarifa de un depto y ver el efecto en su liquidación; un mes cerrado no cambia.
+- [ ] "Traer mes" de un mes nuevo arranca con las variables del anterior.
 
 **Fase 6 · Resumen**
 - [ ] Con abril importado: ocupación, bruto y honorarios por depto iguales a las hojas del Excel.

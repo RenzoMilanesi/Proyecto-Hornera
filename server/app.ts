@@ -35,6 +35,42 @@ export interface GeneradorPdf {
 
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+// Variables operativas editables. 'centavos' = entero >= 0; 'pct' = fracción entre 0 y 1; 'pct<1' = desde 0 y
+// menor a 1 (se resta de 1 y divide: un 100 % deja el cambio en 0); '?' = admite null.
+type Regla = 'centavos' | 'centavos?' | 'noches' | 'pct' | 'pct<1';
+const PARAMETROS: Record<string, Regla> = {
+  usd_descuento_pct: 'pct<1', costo_hora_limpieza: 'centavos', servicio_limpieza: 'centavos', servicio_lavanderia: 'centavos',
+  prestamo_blanqueria: 'centavos', gestion_operativa: 'centavos', mantenimiento: 'centavos', tarifa_base: 'centavos',
+  adicional_huesped: 'centavos', noches_tramo_1: 'noches', cargo_tramo_1: 'centavos', noches_tramo_2: 'noches',
+  cargo_tramo_2: 'centavos', cm_fee_usd: 'centavos',
+};
+const VARIABLES_DEPTO: Record<string, Regla> = {
+  comision_pct: 'pct', tarifa_base_override: 'centavos?', adicional_huesped_override: 'centavos?', cm_fee_usd_override: 'centavos?',
+};
+
+// Solo los campos conocidos que vienen en el cuerpo; cualquier valor fuera de regla corta todo.
+function validar(reglas: Record<string, Regla>, cuerpo: unknown) {
+  const nuevos: Record<string, number | null> = {};
+  for (const [campo, v] of Object.entries((cuerpo ?? {}) as Record<string, unknown>)) {
+    const regla = reglas[campo];
+    if (!regla) continue;
+    const ok = v === null ? regla === 'centavos?'
+      : typeof v === 'number' && (regla === 'pct' ? v >= 0 && v <= 1 : regla === 'pct<1' ? v >= 0 && v < 1
+        : Number.isSafeInteger(v) && (regla === 'noches' ? v >= 1 : v >= 0));
+    if (!ok) throw new Error(`Valor inválido en ${campo}`);
+    nuevos[campo] = v as number | null;
+  }
+  if (!Object.keys(nuevos).length) throw new Error('No hay nada para guardar');
+  return nuevos;
+}
+
+function actualizar(db: DatabaseSync, tabla: 'periodo' | 'depto', fila: Record<string, unknown>, nuevos: Record<string, number | null>) {
+  const campos = Object.keys(nuevos);
+  db.prepare(`UPDATE ${tabla} SET ${campos.map((c) => `${c} = :${c}`).join(', ')} WHERE id = :id`).run({ ...nuevos, id: fila.id as number });
+  auditar(db, tabla, fila.id as number, 'modificacion', Object.fromEntries(campos.map((c) => [c, fila[c]])), nuevos);
+  return nuevos;
+}
+
 // La clave de Stays solo viaja por https a Stays, o a un Stays de prueba en esta misma PC.
 function urlStaysPermitida(url: string) {
   try {
@@ -85,7 +121,8 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
 
   app.get('/api/deptos', (_req, res) => {
     res.json(db.prepare(`
-      SELECT d.id, d.codigo, d.nombre, d.direccion, d.estado, d.comision_pct, p.nombre AS propietario,
+      SELECT d.id, d.codigo, d.nombre, d.direccion, d.estado, d.comision_pct, d.tarifa_base_override,
+             d.adicional_huesped_override, d.cm_fee_usd_override, p.nombre AS propietario,
              COALESCE(d.fotos, '[]') AS fotos
       FROM depto d JOIN propietario p ON p.id = d.propietario_id ORDER BY d.codigo`).all()
       .map((d) => ({ ...d, fotos: JSON.parse(d.fotos as string) })));
@@ -240,6 +277,25 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     auditar(db, 'periodo', p.id, 'modificacion', { usd_cotizacion: p.usd_cotizacion }, { usd_cotizacion: cotizacion });
     res.json({ cotizacion });
   });
+
+  // Variables operativas del mes (tarifas de limpieza, lavandería, etc.). "Traer mes" las copia al mes siguiente.
+  app.get('/api/periodos/:mes/parametros', (req, res) => {
+    const p = db.prepare(`SELECT estado, ${Object.keys(PARAMETROS).join(', ')} FROM periodo WHERE mes = ?`).get(req.params.mes);
+    if (!p) { res.status(404).json({ error: 'No existe el período' }); return; }
+    res.json(p);
+  });
+  app.put('/api/periodos/:mes/parametros', (req, res) => intentar(res, () => {
+    const p = db.prepare(`SELECT id, estado, ${Object.keys(PARAMETROS).join(', ')} FROM periodo WHERE mes = ?`).get(req.params.mes) as any;
+    if (!p) throw new Error('No existe el período');
+    if (p.estado !== 'abierto') throw new Error('El período está cerrado');
+    return actualizar(db, 'periodo', p, validar(PARAMETROS, req.body));
+  }));
+  // Comisión y tarifas propias de un depto (null en una tarifa = la del mes).
+  app.put('/api/deptos/:id', (req, res) => intentar(res, () => {
+    const d = db.prepare(`SELECT id, ${Object.keys(VARIABLES_DEPTO).join(', ')} FROM depto WHERE id = ?`).get(Number(req.params.id)) as any;
+    if (!d) throw new Error('No existe el depto');
+    return actualizar(db, 'depto', d, validar(VARIABLES_DEPTO, req.body));
+  }));
 
   app.get('/api/liquidacion', (req, res) => {
     try {

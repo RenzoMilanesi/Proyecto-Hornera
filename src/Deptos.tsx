@@ -1,11 +1,12 @@
 // Deptos: buscador, filtro por estado y tabla con fotos (vienen de Stays, "traer mes").
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Drawer, Image, Input, Segmented, Space, Table, Tag, Typography, theme } from 'antd';
+import { Alert, Button, Drawer, Form, Image, Input, InputNumber, Modal, Segmented, Space, Table, Tag, Typography, theme } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { get } from './api.ts';
+import { entradaPlata, enviar, get, pesos } from './api.ts';
 import { Historial } from './Historial.tsx';
 
-interface Depto { id: number; codigo: string; nombre: string; direccion: string | null; estado: string; comision_pct: number; propietario: string; fotos: string[] }
+interface Depto { id: number; codigo: string; nombre: string; direccion: string | null; estado: string; comision_pct: number; propietario: string; fotos: string[];
+  tarifa_base_override: number | null; adicional_huesped_override: number | null; cm_fee_usd_override: number | null }
 
 // Orden de la tabla y del filtro: lo operativo primero.
 const estados: Record<string, { label: string; color: string }> = {
@@ -31,7 +32,7 @@ function SinFoto() {
   );
 }
 
-const columnas = (verHistorial: (d: Depto) => void): TableColumnsType<Depto> => [
+const columnas = (verHistorial: (d: Depto) => void, editar: (d: Depto) => void): TableColumnsType<Depto> => [
   { title: 'Fotos', dataIndex: 'fotos', width: 88, render: (fotos: string[]) => fotos.length > 0 ? (
     <Image.PreviewGroup items={fotos}>
       <Image src={fotos[0]} width={64} height={48} style={{ objectFit: 'cover', borderRadius: 4 }} alt="" />
@@ -41,10 +42,13 @@ const columnas = (verHistorial: (d: Depto) => void): TableColumnsType<Depto> => 
   { title: 'Nombre', dataIndex: 'nombre', width: 200, ellipsis: true, sorter: (a, b) => a.nombre.localeCompare(b.nombre) },
   { title: 'Dirección', dataIndex: 'direccion', ellipsis: { showTitle: false }, render: (v: string | null) => <span title={v ?? ''}>{sinCiudad(v)}</span> },
   { title: 'Propietario', dataIndex: 'propietario', ellipsis: true, sorter: (a, b) => a.propietario.localeCompare(b.propietario) },
-  { title: 'Comisión', dataIndex: 'comision_pct', width: 100, align: 'right', render: (v: number) => `${Math.round(v * 100)} %` },
+  { title: 'Comisión', dataIndex: 'comision_pct', width: 150, align: 'right', render: (v: number, d) => <>{`${Math.round(v * 100)} %`}{d.tarifa_base_override != null && <div><Typography.Text type="secondary" style={{ whiteSpace: "nowrap" }}>tarifa {pesos(d.tarifa_base_override)}</Typography.Text></div>}</> },
   { title: 'Estado', dataIndex: 'estado', width: 120, render: (v: string) => <Tag color={estados[v]?.color}>{estados[v]?.label ?? v}</Tag>,
     sorter: (a, b) => rango(a.estado) - rango(b.estado) },
-  { title: '', key: 'historial', width: 100, render: (_: unknown, d) => <Button size="small" onClick={() => verHistorial(d)}>Historial</Button> },
+  { title: '', key: 'acciones', width: 170, render: (_: unknown, d) => <Space size="small">
+    <Button size="small" onClick={() => editar(d)}>Variables</Button>
+    <Button size="small" onClick={() => verHistorial(d)}>Historial</Button>
+  </Space> },
 ];
 
 export function Deptos() {
@@ -53,9 +57,9 @@ export function Deptos() {
   const [texto, setTexto] = useState('');
   const [estado, setEstado] = useState('todos');
   const [historial, setHistorial] = useState<Depto>();
-  useEffect(() => {
-    get<Depto[]>('deptos').then(setDeptos, (e) => setError(String(e)));
-  }, []);
+  const [editando, setEditando] = useState<Depto>();
+  const cargar = () => get<Depto[]>('deptos').then(setDeptos, (e) => setError(String(e)));
+  useEffect(() => { cargar(); }, []);
 
   const visibles = useMemo(() => {
     const t = texto.trim().toLowerCase();
@@ -80,11 +84,62 @@ export function Deptos() {
         <Segmented value={estado} onChange={setEstado} options={opciones} />
         <Typography.Text type="secondary">{visibles.length} {visibles.length === 1 ? 'depto' : 'deptos'}</Typography.Text>
       </Space>
-      <Table<Depto> rowKey="id" size="small" pagination={false} sticky loading={!deptos} dataSource={visibles} columns={columnas(setHistorial)} />
+      <Table<Depto> rowKey="id" size="small" pagination={false} sticky loading={!deptos} dataSource={visibles} columns={columnas(setHistorial, setEditando)} />
+      <VariablesDepto depto={editando} alCerrar={(guardado) => { setEditando(undefined); if (guardado) cargar(); }} />
       <Drawer open={!!historial} onClose={() => setHistorial(undefined)} size={900} destroyOnHidden
         title={historial && `Historial de ${historial.codigo} · ${historial.nombre}`}>
         {historial && <Historial deptoId={historial.id} />}
       </Drawer>
     </Space>
+  );
+}
+
+// Comisión de Hornera y tarifas propias del depto; una tarifa vacía usa la del mes (Liquidación → Variables del mes).
+const OVERRIDES = ['tarifa_base_override', 'adicional_huesped_override', 'cm_fee_usd_override'] as const;
+
+function VariablesDepto({ depto, alCerrar }: { depto?: Depto; alCerrar: (guardado: boolean) => void }) {
+  const [form] = Form.useForm();
+  const [error, setError] = useState<string>();
+  useEffect(() => {
+    if (!depto) return;
+    setError(undefined);
+    form.setFieldsValue({
+      comision_pct: Math.round(depto.comision_pct * 10000) / 100,
+      ...Object.fromEntries(OVERRIDES.map((c) => [c, depto[c] == null ? null : depto[c]! / 100])),
+    });
+  }, [depto, form]);
+
+  const guardar = async () => {
+    const v = await form.validateFields();
+    try {
+      await enviar(`deptos/${depto!.id}`, 'PUT', {
+        comision_pct: v.comision_pct / 100,
+        ...Object.fromEntries(OVERRIDES.map((c) => [c, v[c] == null ? null : Math.round(v[c] * 100)])),
+      });
+      alCerrar(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const tarifa = (name: string, label: string, prefix = '$') => (
+    <Form.Item name={name} label={label} extra="Vacío = la del mes">
+      <InputNumber {...entradaPlata} prefix={prefix} min={0} style={{ width: 220 }} />
+    </Form.Item>
+  );
+  return (
+    <Modal open={!!depto} title={depto && `Variables de ${depto.codigo} · ${depto.nombre}`} okText="Guardar" cancelText="Cancelar"
+      onOk={guardar} onCancel={() => alCerrar(false)} destroyOnHidden>
+      <Form form={form} layout="vertical">
+        <Form.Item name="comision_pct" label="Comisión de Hornera" rules={[{ required: true, message: 'Falta la comisión' }]}>
+          <InputNumber min={0} max={100} suffix="%" style={{ width: 220 }} />
+        </Form.Item>
+        {tarifa('tarifa_base_override', 'Tarifa base por reserva')}
+        {tarifa('adicional_huesped_override', 'Adicional por cada par de huéspedes extra')}
+        {tarifa('cm_fee_usd_override', 'Channel manager por mes', 'US$')}
+      </Form>
+      {error && <Alert type="error" showIcon title={error} />}
+      <Typography.Text type="secondary">Se aplica a los meses abiertos; los cerrados quedan como se liquidaron.</Typography.Text>
+    </Modal>
   );
 }

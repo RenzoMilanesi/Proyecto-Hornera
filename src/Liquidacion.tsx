@@ -4,6 +4,7 @@ import type { TableColumnsType } from 'antd';
 import type { LiquidacionDepto, LiquidacionPeriodo } from '../server/liquidacion/servicio.ts';
 import type { ComparacionDepto } from '../server/liquidacion/comparar.ts';
 import { enviar, get, pesos, subirArchivo } from './api.ts';
+import { VariablesMes } from './Variables.tsx';
 
 interface Periodo {
   mes: string; estado: string; usd_cotizacion: number | null; usd_descuento_pct: number;
@@ -62,6 +63,7 @@ export function Liquidacion() {
   const [comparando, setComparando] = useState(false);
   const [texto, setTexto] = useState('');
   const [abiertos, setAbiertos] = useState<number[]>([]); // deptos desplegados: se resaltan
+  const [variables, setVariables] = useState(false);
 
   const cargarPeriodos = () => get<Periodo[]>('periodos').then((ps) => {
     setPeriodos(ps);
@@ -176,6 +178,7 @@ export function Liquidacion() {
             )}
             {datos?.cambio != null && <Typography.Text type="secondary">cambio: {datos.cambio.toLocaleString('es-AR', { maximumFractionDigits: 2 })}</Typography.Text>}
           </Space>
+          {mes && <Button onClick={() => setVariables(true)}>Variables del mes</Button>}
           <Upload accept=".xlsx" showUploadList={false} disabled={!datos?.cambio || comparando}
             beforeUpload={(archivo) => { comparar(archivo); return false; }}>
             <Button loading={comparando} disabled={!datos?.cambio}>Comparar con el Excel del mes</Button>
@@ -203,6 +206,7 @@ export function Liquidacion() {
         </Space>
       </Card>
 
+      {mes && <VariablesMes mes={mes} abierto={variables} alCerrar={(guardado) => { setVariables(false); if (guardado) calcular(mes); }} />}
       {error && <Alert type="error" showIcon title={error} />}
       {aviso && <Alert type="success" showIcon closable title={aviso} onClose={() => setAviso(undefined)} />}
       {datos?.avisos.length ? <Alert type="warning" showIcon title="Avisos" description={<ul style={{ margin: 0, paddingLeft: 20 }}>{datos.avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>} /> : null}

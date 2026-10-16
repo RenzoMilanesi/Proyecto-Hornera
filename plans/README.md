@@ -34,12 +34,14 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 027 | [La terminal no queda trabada si el servidor responde con error](027-terminal-sin-salida-ante-error-http.md) | P2 | S | — | A TESTEAR |
 | 028 | [Historial de pagos por depto y por propietario](028-historial-de-pagos.md) | P2 | M | — | A TESTEAR |
 | 029 | [La cotización manual no se pisa en carrera; aviso de "Pedir a la API"](029-cotizacion-carrera-y-aviso.md) | P3 | S | 026 | A TESTEAR |
+| 030 | [El descuento sobre el dólar cripto tiene que ser menor a 100 %](030-descuento-dolar-menor-a-100.md) | P2 | S | — | A TESTEAR |
 
-Los planes 001 a 029 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
+Los planes 001 a 030 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 
 Planes 006-008: revisión `improve deep` del importador (fase 3), 2026-10-12.
 Planes 009-010: revisión de la sincronización con Stays (fase 4), 2026-10-12.
 Plan 029: revisión `improve deep` del plan 026, 2026-10-16. Descartado: el importador deja `usd_cotizacion_fecha` vieja al pisar un período (inofensivo: queda fuente `manual` y el período cerrado).
+Plan 030: revisión `improve deep` de las variables operativas, 2026-10-16. Descartado: "Recalcular" con un campo vacío deja NaN (el servidor lo rechaza con 400, no se guarda nada); editar la comisión de un depto no toca meses cerrados (la hoja usa el snapshot).
 Plan 028: feature pedida por el usuario, definida con `grill-me` el 2026-10-14 (decisiones en el plan).
 Plan 027: revisión de la fase 5d (servidor/terminal), 2026-10-13.
 Plan 025: revisión de cierre, transferencias y PDF (fase 5c), 2026-10-12.

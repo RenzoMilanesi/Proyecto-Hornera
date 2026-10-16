@@ -287,6 +287,37 @@ test('ajustes de una reserva y cotización del período: validan y quedan en la 
   });
 });
 
+test('variables operativas del mes y del depto: validan, solo mes abierto y quedan en la auditoría', () => {
+  const db = abrirDb(':memory:');
+  periodo(db, '2026-04', '2026-04-01', '2026-05-01');
+  periodo(db, '2026-05', '2026-05-01', '2026-06-01');
+  db.exec(`UPDATE periodo SET estado = 'cerrado' WHERE mes = '2026-04';
+    INSERT INTO propietario(nombre) VALUES ('Propietario Uno');
+    INSERT INTO depto(codigo, nombre, propietario_id) VALUES ('AAA', 'Depto A', 1);`);
+  return conApi(db, async (base) => {
+    const enviar = (ruta: string, cuerpo: unknown) => fetch(`${base}/api/${ruta}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+
+    assert.equal((await enviar('periodos/2026-05/parametros', { servicio_limpieza: 1.5 })).status, 400); // centavos enteros
+    assert.equal((await enviar('periodos/2026-05/parametros', { noches_tramo_1: 0 })).status, 400);
+    assert.equal((await enviar('periodos/2026-05/parametros', { usd_descuento_pct: 1 })).status, 400); // cambio 0
+    assert.equal((await enviar('periodos/2026-05/parametros', { estado: 'cerrado' })).status, 400); // campo ajeno: nada que guardar
+    assert.equal((await enviar('periodos/2026-04/parametros', { servicio_limpieza: 500000 })).status, 400); // cerrado
+    assert.equal((await enviar('periodos/2026-05/parametros', { servicio_limpieza: 500000, usd_descuento_pct: 0.05 })).status, 200);
+    const p = await (await fetch(`${base}/api/periodos/2026-05/parametros`)).json();
+    assert.deepEqual([p.servicio_limpieza, p.usd_descuento_pct, p.tarifa_base], [500000, 0.05, 1]);
+
+    assert.equal((await enviar('deptos/1', { comision_pct: 1.2 })).status, 400);
+    assert.equal((await enviar('deptos/1', { comision_pct: 0.18, tarifa_base_override: 900000 })).status, 200);
+    assert.equal((await enviar('deptos/1', { tarifa_base_override: null })).status, 200); // vuelve a la del mes
+    const d = db.prepare(`SELECT comision_pct, tarifa_base_override FROM depto WHERE id = 1`).get() as any;
+    assert.deepEqual({ ...d }, { comision_pct: 0.18, tarifa_base_override: null });
+
+    const auditoria = db.prepare(`SELECT tabla, antes_json, despues_json FROM auditoria ORDER BY id`).all() as any[];
+    assert.equal(auditoria.length, 3);
+    assert.deepEqual(JSON.parse(auditoria[0].antes_json), { servicio_limpieza: 1, usd_descuento_pct: 0.06 });
+  });
+});
+
 test('cotización: "Pedir a la API" pisa la manual; API caída da 502', () => {
   const db = abrirDb(':memory:');
   periodo(db, '2026-05', '2026-05-01', '2026-06-01');
