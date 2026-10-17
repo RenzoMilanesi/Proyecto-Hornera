@@ -16,7 +16,8 @@ Versión `1.0.0` = reemplaza al Excel en producción, después de correr 1-2 mes
 | 6 | Resumen: KPIs, resultado Hornera, saldos de cuentas, histórico | A testear |
 | — | Instalador de Windows (`npm run dist`) y guía de prueba (`GUIA-PRUEBAS.md`) | A testear |
 | — | Variables operativas: las del mes (Liquidación) y las de cada depto (Deptos) | A testear |
-| — | Fuera de la v1: mails, ARCA, mantenimiento, obligaciones, checklist | — |
+| — | Facturación ARCA de los honorarios al pagar ([plan 031](plans/031-facturacion-arca.md)) | Planificado |
+| — | Fuera de la v1: mails, mantenimiento, obligaciones, checklist | — |
 
 Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, tema visual "Ladrillo", buscadores y filtros en todas las pantallas, historial de pagos por depto y propietario, cotización del dólar desde la API, variables operativas editables, versión `0.16.1`) está **a testear**: tiene tests automáticos y se
 probó en la app con datos de prueba, pero falta revisarlo a mano con los dueños y con datos reales.
@@ -35,6 +36,9 @@ probó en la app con datos de prueba, pero falta revisarlo a mano con los dueño
    (comisión y tarifas propias). Solo el mes abierto; queda en la auditoría.
 5. **Tarjetas**: vincular los gastos de la tarjeta con el costo que representan en cada depto. Hoy
    usan un Excel; falta recibir esa información.
+6. **Facturación ARCA** — **Planificado** (`plans/031-facturacion-arca.md`): facturar los honorarios
+   al pagar cada liquidación, con emisor Lautaro o Amancay. Antes de probar en producción, cada uno
+   tiene que hacer el trámite del certificado y del punto de venta Web Services (manual de Roble).
 
 ## Checklist de prueba (próxima sesión)
 

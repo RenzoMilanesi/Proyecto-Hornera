@@ -7,7 +7,8 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - **Usuarios:** solo los dueños (Lautaro y Amancay). Sin roles.
 - **Salidas:** PDF por depto (mismo contenido y orden que la hoja actual), lista de transferencias (pantalla + Excel) y resumen interno.
 - **Prioridad:** 1) liquidación (ingesta, movimientos, cuentas, cierre, PDF, transferencias). 2) Resumen: KPIs por depto, resultado de Hornera, saldos de cuentas, evolución histórica.
-- **Fuera de la v1:** envío de mails, facturación ARCA, Mantenimiento, Obligaciones, Checklist, Hospy (se ignora).
+- **Fuera de la v1:** envío de mails, Mantenimiento, Obligaciones, Checklist, Hospy (se ignora).
+- **Facturación ARCA** (entra al alcance, grill-me del 2026-10-16, plan 031): se facturan los honorarios de Hornera al propietario, una factura por **pago** de la liquidación de un depto (proporcional al pago, importe editable, avisa si supera los honorarios; saldo ≤ 0 no se factura). Dos emisores monotributistas (Lautaro y Amancay, Factura C; soporta RI), elegido en cada factura. Siempre en pesos. Datos fiscales del receptor en la ficha del propietario, con consulta al padrón. Certificados generados con openssl; la clave privada cifrada con safeStorage, fuera de la base. PDF suelto y dentro del PDF del depto. Anular un pago facturado ofrece la Nota de Crédito. WSFEv1 directo, portado de Roble.
 
 ## Datos y reglas
 - **Stays:** API directa con un botón "traer mes" (reservas + pagos por reserva + medios de pago).
