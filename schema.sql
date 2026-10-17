@@ -41,6 +41,13 @@ CREATE TABLE propietario (
     moneda_liquidacion     TEXT NOT NULL DEFAULT 'ARS' CHECK (moneda_liquidacion IN ('ARS','USD')),
     comision_cobro_usd_pct REAL NOT NULL DEFAULT 0 CHECK (comision_cobro_usd_pct >= 0 AND comision_cobro_usd_pct < 1),
     activo             INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)),
+    -- Datos para facturarle (receptor ante ARCA). Aparte de cuit/documento/categoria_fiscal,
+    -- que vienen del Excel en texto libre: sin estos completos no se factura.
+    fiscal_razon_social  TEXT,
+    fiscal_doc_tipo      INTEGER CHECK (fiscal_doc_tipo IN (80, 96)),   -- 80 CUIT, 96 DNI
+    fiscal_doc_nro       TEXT,
+    fiscal_condicion_iva TEXT CHECK (fiscal_condicion_iva IN ('responsable_inscripto','monotributista','exento','consumidor_final')),
+    fiscal_domicilio     TEXT,
     stays_owner_id     TEXT                        -- _id en /finance/owners; lo vincula "traer mes"
 ) STRICT;
 CREATE UNIQUE INDEX uq_propietario_stays ON propietario(stays_owner_id);
@@ -433,6 +440,66 @@ CREATE TABLE liquidacion_reserva (
 ) STRICT, WITHOUT ROWID;
 CREATE INDEX ix_lr_reserva ON liquidacion_reserva(reserva_id);
 
+-- ------------------------------------------------------------
+--  FACTURACIÓN ARCA (plan 031)
+-- ------------------------------------------------------------
+
+-- Quien factura los honorarios (Lautaro, Amancay). La clave privada del certificado
+-- NO va acá: se guarda cifrada con safeStorage, como las credenciales de Stays.
+CREATE TABLE emisor (
+    id                 INTEGER PRIMARY KEY,
+    nombre             TEXT    NOT NULL,
+    razon_social       TEXT    NOT NULL,
+    cuit               TEXT    NOT NULL UNIQUE CHECK (length(cuit) = 11 AND cuit NOT GLOB '*[^0-9]*'),
+    condicion_iva      TEXT    NOT NULL CHECK (condicion_iva IN ('monotributista','responsable_inscripto','exento')),
+    punto_venta        INTEGER NOT NULL CHECK (punto_venta BETWEEN 1 AND 99999),  -- el de tipo "Web Services"
+    domicilio          TEXT,
+    ingresos_brutos    TEXT,
+    inicio_actividades TEXT    CHECK (inicio_actividades IS NULL OR date(inicio_actividades) IS inicio_actividades),
+    ambiente           TEXT    NOT NULL DEFAULT 'homologacion' CHECK (ambiente IN ('homologacion','produccion')),
+    cert_pem           TEXT,                       -- público (NULL = falta cargar el certificado)
+    activo             INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1))
+) STRICT;
+
+-- Una fila por INTENTO de facturar, aprobado o rechazado (los rechazos quedan para
+-- poder contestar "ARCA dijo tal cosa"). Va atada a período + depto y no a
+-- liquidacion.id: reabrir un mes borra y recrea sus liquidaciones.
+CREATE TABLE comprobante (
+    id               INTEGER PRIMARY KEY,
+    periodo_id       INTEGER NOT NULL REFERENCES periodo(id),
+    depto_id         INTEGER NOT NULL REFERENCES depto(id),
+    propietario_id   INTEGER NOT NULL REFERENCES propietario(id),
+    movimiento_id    INTEGER NOT NULL REFERENCES movimiento(id),   -- el pago que se factura
+    emisor_id        INTEGER NOT NULL REFERENCES emisor(id),
+    cbte_tipo        INTEGER NOT NULL CHECK (cbte_tipo IN (1, 3, 6, 8, 11, 13)),  -- Fac/NC A, B, C
+    punto_venta      INTEGER NOT NULL,
+    numero           INTEGER,                      -- NULL si ARCA rechazó: no consume numeración
+    cae              TEXT,
+    cae_vencimiento  TEXT,
+    fecha            TEXT    NOT NULL CHECK (date(fecha) IS fecha),        -- CbteFch
+    serv_desde       TEXT    NOT NULL CHECK (date(serv_desde) IS serv_desde),
+    serv_hasta       TEXT    NOT NULL CHECK (date(serv_hasta) IS serv_hasta),
+    importe          INTEGER NOT NULL CHECK (importe > 0),               -- centavos ARS, total
+    receptor_json    TEXT    NOT NULL CHECK (json_valid(receptor_json)), -- copia congelada al emitir
+    estado           TEXT    NOT NULL CHECK (estado IN ('aprobado','rechazado')),
+    ambiente         TEXT    NOT NULL CHECK (ambiente IN ('homologacion','produccion')),
+    motivo           TEXT,                         -- por qué se rechazó
+    observaciones    TEXT,                         -- Obs de ARCA (aprobado con salvedades)
+    request_json     TEXT,                         -- sin <Auth>: el token no se guarda
+    response_json    TEXT,
+    asociado_id      INTEGER REFERENCES comprobante(id),  -- en una NC: la factura que anula
+    creado_en        TEXT    NOT NULL,
+    CONSTRAINT ck_comprobante_estado CHECK (
+        (estado = 'aprobado'  AND numero IS NOT NULL AND cae IS NOT NULL AND cae_vencimiento IS NOT NULL) OR
+        (estado = 'rechazado' AND numero IS NULL     AND cae IS NULL     AND cae_vencimiento IS NULL)),
+    -- Una NC dice qué factura anula, y una factura no anula nada.
+    CONSTRAINT ck_comprobante_nc CHECK ((cbte_tipo IN (3, 8, 13)) = (asociado_id IS NOT NULL))
+) STRICT;
+CREATE INDEX ix_cbte_periodo_depto ON comprobante(periodo_id, depto_id);
+CREATE INDEX ix_cbte_movimiento ON comprobante(movimiento_id);
+CREATE INDEX ix_cbte_asociado ON comprobante(asociado_id);
+CREATE UNIQUE INDEX uq_cbte_numero ON comprobante(emisor_id, ambiente, cbte_tipo, punto_venta, numero) WHERE numero IS NOT NULL;
+
 -- Histórico previo al sistema (hojas OCUPACION y Resumen, 12/2021 en adelante).
 -- Desde el primer cierre en el sistema, el histórico sale de `liquidacion`.
 CREATE TABLE historico_mensual (
@@ -471,8 +538,8 @@ CREATE TABLE terminal (
     revocada_en TEXT
 ) STRICT;
 
--- Clave/valor: carpeta de backup, URL de Stays, etc. Las credenciales de Stays
--- NO van aquí: se guardan cifradas con safeStorage de Electron.
+-- Clave/valor: carpeta de backup, URL de Stays, ticket de acceso de ARCA (12 h), etc.
+-- Las credenciales de Stays y las claves de ARCA NO van aquí: safeStorage de Electron.
 CREATE TABLE configuracion (
     clave  TEXT PRIMARY KEY,
     valor  TEXT NOT NULL

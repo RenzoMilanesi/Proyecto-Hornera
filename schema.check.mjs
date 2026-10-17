@@ -78,4 +78,34 @@ run(`UPDATE periodo SET usd_cotizacion_fecha = '2026-04-30'`);
 run(`INSERT INTO terminal(nombre, token_hash, creada_en) VALUES ('PC 2', 'h1', 'x')`);
 falla(`INSERT INTO terminal(nombre, token_hash, creada_en) VALUES ('PC 3', 'h1', 'x')`, 'UNIQUE');
 
+// Facturación: datos fiscales del propietario
+falla(`UPDATE propietario SET fiscal_doc_tipo = 86 WHERE id = 1`, 'CHECK');
+falla(`UPDATE propietario SET fiscal_condicion_iva = 'RM' WHERE id = 1`, 'CHECK');
+run(`UPDATE propietario SET fiscal_razon_social = 'Propietario Uno', fiscal_doc_tipo = 80,
+      fiscal_doc_nro = '20111111112', fiscal_condicion_iva = 'consumidor_final' WHERE id = 1`);
+
+// Emisor: CUIT de 11 dígitos, único
+const emisor = (cuit) => `INSERT INTO emisor(nombre, razon_social, cuit, condicion_iva, punto_venta)
+  VALUES ('Emisor', 'Emisor Uno', '${cuit}', 'monotributista', 3)`;
+falla(emisor('20-11111111-2'), 'CHECK');
+run(emisor('20111111112'));
+falla(emisor('20111111112'), 'UNIQUE');
+assert.equal(db.prepare(`SELECT ambiente FROM emisor`).get().ambiente, 'homologacion');
+
+// Comprobante: aprobado con número y CAE; rechazado sin ellos; número único por emisor y tipo
+const cbte = (estado, numero, cae, tipo = 11, asociado = 'NULL') => `INSERT INTO comprobante(periodo_id, depto_id, propietario_id, movimiento_id,
+  emisor_id, cbte_tipo, punto_venta, numero, cae, cae_vencimiento, fecha, serv_desde, serv_hasta, importe,
+  receptor_json, estado, ambiente, asociado_id, creado_en)
+  VALUES (1, 1, 1, ${pagoId}, 1, ${tipo}, 3, ${numero}, ${cae}, ${cae === 'NULL' ? 'NULL' : `'2026-05-20'`}, '2026-05-10',
+  '2026-04-01', '2026-04-30', 1683400, '{}', '${estado}', 'homologacion', ${asociado}, 'x')`;
+run(cbte('aprobado', 1, `'75123456789012'`));
+run(cbte('rechazado', 'NULL', 'NULL'));
+falla(cbte('aprobado', 'NULL', `'75123456789012'`), 'ck_comprobante_estado');
+falla(cbte('rechazado', 2, 'NULL'), 'ck_comprobante_estado');
+falla(cbte('aprobado', 1, `'75123456789013'`), 'UNIQUE');
+// Nota de crédito: siempre con la factura que anula; una factura, sin asociado
+falla(cbte('rechazado', 'NULL', 'NULL', 13), 'ck_comprobante_nc');
+falla(cbte('rechazado', 'NULL', 'NULL', 11, 1), 'ck_comprobante_nc');
+run(cbte('rechazado', 'NULL', 'NULL', 13, 1));
+
 console.log('schema OK');

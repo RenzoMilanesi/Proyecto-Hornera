@@ -161,9 +161,12 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
   // El esquema 1 es el actual con la tabla liquidacion como era antes de la migración 1 → 2
   // y sin la tabla terminal (3 → 4) ni las fotos del depto (4 → 5) ni el vínculo del propietario con Stays (5 → 6)
   // ni los datos nuevos de la reserva (6 → 7) ni el dueño de la liquidación (7 → 8)
-  // ni la fecha de la cotización del período (8 → 9).
+  // ni la fecha de la cotización del período (8 → 9) ni la facturación ARCA (9 → 10).
   const actual = readFileSync(new URL('../schema.sql', import.meta.url), 'utf8');
   const v1 = actual
+    .replace(/^\s*(-- Datos para facturarle|-- que vienen del Excel en texto libre|fiscal_).*\r?\n/gm, '')
+    .replace(/CREATE TABLE (emisor|comprobante) \([^;]*;/g, '')
+    .replace(/CREATE (UNIQUE )?INDEX (ix|uq)_cbte_[^;]*;/g, '')
     .replace(/CREATE TABLE terminal \([^;]*;/, '')
     .replace(/^\s*conversion_usd .*\r?\n/m, '')
     .replace(/^\s*fotos .*\r?\n/m, '')

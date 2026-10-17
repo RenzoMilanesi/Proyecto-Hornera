@@ -76,7 +76,11 @@ liquidación de un depto, con el CAE, el QR y el PDF, sin entrar a la web de ARC
 
 ## Etapas
 
-### 1. Esquema (una migración)
+### 1. Esquema (una migración) — HECHA (migración 9 → 10, v0.17.0)
+Cambios respecto de lo de abajo, al implementarla: `comprobante` se ata a `periodo_id + depto_id`
+(+ `propietario_id`), no a `liquidacion_id`, porque reabrir un mes borra y recrea sus liquidaciones;
+y el ticket de acceso se cachea en `configuracion` (clave/valor), sin tabla `ta_arca`.
+
 En `schema.sql` + `MIGRACIONES` (`server/db.ts`) + `schema.check.mjs`, juntos:
 - `emisor`: `id`, `nombre` (Lautaro/Amancay), `razon_social`, `cuit`, `condicion_iva`
   (`monotributista|responsable_inscripto|exento`), `punto_venta`, `domicilio`, `ingresos_brutos`,

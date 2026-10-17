@@ -56,6 +56,60 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
   // 8 → 9: día de la cotización traída de la API (provisoria si es anterior al cierre).
   `ALTER TABLE periodo ADD COLUMN usd_cotizacion_fecha TEXT
      CHECK (usd_cotizacion_fecha IS NULL OR date(usd_cotizacion_fecha) IS usd_cotizacion_fecha);`,
+  // 9 → 10: facturación ARCA (plan 031): datos fiscales del propietario, emisores y comprobantes.
+  `ALTER TABLE propietario ADD COLUMN fiscal_razon_social TEXT;
+   ALTER TABLE propietario ADD COLUMN fiscal_doc_tipo INTEGER CHECK (fiscal_doc_tipo IN (80, 96));
+   ALTER TABLE propietario ADD COLUMN fiscal_doc_nro TEXT;
+   ALTER TABLE propietario ADD COLUMN fiscal_condicion_iva TEXT CHECK (fiscal_condicion_iva IN ('responsable_inscripto','monotributista','exento','consumidor_final'));
+   ALTER TABLE propietario ADD COLUMN fiscal_domicilio TEXT;
+   CREATE TABLE emisor (
+       id                 INTEGER PRIMARY KEY,
+       nombre             TEXT    NOT NULL,
+       razon_social       TEXT    NOT NULL,
+       cuit               TEXT    NOT NULL UNIQUE CHECK (length(cuit) = 11 AND cuit NOT GLOB '*[^0-9]*'),
+       condicion_iva      TEXT    NOT NULL CHECK (condicion_iva IN ('monotributista','responsable_inscripto','exento')),
+       punto_venta        INTEGER NOT NULL CHECK (punto_venta BETWEEN 1 AND 99999),
+       domicilio          TEXT,
+       ingresos_brutos    TEXT,
+       inicio_actividades TEXT    CHECK (inicio_actividades IS NULL OR date(inicio_actividades) IS inicio_actividades),
+       ambiente           TEXT    NOT NULL DEFAULT 'homologacion' CHECK (ambiente IN ('homologacion','produccion')),
+       cert_pem           TEXT,
+       activo             INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1))
+   ) STRICT;
+   CREATE TABLE comprobante (
+       id               INTEGER PRIMARY KEY,
+       periodo_id       INTEGER NOT NULL REFERENCES periodo(id),
+       depto_id         INTEGER NOT NULL REFERENCES depto(id),
+       propietario_id   INTEGER NOT NULL REFERENCES propietario(id),
+       movimiento_id    INTEGER NOT NULL REFERENCES movimiento(id),
+       emisor_id        INTEGER NOT NULL REFERENCES emisor(id),
+       cbte_tipo        INTEGER NOT NULL CHECK (cbte_tipo IN (1, 3, 6, 8, 11, 13)),
+       punto_venta      INTEGER NOT NULL,
+       numero           INTEGER,
+       cae              TEXT,
+       cae_vencimiento  TEXT,
+       fecha            TEXT    NOT NULL CHECK (date(fecha) IS fecha),
+       serv_desde       TEXT    NOT NULL CHECK (date(serv_desde) IS serv_desde),
+       serv_hasta       TEXT    NOT NULL CHECK (date(serv_hasta) IS serv_hasta),
+       importe          INTEGER NOT NULL CHECK (importe > 0),
+       receptor_json    TEXT    NOT NULL CHECK (json_valid(receptor_json)),
+       estado           TEXT    NOT NULL CHECK (estado IN ('aprobado','rechazado')),
+       ambiente         TEXT    NOT NULL CHECK (ambiente IN ('homologacion','produccion')),
+       motivo           TEXT,
+       observaciones    TEXT,
+       request_json     TEXT,
+       response_json    TEXT,
+       asociado_id      INTEGER REFERENCES comprobante(id),
+       creado_en        TEXT    NOT NULL,
+       CONSTRAINT ck_comprobante_estado CHECK (
+           (estado = 'aprobado'  AND numero IS NOT NULL AND cae IS NOT NULL AND cae_vencimiento IS NOT NULL) OR
+           (estado = 'rechazado' AND numero IS NULL     AND cae IS NULL     AND cae_vencimiento IS NULL)),
+       CONSTRAINT ck_comprobante_nc CHECK ((cbte_tipo IN (3, 8, 13)) = (asociado_id IS NOT NULL))
+   ) STRICT;
+   CREATE INDEX ix_cbte_periodo_depto ON comprobante(periodo_id, depto_id);
+   CREATE INDEX ix_cbte_movimiento ON comprobante(movimiento_id);
+   CREATE INDEX ix_cbte_asociado ON comprobante(asociado_id);
+   CREATE UNIQUE INDEX uq_cbte_numero ON comprobante(emisor_id, ambiente, cbte_tipo, punto_venta, numero) WHERE numero IS NOT NULL;`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 
