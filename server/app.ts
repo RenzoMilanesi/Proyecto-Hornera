@@ -19,6 +19,7 @@ import { historial } from './liquidacion/historial.ts';
 import { evolucion, resumenDelMes } from './resumen.ts';
 import { cargarCertificado, crearEmisor, editarEmisor, listarEmisores, probarEmisor, type AlmacenClaves } from './emisores.ts';
 import { ErrorArca } from './arca.ts';
+import { emitir, ErrorRevisar, propuesta } from './facturacion.ts';
 import { datosFiscales, guardarDatosFiscales, padronDePropietario } from './propietarios.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
 
@@ -447,6 +448,18 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     try {
       res.json(await padronDePropietario(db, claves, Number(req.params.id), req.body, fetchArca));
     } catch (e) {
+      res.status(e instanceof ErrorArca && e.tipo === 'red' ? 502 : 400).json({ error: mensaje(e) });
+    }
+  });
+
+  // ---- Factura de los honorarios de un pago de liquidación (plan 031, etapa 5). El pago ya está registrado:
+  // si ARCA falla, el intento queda rechazado y se reintenta desde Transferencias.
+  app.get('/api/pagos/:id/factura', (req, res) => intentar(res, () => propuesta(db, Number(req.params.id), req.query.emisor ? Number(req.query.emisor) : null)));
+  app.post('/api/pagos/:id/factura', async (req, res) => {
+    try {
+      res.json(await emitir(db, claves, Number(req.params.id), req.body, fetchArca));
+    } catch (e) {
+      if (e instanceof ErrorRevisar) return void res.status(409).json({ error: e.message, revisar: e.numero });
       res.status(e instanceof ErrorArca && e.tipo === 'red' ? 502 : 400).json({ error: mensaje(e) });
     }
   });

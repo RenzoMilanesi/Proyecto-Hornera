@@ -3,7 +3,7 @@ async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api/${ruta}`, init);
   if (!res.ok) {
     const cuerpo = await res.json().catch(() => null);
-    throw new Error(cuerpo?.error ?? `${res.status} ${res.statusText}`);
+    throw Object.assign(new Error(cuerpo?.error ?? `${res.status} ${res.statusText}`), { cuerpo }); // el cuerpo, por si trae más que el error
   }
   return res.json();
 }

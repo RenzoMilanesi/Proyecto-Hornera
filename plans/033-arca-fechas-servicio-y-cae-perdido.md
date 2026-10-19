@@ -34,6 +34,14 @@ cubre porque Roble solo emite Concepto 1 (productos):
    no duplica, pero ese número queda autorizado en ARCA y sin fila aprobada en Hornera. Roble tiene
    el mismo techo marcado con `ponytail:` (`electron/db/repos/facturacion.js`, en `solicitarCAE`).
 
+## Estado
+- Reglas 1 y 3: **HECHAS** con la etapa 5 del plan 031 (`server/facturacion.ts`, tests en
+  `server/facturacion.test.ts`). Regla 3: el intento sin respuesta guarda lo pedido en `request_json` (JSON, sin
+  ticket) con `response_json` NULL; si `ultimoAutorizado` llegó a ese número, la API responde 409 con `revisar`
+  y no pide el CAE hasta que se reenvíe con `revisado: true` ("Ya lo revisé: emitir igual").
+- Regla 2 (NC): pendiente, va con la etapa 6.
+- Falta confirmar en homologación que ARCA acepta `FchVtoPago == CbteFch` (STOP de abajo).
+
 ## Reglas a implementar (en `server/facturacion.ts`)
 
 1. **Fecha**: calcular primero `cbteFecha = fechaComprobante({ fechaPago, fechaUltimo, hoy: hoyLocal() })`

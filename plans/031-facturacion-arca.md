@@ -150,7 +150,17 @@ token); no cachea la constancia como Roble (`cliente_padron`): se consulta a man
   en producción; completa sin guardar (el usuario confirma). En homologación responde "solo en
   producción".
 
-### 5. Emitir al pagar
+### 5. Emitir al pagar — HECHA
+Al implementarla (`server/facturacion.ts`, `GET/POST /api/pagos/:id/factura`, modal `FormFactura` en
+`src/Transferencias.tsx`): se ata al pago (`movimiento_id`), no a `liquidacion.id`. Lo facturado y "este pago
+ya tiene factura" se cuentan **por ambiente**: una factura de homologación es de prueba (se muestra "prueba
+n.º") y no impide la de producción. Cada intento queda en `comprobante`, también las fallas de red (login,
+último autorizado o el pedido del CAE); un timeout al pedir el CAE guarda lo pedido sin ticket en
+`request_json` con `response_json` NULL, que es lo que mira la regla 3 del plan 033 (respuesta 409 con
+`revisar`; la UI ofrece "Ya lo revisé: emitir igual"). Lock global en memoria (`ponytail:`), no por emisor.
+`notaCredito` pasa a la etapa 6 (con la regla 2 del plan 033). La factura se ofrece solo desde
+Transferencias (no desde el Historial). Probado en la app contra el WSAA real de homologación con un
+certificado autofirmado: el rechazo ("Certificado bloqueado") queda guardado y la fila muestra "Reintentar".
 > Cumplir también el [plan 033](033-arca-fechas-servicio-y-cae-perdido.md): FchVtoPago = CbteFch, fechas de servicio en la NC, CAE perdido por timeout.
 - `server/facturacion.ts`:
   - `propuesta(liquidacionId, importePago)`: honorarios (`-honorarios` de la liquidación), ya
