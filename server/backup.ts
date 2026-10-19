@@ -1,6 +1,6 @@
 // Copia de seguridad: al cerrar y cada 6 h con la app abierta. Se conservan las últimas 60
 // (unas 2 semanas aunque la app quede abierta día y noche).
-import type { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -12,6 +12,16 @@ export function hacerBackup(db: DatabaseSync, carpeta: string, ahora = new Date(
   const sello = local.toISOString().slice(0, 23).replace(/[:.]/g, '-'); // con ms: VACUUM INTO falla si el archivo existe
   const destino = join(carpeta, `hornera-${sello}.db`);
   db.prepare('VACUUM INTO ?').run(destino); // copia consistente aunque haya WAL
+  // El ticket de acceso de ARCA (token + sign, 12 h) factura en nombre del emisor: no viaja a Drive.
+  // VACUUM para que el borrado no quede en páginas libres del archivo.
+  if (db.prepare(`SELECT 1 FROM configuracion WHERE clave LIKE 'arca.ta.%'`).get()) {
+    const copia = new DatabaseSync(destino);
+    try {
+      copia.exec(`DELETE FROM configuracion WHERE clave LIKE 'arca.ta.%'; VACUUM;`);
+    } finally {
+      copia.close();
+    }
+  }
   const viejos = readdirSync(carpeta).filter((f) => /^hornera-.*\.db$/.test(f)).sort().slice(0, -MAX_BACKUPS);
   // Si no se puede borrar una copia vieja (Drive la tiene bloqueada), la nueva igual quedó hecha.
   for (const f of viejos) {

@@ -232,6 +232,17 @@ test('el backup conserva solo las últimas copias', (t) => {
   assert.equal(copias[0], 'hornera-2026-01-01T00-00-02-000.db');
 });
 
+test('el ticket de acceso de ARCA no viaja en el backup', (t) => {
+  const db = abrirDb(':memory:');
+  db.prepare(`INSERT INTO configuracion(clave, valor) VALUES ('arca.ta.wsfe.homologacion.20111111112', '{"token":"T0K3N"}'), ('pdf.carpeta', 'x')`).run();
+  const ruta = hacerBackup(db, temporal(t));
+  const copia = new DatabaseSync(ruta);
+  assert.deepEqual(copia.prepare('SELECT clave FROM configuracion ORDER BY clave').all().map((f) => f.clave), ['pdf.carpeta']);
+  copia.close();
+  assert.equal(readFileSync(ruta).includes('T0K3N'), false);
+  assert.equal(db.prepare(`SELECT count(*) n FROM configuracion WHERE clave LIKE 'arca.ta.%'`).get()!.n, 1);
+});
+
 test('si la carpeta de backup configurada falla o es de otra PC, la copia queda en la por defecto', (t) => {
   const db = abrirDb(':memory:');
   const tmp = temporal(t);
