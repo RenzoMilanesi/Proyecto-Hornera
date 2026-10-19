@@ -3,6 +3,7 @@
 // una ventana oculta) y marca document.body.dataset.listo cuando terminó de cargar.
 import { useEffect, useState } from 'react';
 import type { Hoja } from '../server/liquidacion/hoja.ts';
+import type { DatosComprobante } from '../server/facturacion.ts';
 
 const fmt = (c: number, decimales = 0) => (c / 100).toLocaleString('es-AR', { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
 const ars = (c: number) => (c ? `$ ${fmt(c)}` : '$ -');
@@ -33,10 +34,96 @@ const estilos = `
   .salto table { font-size: 9px; }
   .salto th { white-space: normal; vertical-align: bottom; } /* encabezados en dos líneas: entran las 11 columnas */
   .resumen td { border: none; padding: 2px 4px; }
+  .cbte { border: 1.5px solid #333; }
+  .cbte table { font-size: 10.5px; }
+  .cbte-cab { display: grid; grid-template-columns: 1fr 64px 1fr; border-bottom: 1.5px solid #333; }
+  .cbte-cab > div { padding: 8px 10px; }
+  .cbte-letra { border-left: 1.5px solid #333; border-right: 1.5px solid #333; text-align: center; padding: 4px 0 !important; }
+  .cbte-letra b { display: block; font-size: 34px; line-height: 1.1; }
+  .cbte-seccion { padding: 6px 10px; border-bottom: 1px solid #999; }
+  .cbte-total { display: flex; justify-content: flex-end; gap: 24px; padding: 8px 10px; font-size: 13px; font-weight: bold; border-top: 1.5px solid #333; }
+  .cbte-pie { display: flex; gap: 14px; align-items: center; margin-top: 10px; }
+  .cbte-pie .qr { width: 32mm; height: 32mm; }
+  .prueba { border: 2px dashed #b00; color: #b00; text-align: center; font-weight: bold; padding: 4px; margin-bottom: 8px; }
 `;
+
+const CONDICION: Record<string, string> = {
+  monotributista: 'Responsable Monotributo', responsable_inscripto: 'IVA Responsable Inscripto',
+  exento: 'IVA Sujeto Exento', consumidor_final: 'Consumidor Final',
+};
+
+// Una factura o NC con su CAE y QR (RG 1415 / RG 4892). Página suelta o al final de la hoja del depto.
+function Comprobante({ c }: { c: DatosComprobante }) {
+  const pesos2 = (x: number) => `$ ${fmt(x, 2)}`;
+  return (
+    <div>
+      {c.ambiente === 'homologacion' && <div className="prueba">COMPROBANTE DE PRUEBA (HOMOLOGACIÓN): SIN VALIDEZ FISCAL</div>}
+      <div className="cbte">
+        <div className="cbte-cab">
+          <div>
+            <b style={{ fontSize: 14 }}>{c.emisor.razon_social}</b>
+            {c.emisor.domicilio && <div><span className="etiqueta">Domicilio comercial:</span> {c.emisor.domicilio}</div>}
+            <div><span className="etiqueta">Condición frente al IVA:</span> {CONDICION[c.emisor.condicion_iva]}</div>
+          </div>
+          <div className="cbte-letra"><b>{c.letra}</b>COD. {c.codigo}</div>
+          <div>
+            <b style={{ fontSize: 14 }}>{c.tipo.replace(/ [ABC]$/, '')}</b>
+            <div><span className="etiqueta">Punto de venta y n.º:</span> <b>{c.numero}</b></div>
+            <div><span className="etiqueta">Fecha de emisión:</span> {fecha(c.fecha)}</div>
+            <div><span className="etiqueta">CUIT:</span> {c.emisor.cuit}</div>
+            {c.emisor.ingresos_brutos && <div><span className="etiqueta">Ingresos Brutos:</span> {c.emisor.ingresos_brutos}</div>}
+            {c.emisor.inicio_actividades && <div><span className="etiqueta">Inicio de actividades:</span> {fecha(c.emisor.inicio_actividades)}</div>}
+          </div>
+        </div>
+        <div className="cbte-seccion fila">
+          <span><span className="etiqueta">Período facturado desde:</span> {fecha(c.servDesde)} <span className="etiqueta">hasta:</span> {fecha(c.servHasta)}</span>
+          <span><span className="etiqueta">Fecha de vto. para el pago:</span> {fecha(c.fecha)}</span>
+        </div>
+        <div className="cbte-seccion">
+          <div><span className="etiqueta">{c.receptor.doc_tipo === 80 ? 'CUIT' : 'DNI'}:</span> {c.receptor.doc_nro} · <span className="etiqueta">Apellido y nombre / Razón social:</span> <b>{c.receptor.razon_social}</b></div>
+          <div><span className="etiqueta">Condición frente al IVA:</span> {CONDICION[c.receptor.condicion_iva]} · <span className="etiqueta">Domicilio:</span> {c.receptor.domicilio}</div>
+          {c.asociado && <div><span className="etiqueta">Comprobante asociado:</span> {c.asociado.tipo} {c.asociado.numero} del {fecha(c.asociado.fecha)}</div>}
+        </div>
+        <table>
+          <thead><tr><th>Descripción</th><th className="n">Importe</th></tr></thead>
+          <tbody><tr><td>{c.detalle}</td><td className="n">{pesos2(c.importe - (c.letra === 'A' ? c.iva : 0))}</td></tr></tbody>
+        </table>
+        {c.letra === 'A' && <div className="cbte-seccion fila"><span className="etiqueta">IVA 21 %</span><span>{pesos2(c.iva)}</span></div>}
+        <div className="cbte-total"><span>Importe total</span><span>{pesos2(c.importe)}</span></div>
+      </div>
+      <div className="cbte-pie">
+        <img className="qr" alt="QR de ARCA" src={`data:image/svg+xml;base64,${btoa(c.qr)}`} />
+        <div>
+          <div><span className="etiqueta">CAE n.º:</span> <b>{c.cae}</b></div>
+          <div><span className="etiqueta">Fecha de vto. de CAE:</span> {fecha(c.caeVencimiento)}</div>
+          <div className="nota">Comprobante autorizado por ARCA. Moneda: pesos argentinos.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// /?imprimir=1&comprobante=ID: el PDF suelto de una factura o NC.
+function ImprimirComprobante({ id }: { id: string }) {
+  const [c, setC] = useState<DatosComprobante>();
+  const [error, setError] = useState<string>();
+  useEffect(() => {
+    fetch(`/api/comprobantes/${id}`)
+      .then(async (r) => (r.ok ? r.json() : Promise.reject(new Error((await r.json()).error))))
+      .then(setC, (e) => { setError(String(e.message ?? e)); document.body.dataset.listo = String(e.message ?? e); });
+  }, [id]);
+  useEffect(() => { if (c) requestAnimationFrame(() => { document.body.dataset.listo = '1'; }); }, [c]);
+  if (error) return <p>{error}</p>;
+  return c ? <div className="hoja"><style>{estilos}</style><Comprobante c={c} /></div> : null;
+}
 
 export function Imprimir() {
   const parametros = new URLSearchParams(location.search);
+  const comprobante = parametros.get('comprobante');
+  return comprobante ? <ImprimirComprobante id={comprobante} /> : <ImprimirHoja parametros={parametros} />;
+}
+
+function ImprimirHoja({ parametros }: { parametros: URLSearchParams }) {
   const [hoja, setHoja] = useState<Hoja>();
   const [error, setError] = useState<string>();
   useEffect(() => {
@@ -158,6 +245,7 @@ export function Imprimir() {
           </table>
         </div>
       )}
+      {h.facturas.map((c) => <div key={c.id} className="salto"><Comprobante c={c} /></div>)}
     </div>
   );
 }

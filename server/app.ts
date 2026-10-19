@@ -19,7 +19,7 @@ import { historial } from './liquidacion/historial.ts';
 import { evolucion, resumenDelMes } from './resumen.ts';
 import { cargarCertificado, crearEmisor, editarEmisor, listarEmisores, probarEmisor, type AlmacenClaves } from './emisores.ts';
 import { ErrorArca } from './arca.ts';
-import { emitir, ErrorRevisar, facturaVigente, notaCredito, propuesta } from './facturacion.ts';
+import { datosComprobante, emitir, ErrorRevisar, facturaVigente, notaCredito, propuesta } from './facturacion.ts';
 import { datosFiscales, guardarDatosFiscales, padronDePropietario } from './propietarios.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
 
@@ -468,6 +468,20 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     }
   };
   app.post('/api/pagos/:id/factura', (req, res) => conArca(res, () => emitir(db, claves, Number(req.params.id), req.body, fetchArca)));
+  // PDF suelto de un comprobante: la vista imprimible (/?imprimir=1&comprobante=ID) con el generador de la hoja.
+  app.get('/api/comprobantes/:id', (req, res) => intentar(res, () => datosComprobante(db, Number(req.params.id))));
+  app.get('/api/comprobantes/:id/pdf', async (req, res) => {
+    if (!pdf) { res.status(400).json({ error: 'Esta instalación no genera PDF' }); return; }
+    try {
+      const c = datosComprobante(db, Number(req.params.id));  // valida antes de abrir la ventana
+      const archivo = await pdf.generar(`/?imprimir=1&comprobante=${c.id}`);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${c.asociado ? 'nota-credito' : 'factura'}-${c.letra}-${c.numero}.pdf"`);
+      res.send(archivo);
+    } catch (e) {
+      res.status(400).json({ error: mensaje(e) });
+    }
+  });
   app.post('/api/comprobantes/:id/nota-credito', (req, res) => conArca(res, () => notaCredito(db, claves, Number(req.params.id), req.body, fetchArca)));
 
   // Las rutas nuevas van arriba de estas dos: lo que no es /api sigue a Vite/static.

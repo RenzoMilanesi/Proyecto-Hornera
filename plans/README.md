@@ -35,13 +35,14 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 028 | [Historial de pagos por depto y por propietario](028-historial-de-pagos.md) | P2 | M | — | A TESTEAR |
 | 029 | [La cotización manual no se pisa en carrera; aviso de "Pedir a la API"](029-cotizacion-carrera-y-aviso.md) | P3 | S | 026 | A TESTEAR |
 | 030 | [El descuento sobre el dólar cripto tiene que ser menor a 100 %](030-descuento-dolar-menor-a-100.md) | P2 | S | — | A TESTEAR |
-| 031 | [Facturación electrónica con ARCA (honorarios a propietarios)](031-facturacion-arca.md) | P2 | L | — | EN CURSO (etapas 1 a 6 de 8) |
+| 031 | [Facturación electrónica con ARCA (honorarios a propietarios)](031-facturacion-arca.md) | P2 | L | — | EN CURSO (etapas 1 a 7 de 8) |
 | 032 | [Una nota de crédito siempre dice qué factura anula](032-nota-credito-con-asociado.md) | P3 | S | 031 (etapa 1) | A TESTEAR |
 | 033 | [Fechas de servicio en facturas y NC, y CAE perdido por timeout](033-arca-fechas-servicio-y-cae-perdido.md) | P2 | S | 031 (etapa 2) | A TESTEAR |
 | 034 | [El ticket de acceso de ARCA no viaja en los backups](034-ticket-arca-fuera-de-backups.md) | P3 | S | 031 (etapa 3) | A TESTEAR |
 
 Los planes 001 a 030 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 
+Plan 031 etapa 7: revisión `improve deep` del diff (PDF de la factura), 2026-10-19: sin plan nuevo. Descartado: la alerta de `npm audit` de `node-forge` (GHSA-86w9-cpqp-85rv, verificación de firmas PKCS#1; Hornera solo firma el CMS y compara el módulo de la clave); decodificar el QR en los tests (lo arma `qrcode`, el test valida el SVG y `qrArca` ya tiene el suyo).
 Plan 031 etapa 6: revisión `improve deep` del diff (anulación y NC), 2026-10-19: sin plan nuevo; corregido en la misma etapa: la NC se podía pedir para la factura de un pago vigente (la fila quedaba "emitida"). Descartado: ofrecer la NC desde Movimientos (ahí solo se anula en el mes abierto).
 Plan 031 etapa 5: revisión `improve deep` del diff (factura al pagar), 2026-10-19: sin plan nuevo; corregido en la misma etapa: la regla 3 del plan 033 volvía a pedir revisión después de un intento ya revisado (ahora mira solo el último intento) y un rechazo en producción quedaba tapado por una factura de prueba en la fila del pago. Descartado: emitir desde una terminal (la clave queda en el servidor, como "Probar"); auditar los rechazos (ya quedan en `comprobante`); respuestas viejas de la propuesta al cambiar de emisor en el modal (solo cambia "ya facturado").
 Plan 031 etapa 4: revisión `improve deep` del diff (datos fiscales y padrón), 2026-10-19: sin plan nuevo; el padrón prefería un emisor de producción sin certificado (corregido en la misma etapa). Descartado: cachear la constancia como Roble (consulta manual y rara), DNI para exentos (ARCA lo acepta en Factura C).

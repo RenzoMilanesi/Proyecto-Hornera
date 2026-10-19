@@ -193,7 +193,14 @@ con una factura de homologación sembrada: anular ofrece la NC, el rechazo de AR
 - `reabrirPeriodo` ya exige que no haya pagos: no hace falta otra regla.
 - Test: anular pago facturado deja la marca; emitir la NC la saca.
 
-### 7. PDF
+### 7. PDF — HECHA
+Al implementarla: `datosComprobante` (`server/facturacion.ts`, `GET /api/comprobantes/:id`) arma todo lo del papel y
+el QR como SVG en el servidor (`qrcode` → `QRCode.create`, sincrónico); la vista es `Comprobante` en
+`src/Imprimir.tsx` (`/?imprimir=1&comprobante=ID`). `GET /api/comprobantes/:id/pdf` baja el PDF (botón "PDF" en
+cada factura de Transferencias). La hoja del depto suma una página por factura vigente (`Hoja.facturas`); las de
+homologación salen marcadas "sin validez fiscal" y solo mientras ningún emisor activo esté en producción
+(`ponytail:`), para que las de prueba no lleguen al papel del propietario. Letra A muestra neto e IVA; B y C, el
+total. Probado en la app con facturas de homologación sembradas: PDF suelto y hoja con dos páginas de factura.
 - Vista imprimible de la factura (en `src/Imprimir.tsx` o una vista hermana): datos del emisor y
   receptor, "FACTURA C", punto de venta-número, fecha, período del servicio, detalle "Honorarios de
   administración — <depto> — <mes>", total, CAE, vencimiento y QR (`qrArca` → `qrcode`).

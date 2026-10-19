@@ -2,11 +2,12 @@
 // Una factura por pago. Se escribe en la base DESPUÉS de que ARCA responde, nunca antes; cada intento
 // (aprobado o rechazado) queda en `comprobante`. Lógica de Roble (electron/db/repos/facturacion.js).
 import type { DatabaseSync } from 'node:sqlite';
+import QRCode from 'qrcode';
 import { auditar } from './auditoria.ts';
 import { consultarComprobante, ErrorArca, esErrorDeToken, solicitarCAE, ultimoAutorizado } from './arca.ts';
 import { hoyLocal, type Fetch } from './cotizacion.ts';
 import { descartarTicket, emisorConClave, ticketAcceso, type AlmacenClaves, type Emisor } from './emisores.ts';
-import { COND_IVA, desglosarIva, fechaArca, fechaComprobante, isoDeArca, LETRA_CBTE, notaCreditoDe, tipoComprobante, type CondicionIva, type Importes } from './fiscal.ts';
+import { COND_IVA, desglosarIva, fechaArca, fechaComprobante, isoDeArca, LETRA_CBTE, NOMBRE_CBTE, notaCreditoDe, qrArca, tipoComprobante, type CondicionIva, type Importes } from './fiscal.ts';
 
 interface Pago {
   movimiento_id: number; estado: string; fecha: string; importe: number; periodo_id: number; mes: string;
@@ -244,4 +245,48 @@ async function autorizar(db: DatabaseSync, e: Emisor, keyPem: string, c: {
   auditar(db, 'comprobante', id, 'alta', null, { ...c.auditoria, emisor: e.nombre, cbte_tipo: cbteTipo,
     numero: numeroCbte(e.punto_venta, res.numero), importe: c.importe, ambiente: e.ambiente });
   return { id, cbteTipo, puntoVenta: e.punto_venta, numero: res.numero, cae: res.cae, vencimiento, fecha: cbteFecha, observaciones };
+}
+
+// ---- Para el papel (etapa 7): todo lo que muestra el PDF de un comprobante aprobado.
+
+// QR como SVG, armado acá (sincrónico): la vista imprimible lo pega tal cual.
+function qrSvg(texto: string) {
+  const { size, data } = QRCode.create(texto, { errorCorrectionLevel: 'M' }).modules;
+  let d = '';
+  for (let i = 0; i < data.length; i++) if (data[i]) d += `M${(i % size) + 4} ${Math.floor(i / size) + 4}h1v1h-1z`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size + 8} ${size + 8}" shape-rendering="crispEdges">`
+    + `<rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
+}
+
+export function datosComprobante(db: DatabaseSync, id: number) {
+  const c = db.prepare(`SELECT c.*, p.mes, d.codigo, d.nombre AS depto, a.cbte_tipo AS asoc_tipo, a.punto_venta AS asoc_pv, a.numero AS asoc_numero,
+      a.fecha AS asoc_fecha FROM comprobante c JOIN periodo p ON p.id = c.periodo_id JOIN depto d ON d.id = c.depto_id
+      LEFT JOIN comprobante a ON a.id = c.asociado_id WHERE c.id = ? AND c.estado = 'aprobado'`).get(id) as any;
+  if (!c) throw new Error('No existe ese comprobante aprobado.');
+  const e = db.prepare(`SELECT razon_social, cuit, condicion_iva, domicilio, ingresos_brutos, inicio_actividades FROM emisor WHERE id = ?`)
+    .get(c.emisor_id) as Pick<Emisor, 'razon_social' | 'cuit' | 'condicion_iva' | 'domicilio' | 'ingresos_brutos' | 'inicio_actividades'>;
+  const receptor = JSON.parse(c.receptor_json) as Receptor;
+  return {
+    id: c.id as number, tipo: NOMBRE_CBTE[c.cbte_tipo], letra: LETRA_CBTE[c.cbte_tipo], codigo: String(c.cbte_tipo).padStart(2, '0'),  // "COD. 11" del recuadro
+    numero: numeroCbte(c.punto_venta, c.numero), fecha: c.fecha as string, servDesde: c.serv_desde as string, servHasta: c.serv_hasta as string,
+    importe: c.importe as number, iva: desglosarIva(c.importe, LETRA_CBTE[c.cbte_tipo] === 'C' ? 'monotributista' : 'responsable_inscripto').ImpIVA,
+    cae: c.cae as string, caeVencimiento: c.cae_vencimiento as string, ambiente: c.ambiente as string,
+    detalle: `Honorarios de administración — ${c.codigo} ${c.depto} — ${c.mes}`,
+    asociado: c.asociado_id ? { tipo: NOMBRE_CBTE[c.asoc_tipo], numero: numeroCbte(c.asoc_pv, c.asoc_numero), fecha: c.asoc_fecha as string } : null,
+    emisor: e, receptor,
+    qr: qrSvg(qrArca({ fecha: c.fecha, cuitEmisor: e.cuit, puntoVenta: c.punto_venta, cbteTipo: c.cbte_tipo, numero: c.numero,
+      impTotalCentavos: c.importe, docTipo: receptor.doc_tipo, docNro: receptor.doc_nro, cae: c.cae })),
+  };
+}
+export type DatosComprobante = ReturnType<typeof datosComprobante>;
+
+/**
+ * Las facturas vigentes de la liquidación de un depto, para sumarlas al PDF que recibe el propietario.
+ * ponytail: las de homologación entran solo mientras ningún emisor activo está en producción (la etapa de
+ * prueba); después de pasar a producción, las de prueba no salen en el papel del propietario.
+ */
+export function facturasDeLiquidacion(db: DatabaseSync, periodoId: number, deptoId: number) {
+  return (db.prepare(`SELECT c.id FROM comprobante c WHERE c.periodo_id = ? AND c.depto_id = ? AND ${SQL_FACTURA_VIGENTE}
+      AND (c.ambiente = 'produccion' OR NOT EXISTS (SELECT 1 FROM emisor WHERE activo = 1 AND ambiente = 'produccion'))
+      ORDER BY c.fecha, c.id`).all(periodoId, deptoId) as { id: number }[]).map((x) => datosComprobante(db, x.id));
 }

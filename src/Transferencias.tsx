@@ -174,25 +174,28 @@ export function FormNotaCredito({ nc, alCerrar }: { nc?: { factura: FacturaNC; c
   );
 }
 
-export function EstadoFactura({ f, anulado, alFacturar, alAnularFactura }: {
-  f?: FacturaDePago | null; anulado?: boolean; alFacturar: () => void; alAnularFactura: () => void;
+export function EstadoFactura({ f, anulado, alFacturar, alAnularFactura, alPdf }: {
+  f?: FacturaDePago | null; anulado?: boolean; alFacturar: () => void; alAnularFactura: () => void; alPdf?: () => void;
 }) {
+  const pdf = alPdf && f?.estado === 'aprobado' && <Button size="small" onClick={alPdf}>PDF</Button>;
   if (anulado && f?.estado === 'aprobado') {
     return (
       <Space size="small">
         <Tag color="orange">pago anulado, factura vigente</Tag>
         {f.nc_motivo && <Typography.Text type="danger" ellipsis={{ tooltip: f.nc_motivo }} style={{ maxWidth: 240 }}>{f.nc_motivo}</Typography.Text>}
         <Button size="small" onClick={alAnularFactura}>Emitir nota de crédito</Button>
+        {pdf}
       </Space>
     );
   }
   if (anulado) return null;
-  if (f?.estado === 'aprobado' && f.ambiente === 'produccion') return <Tag color="green">emitida n.º {numeroCbte(f.punto_venta, f.numero!)}</Tag>;
+  if (f?.estado === 'aprobado' && f.ambiente === 'produccion') return <Space size="small"><Tag color="green">emitida n.º {numeroCbte(f.punto_venta, f.numero!)}</Tag>{pdf}</Space>;
   return (
     <Space size="small">
       {!f ? <Tag color="orange">pendiente</Tag>
         : f.estado === 'aprobado' ? <Tag title="Emitida en homologación: no vale fiscalmente">prueba n.º {numeroCbte(f.punto_venta, f.numero!)}</Tag>
           : <Typography.Text type="danger" ellipsis={{ tooltip: f.motivo }} style={{ maxWidth: 320 }}><Tag color="red">rechazada</Tag>{f.motivo}</Typography.Text>}
+      {pdf}
       <Button size="small" onClick={alFacturar}>{f?.estado === 'rechazado' ? 'Reintentar' : 'Facturar'}</Button>
     </Space>
   );
@@ -228,6 +231,15 @@ export function Transferencias() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
+  };
+  // PDF suelto de la factura: lo arma la PC servidor y baja como archivo.
+  const pdfFactura = async (id: number) => {
+    const r = await fetch(`/api/comprobantes/${id}/pdf`);
+    if (!r.ok) return setError((await r.json().catch(() => null))?.error ?? `${r.status} ${r.statusText}`);
+    const nombre = /filename="([^"]+)"/.exec(r.headers.get('Content-Disposition') ?? '')?.[1] ?? 'factura.pdf';
+    const enlace = Object.assign(document.createElement('a'), { href: URL.createObjectURL(await r.blob()), download: nombre });
+    enlace.click();
+    URL.revokeObjectURL(enlace.href);
   };
   const exportar = async () => {
     const r = await fetch(`/api/transferencias/excel?mes=${mes}`);
@@ -276,7 +288,7 @@ export function Transferencias() {
               {
                 title: 'Factura', key: 'factura', render: (_: unknown, p) => !t.esHornera && (
                   <EstadoFactura f={p.factura} anulado={p.anulado} alFacturar={() => setFacturando({ pagoId: p.id, t })}
-                    alAnularFactura={() => setNc({ factura: p.factura as FacturaNC, codigo: t.codigo })} />
+                    alAnularFactura={() => setNc({ factura: p.factura as FacturaNC, codigo: t.codigo })} alPdf={() => pdfFactura(p.factura!.id)} />
                 ),
               },
               {

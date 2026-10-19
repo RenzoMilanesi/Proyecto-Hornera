@@ -5,6 +5,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { truncPesos, type Importe } from './motor.ts';
 import { liquidarPeriodo } from './servicio.ts';
+import { facturasDeLiquidacion, type DatosComprobante } from '../facturacion.ts';
 
 export interface LineaHoja {
   llegada: string; codigoInterno: string; huespedes: number; nochesPeriodo: number;
@@ -26,6 +27,7 @@ export interface Hoja {
     conversion: Importe; saldo: Importe; // saldo final, después de los pagos de liquidación
   };
   reservas: LineaHoja[];
+  facturas: DatosComprobante[];  // una página más por factura vigente de los honorarios (plan 031)
 }
 
 const dias = (desde: string, hasta: string) => Math.round((Date.parse(hasta) - Date.parse(desde)) / 86_400_000);
@@ -96,6 +98,7 @@ export function hojaDepto(db: DatabaseSync, mes: string, codigo: string): Hoja {
       nombre: d.propietario, cuit: d.cuit, categoria: d.categoria_fiscal, cbu: d.es_hornera ? 'Nosotros' : (d.cbu ?? 'No informado'),
       mails: d.mails, moneda: d.moneda_liquidacion,
     },
+    facturas: facturasDeLiquidacion(db, p.id, d.id),
     resumen: { bruto, gastosDirectos, saldoParcial: bruto + gastosDirectos, honorarios, saldo: bruto + gastosDirectos + honorarios },
     noches: { total: dias(p.fecha_inicio, p.fecha_cierre_reservas), ...noches },
     detalle: {

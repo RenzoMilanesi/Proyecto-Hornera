@@ -9,6 +9,7 @@ import { crearApp } from './app.ts';
 import { hoyLocal, type Fetch } from './cotizacion.ts';
 import { listarTransferencias } from './liquidacion/pagos.ts';
 import { propuesta } from './facturacion.ts';
+import { hojaDepto } from './liquidacion/hoja.ts';
 
 const json = { 'Content-Type': 'application/json' };
 const restarDias = (dias: number) => new Date(Date.parse(`${hoyLocal()}T00:00:00Z`) - dias * 86_400_000).toISOString().slice(0, 10);
@@ -214,4 +215,30 @@ test('anulación: el pago facturado queda marcado hasta la NC, que lleva Concept
   const c = db.prepare(`SELECT asociado_id, serv_desde, serv_hasta FROM comprobante WHERE cbte_tipo = 13`).get() as any;
   assert.deepEqual([c.asociado_id, c.serv_desde, c.serv_hasta], [1, '2026-05-01', '2026-05-31']);
   assert.equal(db.prepare(`SELECT estado FROM movimiento WHERE tipo = 'liquidacion'`).get()!.estado, 'anulado');
+});
+
+test('PDF: datos del comprobante con QR, y la hoja del depto suma sus facturas vigentes', async () => {
+  const falso = arcaFalso();
+  await conApi(async (llamar, db) => {
+    const p = await pagar(llamar, 1000000);
+    const { body: fac } = await llamar('POST', `pagos/${p}/factura`, { emisor_id: 1, importe: 100000 });
+    const { body: c } = await llamar('GET', `comprobantes/${fac.id}`);
+    assert.deepEqual([c.tipo, c.letra, c.codigo, c.numero, c.servDesde, c.servHasta, c.asociado], ['FACTURA C', 'C', '11', '00003-00000008', '2026-05-01', '2026-05-31', null]);
+    assert.match(c.detalle, /Honorarios de administración — AAA Depto A — 2026-05/);
+    assert.match(c.qr, /^<svg[^>]+viewBox="0 0 \d+ \d+"/);
+    // Sin generador de PDF (tests) la ruta lo dice en vez de romperse.
+    assert.match((await llamar('GET', `comprobantes/${fac.id}/pdf`)).body.error, /no genera PDF/);
+
+    assert.deepEqual(hojaDepto(db, '2026-05', 'AAA').facturas.map((x) => x.numero), ['00003-00000008']);
+    // Con un emisor activo en producción, las de prueba ya no van al papel del propietario.
+    db.exec(`INSERT INTO emisor(nombre, razon_social, cuit, condicion_iva, punto_venta, ambiente) VALUES ('Dos', 'PRUEBA DOS', '27222222228', 'monotributista', 1, 'produccion')`);
+    assert.equal(hojaDepto(db, '2026-05', 'AAA').facturas.length, 0);
+    db.exec(`UPDATE emisor SET activo = 0 WHERE id = 2`);
+
+    await llamar('POST', `movimientos/${p}/anular`, {});
+    const { body: nc } = await llamar('POST', `comprobantes/${fac.id}/nota-credito`, {});
+    const { body: dn } = await llamar('GET', `comprobantes/${nc.id}`);
+    assert.deepEqual([dn.tipo, dn.asociado.numero, dn.asociado.tipo], ['NOTA DE CRÉDITO C', '00003-00000008', 'FACTURA C']);
+    assert.equal(hojaDepto(db, '2026-05', 'AAA').facturas.length, 0);  // con NC la factura ya no va
+  }, falso.fetchArca);
 });
