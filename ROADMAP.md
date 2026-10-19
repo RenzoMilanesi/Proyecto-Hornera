@@ -36,7 +36,7 @@ probó en la app con datos de prueba, pero falta revisarlo a mano con los dueño
    (comisión y tarifas propias). Solo el mes abierto; queda en la auditoría.
 5. **Tarjetas**: vincular los gastos de la tarjeta con el costo que representan en cada depto. Hoy
    usan un Excel; falta recibir esa información.
-6. **Facturación ARCA** — **En curso** (etapas 1 a 5 hechas: esquema, transporte ARCA, emisores y certificados en Datos → Emisores, datos fiscales en Datos → Propietarios, factura al pagar en Transferencias, nota de crédito al anular el pago, PDF de la factura con QR) (`plans/031-facturacion-arca.md`): facturar los honorarios
+6. **Facturación ARCA** — **En curso** (etapas 1 a 7 hechas: esquema, transporte ARCA, emisores y certificados en Datos → Emisores, datos fiscales en Datos → Propietarios, factura al pagar en Transferencias, nota de crédito al anular el pago, PDF de la factura con QR; falta la pantalla de comprobantes, `plans/035-pantalla-comprobantes.md`) (`plans/031-facturacion-arca.md`): facturar los honorarios
    al pagar cada liquidación, con emisor Lautaro o Amancay. Antes de probar en producción, cada uno
    tiene que hacer el trámite del certificado y del punto de venta Web Services (manual de Roble).
 

@@ -39,9 +39,11 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 032 | [Una nota de crédito siempre dice qué factura anula](032-nota-credito-con-asociado.md) | P3 | S | 031 (etapa 1) | A TESTEAR |
 | 033 | [Fechas de servicio en facturas y NC, y CAE perdido por timeout](033-arca-fechas-servicio-y-cae-perdido.md) | P2 | S | 031 (etapa 2) | A TESTEAR |
 | 034 | [El ticket de acceso de ARCA no viaja en los backups](034-ticket-arca-fuera-de-backups.md) | P3 | S | 031 (etapa 3) | A TESTEAR |
+| 035 | [Pantalla "Comprobantes": facturas y NC emitidas, mes a mes](035-pantalla-comprobantes.md) | P2 | M | 031 (etapas 1-7) | PENDIENTE |
 
 Los planes 001 a 030 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 
+Plan 035: feature pedida por el usuario, definida con `grill-me` el 2026-10-19 (hoy una NC emitida no se ve en ningún lado de la app). Guardado para más adelante.
 Plan 031 etapa 7: revisión `improve deep` del diff (PDF de la factura), 2026-10-19: sin plan nuevo. Descartado: la alerta de `npm audit` de `node-forge` (GHSA-86w9-cpqp-85rv, verificación de firmas PKCS#1; Hornera solo firma el CMS y compara el módulo de la clave); decodificar el QR en los tests (lo arma `qrcode`, el test valida el SVG y `qrArca` ya tiene el suyo).
 Plan 031 etapa 6: revisión `improve deep` del diff (anulación y NC), 2026-10-19: sin plan nuevo; corregido en la misma etapa: la NC se podía pedir para la factura de un pago vigente (la fila quedaba "emitida"). Descartado: ofrecer la NC desde Movimientos (ahí solo se anula en el mes abierto).
 Plan 031 etapa 5: revisión `improve deep` del diff (factura al pagar), 2026-10-19: sin plan nuevo; corregido en la misma etapa: la regla 3 del plan 033 volvía a pedir revisión después de un intento ya revisado (ahora mira solo el último intento) y un rechazo en producción quedaba tapado por una factura de prueba en la fila del pago. Descartado: emitir desde una terminal (la clave queda en el servidor, como "Probar"); auditar los rechazos (ya quedan en `comprobante`); respuestas viejas de la propuesta al cambiar de emisor en el modal (solo cambia "ya facturado").
