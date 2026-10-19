@@ -35,11 +35,13 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 028 | [Historial de pagos por depto y por propietario](028-historial-de-pagos.md) | P2 | M | — | A TESTEAR |
 | 029 | [La cotización manual no se pisa en carrera; aviso de "Pedir a la API"](029-cotizacion-carrera-y-aviso.md) | P3 | S | 026 | A TESTEAR |
 | 030 | [El descuento sobre el dólar cripto tiene que ser menor a 100 %](030-descuento-dolar-menor-a-100.md) | P2 | S | — | A TESTEAR |
-| 031 | [Facturación electrónica con ARCA (honorarios a propietarios)](031-facturacion-arca.md) | P2 | L | — | EN CURSO (etapa 1 de 8) |
+| 031 | [Facturación electrónica con ARCA (honorarios a propietarios)](031-facturacion-arca.md) | P2 | L | — | EN CURSO (etapas 1 y 2 de 8) |
 | 032 | [Una nota de crédito siempre dice qué factura anula](032-nota-credito-con-asociado.md) | P3 | S | 031 (etapa 1) | A TESTEAR |
+| 033 | [Fechas de servicio en facturas y NC, y CAE perdido por timeout](033-arca-fechas-servicio-y-cae-perdido.md) | P2 | S | 031 (etapa 2) | PENDIENTE (con etapas 5-6 del 031) |
 
 Los planes 001 a 030 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 
+Plan 033: revisión `improve deep` de la etapa 2 del plan 031 (transporte ARCA), 2026-10-19. Descartado: `tls.DEFAULT_CIPHERS` global (decisión de Roble, documentada: solo saca DH, no baja el SECLEVEL); `desglosarIva` con una sola alícuota (Hornera factura una línea, honorarios).
 Plan 032: revisión `improve deep` de la etapa 1 del plan 031 (esquema), 2026-10-16. Descartado: FKs de `comprobante` sin ON DELETE (nada borra períodos, deptos, propietarios ni movimientos; no hay REPLACE); formato de `fiscal_doc_nro` (lo valida la etapa 4 en la API).
 Plan 031: feature pedida por el usuario, definida con `grill-me` el 2026-10-16 (decisiones en el plan). Base: la integración ARCA de Roble.
 

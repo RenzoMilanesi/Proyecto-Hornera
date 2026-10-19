@@ -100,7 +100,15 @@ En `schema.sql` + `MIGRACIONES` (`server/db.ts`) + `schema.check.mjs`, juntos:
 
 Verificación: `npm test` (incluye `schema.check.mjs`).
 
-### 2. Transporte y reglas fiscales (sin UI)
+### 2. Transporte y reglas fiscales (sin UI) — HECHA
+Al implementarla: `fetch` se inyecta por llamada (`fetch?` en los argumentos de cada función).
+`solicitarCAE` exige `servDesde`/`servHasta`/`vtoPago` salvo en Concepto 1 (sale con error `config`
+sin pegarle a ARCA). `fechaComprobante` usa la ventana de 10 días de servicios (Roble: 5).
+De `facturacion.js` de Roble se trajeron las reglas puras: `esErrorDeToken` (600/601 o mensaje del
+WSAA: descartar el ticket cacheado) y `esReintentable` (red o ticket). Queda para la etapa 5, que
+tiene la base: cachear el ticket por `ambiente + cuit + servicio` con 60 s de margen (Roble:
+`TA_MARGEN_MS`), descartarlo ante `esErrorDeToken`, y pedir `consultarComprobante` del último
+autorizado para el piso de la fecha. `qrcode` se instala en la etapa 7 (`qrArca` solo arma la URL).
 - `server/arca.ts`: porte de `electron/arca.js` (TypeScript sin enums ni clases con parámetros de
   propiedad; `ErrorArca` como clase simple). Mantener: `tls.DEFAULT_CIPHERS = 'DEFAULT:!DH'`, el
   regex `(?=[ />])`, la doble decodificación del padrón, el orden de elementos de `FECAESolicitar`
@@ -129,6 +137,7 @@ Verificación: `npm test` (incluye `schema.check.mjs`).
   producción".
 
 ### 5. Emitir al pagar
+> Cumplir también el [plan 033](033-arca-fechas-servicio-y-cae-perdido.md): FchVtoPago = CbteFch, fechas de servicio en la NC, CAE perdido por timeout.
 - `server/facturacion.ts`:
   - `propuesta(liquidacionId, importePago)`: honorarios (`-honorarios` de la liquidación), ya
     facturado (aprobados − NC), importe propuesto = `round(honorarios × pago ÷ saldo)`, aviso si
@@ -144,6 +153,7 @@ Verificación: `npm test` (incluye `schema.check.mjs`).
   y no error; saldo ≤ 0 no ofrece; rechazo de ARCA deja intento `rechazado` y el pago intacto.
 
 ### 6. Anulación
+> Cumplir también el [plan 033](033-arca-fechas-servicio-y-cae-perdido.md): FchVtoPago = CbteFch, fechas de servicio en la NC, CAE perdido por timeout.
 - `anularMovimiento` no cambia de comportamiento. La API de anular devuelve, si el pago tenía factura
   aprobada sin NC, `{ facturaVigente: comprobanteId }` y la UI ofrece "Emitir nota de crédito".
 - Transferencias/Historial marcan "pago anulado, factura vigente" mientras no haya NC.
