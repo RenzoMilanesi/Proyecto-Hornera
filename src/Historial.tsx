@@ -5,7 +5,7 @@ import { Alert, Button, Popconfirm, Select, Space, Switch, Table, Tag, Typograph
 import type { TableColumnsType } from 'antd';
 import type { FilaHistorial } from '../server/liquidacion/historial.ts';
 import { enviar, get, pesos } from './api.ts';
-import { FormPago } from './Transferencias.tsx';
+import { EstadoFactura, FormNotaCredito, FormPago, type FacturaNC } from './Transferencias.tsx';
 
 interface Cuenta { id: number; nombre: string; moneda: 'ARS' | 'USD'; activo: number }
 interface Periodo { mes: string; fecha_pago: string }
@@ -30,6 +30,7 @@ export function Historial({ deptoId, propietarioId }: { deptoId?: number; propie
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
   const [pagando, setPagando] = useState<FilaHistorial>();
+  const [nc, setNc] = useState<{ factura: FacturaNC; codigo: string }>();
   const [error, setError] = useState<string>();
   const [version, setVersion] = useState(0);
 
@@ -50,9 +51,10 @@ export function Historial({ deptoId, propietarioId }: { deptoId?: number; propie
       .then(setFilas, (e) => setError(String(e)));
   }, [elegido, anulados, version]);
 
-  const anular = async (id: number) => {
+  const anular = async (id: number, codigo: string) => {
     try {
-      await enviar(`movimientos/${id}/anular`, 'POST', {});
+      const { facturaVigente } = await enviar<{ facturaVigente: FacturaNC | null }>(`movimientos/${id}/anular`, 'POST', {});
+      if (facturaVigente) setNc({ factura: facturaVigente, codigo });
       setVersion((v) => v + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -114,8 +116,12 @@ export function Historial({ deptoId, propietarioId }: { deptoId?: number; propie
                   { title: 'Fecha', dataIndex: 'fecha', render: (v: string, p) => (p.anulado ? <Typography.Text delete>{v}</Typography.Text> : v) },
                   { title: 'Importe', dataIndex: 'importe', ...derecha, render: (v: number, p) => (p.anulado ? <Typography.Text delete>{pesos(v, f.moneda)}</Typography.Text> : pesos(v, f.moneda)) },
                   { title: 'Cuenta', dataIndex: 'cuenta' },
+                  // Solo la marca de un pago anulado con la factura vigente; facturar se hace desde Transferencias.
+                  { title: '', key: 'factura', render: (_: unknown, p) => p.anulado && (
+                    <EstadoFactura f={p.factura} anulado alFacturar={() => {}} alAnularFactura={() => setNc({ factura: p.factura as FacturaNC, codigo: f.codigo })} />
+                  ) },
                   { title: '', key: 'anular', ...derecha, render: (_: unknown, p) => (p.anulado ? <Tag>anulado</Tag> : (
-                    <Popconfirm title="El pago queda anulado (no se borra)." okText="Anular" cancelText="No" onConfirm={() => anular(p.id)}>
+                    <Popconfirm title="El pago queda anulado (no se borra)." okText="Anular" cancelText="No" onConfirm={() => anular(p.id, f.codigo)}>
                       <Button size="small" danger>Anular</Button>
                     </Popconfirm>
                   )) },
@@ -127,6 +133,7 @@ export function Historial({ deptoId, propietarioId }: { deptoId?: number; propie
       <FormPago t={pagando && { ...pagando, liquidacionId: pagando.liquidacionId! }} cuentas={cuentas}
         fecha={periodos.find((p) => p.mes === pagando?.mes)?.fecha_pago ?? ''}
         alCerrar={(guardado) => { setPagando(undefined); if (guardado) setVersion((v) => v + 1); }} />
+      <FormNotaCredito nc={nc} alCerrar={(cambio) => { setNc(undefined); if (cambio) setVersion((v) => v + 1); }} />
     </Space>
   );
 }

@@ -176,7 +176,16 @@ certificado autofirmado: el rechazo ("Certificado bloqueado") queda guardado y l
 - Test: pago parcial 50 % propone la mitad; segundo pago propone su parte; superar honorarios da aviso
   y no error; saldo ≤ 0 no ofrece; rechazo de ARCA deja intento `rechazado` y el pago intacto.
 
-### 6. Anulación
+### 6. Anulación — HECHA
+Al implementarla: `notaCredito` (`POST /api/comprobantes/:id/nota-credito`) comparte con la factura el núcleo
+`autorizar` (lock, ticket, piso de fecha, regla 3 del plan 033, intentos guardados). La NC lleva `CbtesAsoc`,
+la letra de la factura (`notaCreditoDe`), su receptor congelado, su importe y su período de servicio, con fecha
+de hoy (regla 2 del plan 033); solo para la factura de un pago **anulado** (`ponytail:`: corregir el importe de
+un pago vigente no se pidió) y en el ambiente de la factura. La marca: `listarTransferencias` incluye los pagos
+anulados con factura vigente (`anulado: true`, no suman a lo pagado), así Transferencias e Historial los
+muestran siempre con "Emitir nota de crédito" y el motivo de la última NC rechazada. Movimientos no ofrece
+la NC: ahí solo se anula en el mes abierto, y los pagos de liquidación son de meses cerrados. Probado en la app
+con una factura de homologación sembrada: anular ofrece la NC, el rechazo de ARCA deja la marca con el motivo.
 > Cumplir también el [plan 033](033-arca-fechas-servicio-y-cae-perdido.md): FchVtoPago = CbteFch, fechas de servicio en la NC, CAE perdido por timeout.
 - `anularMovimiento` no cambia de comportamiento. La API de anular devuelve, si el pago tenía factura
   aprobada sin NC, `{ facturaVigente: comprobanteId }` y la UI ofrece "Emitir nota de crédito".

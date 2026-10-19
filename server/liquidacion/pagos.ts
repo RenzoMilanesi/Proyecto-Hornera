@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import type { DatabaseSync } from 'node:sqlite';
 import { auditar } from '../auditoria.ts';
 import { conceptoId } from '../movimientos.ts';
+import { SQL_FACTURA_VIGENTE } from '../facturacion.ts';
 
 export interface Transferencia {
   liquidacionId: number;
@@ -21,13 +22,15 @@ export interface Transferencia {
   pendiente: number;
   // El mes siguiente ya está cerrado: lo pendiente quedó como saldo anterior de ese mes y se paga desde ahí.
   arrastradoA: string | null;
-  pagos: { id: number; fecha: string; importe: number; cuenta: string | null; factura?: FacturaDePago | null }[];
+  // Los vigentes y los anulados cuya factura sigue vigente (falta la NC): esos no suman a "pagado".
+  pagos: { id: number; fecha: string; importe: number; cuenta: string | null; anulado?: boolean; factura?: FacturaDePago | null }[];
 }
 
 // La factura de un pago: la de producción si hubo algún intento (la aprobada o, si no, el último rechazado); si no, la de prueba.
 export interface FacturaDePago {
   id: number; estado: 'aprobado' | 'rechazado'; ambiente: 'homologacion' | 'produccion';
   cbte_tipo: number; punto_venta: number; numero: number | null; motivo: string | null;
+  importe: number; emisor: string; nc_motivo: string | null;   // nc_motivo: por qué se rechazó la última NC intentada
 }
 
 export function listarTransferencias(db: DatabaseSync, mes: string): Transferencia[] {
@@ -40,18 +43,23 @@ export function listarTransferencias(db: DatabaseSync, mes: string): Transferenc
   const siguiente = db.prepare('SELECT mes, estado FROM periodo WHERE mes > ? ORDER BY mes LIMIT 1').get(mes) as { mes: string; estado: string } | undefined;
   const arrastradoA = siguiente?.estado === 'cerrado' ? siguiente.mes : null;
   const pagosDe = db.prepare(`
-    SELECT m.id, m.fecha, m.importe_ars, m.importe_usd, c.nombre AS cuenta,
-      (SELECT json_object('id', id, 'estado', estado, 'ambiente', ambiente, 'cbte_tipo', cbte_tipo, 'punto_venta', punto_venta,
-         'numero', numero, 'motivo', motivo) FROM comprobante WHERE movimiento_id = m.id AND asociado_id IS NULL
-       ORDER BY ambiente = 'produccion' DESC, estado = 'aprobado' DESC, id DESC LIMIT 1) AS factura
-    FROM movimiento m LEFT JOIN cuenta c ON c.id = m.cuenta_id
-    WHERE m.periodo_id = ? AND m.depto_id = ? AND m.tipo = 'liquidacion' AND m.estado = 'vigente' ORDER BY m.fecha, m.id`);
+    SELECT m.id, m.fecha, m.importe_ars, m.importe_usd, cu.nombre AS cuenta, m.estado = 'anulado' AS anulado,
+      (SELECT json_object('id', c.id, 'estado', c.estado, 'ambiente', c.ambiente, 'cbte_tipo', c.cbte_tipo, 'punto_venta', c.punto_venta,
+         'numero', c.numero, 'motivo', c.motivo, 'importe', c.importe, 'emisor', e.nombre,
+         'nc_motivo', (SELECT nc.motivo FROM comprobante nc WHERE nc.asociado_id = c.id ORDER BY nc.id DESC LIMIT 1))
+       FROM comprobante c JOIN emisor e ON e.id = c.emisor_id WHERE c.movimiento_id = m.id AND c.asociado_id IS NULL
+       ORDER BY c.ambiente = 'produccion' DESC, c.estado = 'aprobado' DESC, c.id DESC LIMIT 1) AS factura
+    FROM movimiento m LEFT JOIN cuenta cu ON cu.id = m.cuenta_id
+    WHERE m.periodo_id = ? AND m.depto_id = ? AND m.tipo = 'liquidacion'
+      AND (m.estado = 'vigente' OR EXISTS (SELECT 1 FROM comprobante c WHERE c.movimiento_id = m.id AND ${SQL_FACTURA_VIGENTE}))
+    ORDER BY m.fecha, m.id`);
   return filas.map((f) => {
     const usd = f.moneda === 'USD';
     const pagos = (pagosDe.all(f.periodo_id, f.depto_id) as any[])
-      .map((m) => ({ id: m.id, fecha: m.fecha, importe: -(usd ? m.importe_usd : m.importe_ars), cuenta: m.cuenta, factura: m.factura && JSON.parse(m.factura) }));
+      .map((m) => ({ id: m.id, fecha: m.fecha, importe: -(usd ? m.importe_usd : m.importe_ars), cuenta: m.cuenta,
+        ...(m.anulado ? { anulado: true } : {}), factura: m.factura && JSON.parse(m.factura) }));
     const saldo = usd ? f.saldo_final_usd : f.saldo_final_ars;
-    const pagado = pagos.reduce((s, x) => s + x.importe, 0);
+    const pagado = pagos.reduce((s, x) => s + (x.anulado ? 0 : x.importe), 0);
     return {
       liquidacionId: f.id, deptoId: f.depto_id, codigo: f.codigo, depto: f.depto, propietarioId: f.propietario_id, propietario: f.propietario, cbu: f.cbu, esHornera: !!f.es_hornera,
       moneda: f.moneda, saldo, pagado, pendiente: saldo - pagado, arrastradoA, pagos,

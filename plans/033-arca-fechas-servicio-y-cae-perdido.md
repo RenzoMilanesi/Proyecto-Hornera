@@ -39,7 +39,7 @@ cubre porque Roble solo emite Concepto 1 (productos):
   `server/facturacion.test.ts`). Regla 3: el intento sin respuesta guarda lo pedido en `request_json` (JSON, sin
   ticket) con `response_json` NULL; si `ultimoAutorizado` llegó a ese número, la API responde 409 con `revisar`
   y no pide el CAE hasta que se reenvíe con `revisado: true` ("Ya lo revisé: emitir igual").
-- Regla 2 (NC): pendiente, va con la etapa 6.
+- Regla 2 (NC): **HECHA** con la etapa 6 (`notaCredito`; test "anulación: ... la NC lleva Concepto 2 y el período de la factura").
 - Falta confirmar en homologación que ARCA acepta `FchVtoPago == CbteFch` (STOP de abajo).
 
 ## Reglas a implementar (en `server/facturacion.ts`)

@@ -132,7 +132,61 @@ export function FormFactura({ a, alCerrar }: { a?: { pagoId: number; t: Transfer
   );
 }
 
-function EstadoFactura({ f, alFacturar }: { f?: FacturaDePago | null; alFacturar: () => void }) {
+// Factura de un pago anulado que sigue vigente: la anula una nota de crédito (plan 031).
+export type FacturaNC = Pick<FacturaDePago, 'id' | 'punto_venta' | 'importe' | 'ambiente' | 'emisor'> & { numero: number };
+
+export function FormNotaCredito({ nc, alCerrar }: { nc?: { factura: FacturaNC; codigo: string }; alCerrar: (cambio: boolean) => void }) {
+  const [error, setError] = useState<string>();
+  const [revisar, setRevisar] = useState(false);
+  const [intento, setIntento] = useState(false);
+  const [emitiendo, setEmitiendo] = useState(false);
+  useEffect(() => { if (nc) { setError(undefined); setRevisar(false); setIntento(false); } }, [nc]);
+  const emitir = async () => {
+    setEmitiendo(true);
+    try {
+      await enviar(`comprobantes/${nc!.factura.id}/nota-credito`, 'POST', { revisado: revisar });
+      alCerrar(true);
+    } catch (e) {
+      setIntento(true);
+      setRevisar(!!(e as { cuerpo?: { revisar?: number } }).cuerpo?.revisar);
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setEmitiendo(false);
+    }
+  };
+  const f = nc?.factura;
+  return (
+    <Modal open={!!nc} title={f && `Nota de crédito de la factura ${numeroCbte(f.punto_venta, f.numero)}`} okText={revisar ? 'Ya lo revisé: emitir igual' : 'Emitir nota de crédito'}
+      cancelText="Ahora no" onOk={emitir} onCancel={() => alCerrar(intento)} width={560} confirmLoading={emitiendo} destroyOnHidden>
+      {nc && f && (
+        <dl className="ficha">
+          <dt>Depto</dt><dd><b>{nc.codigo}</b></dd>
+          <dt>Factura</dt><dd><b>{numeroCbte(f.punto_venta, f.numero)}</b> · {f.emisor}{f.ambiente === 'homologacion' && <> <Tag>homologación</Tag></>}</dd>
+          <dt>Importe</dt><dd><Typography.Text strong style={{ fontSize: 18 }}>{pesos(f.importe)}</Typography.Text></dd>
+        </dl>
+      )}
+      <Typography.Paragraph type="secondary" style={{ margin: '0 0 8px' }}>
+        El pago se anuló pero la factura sigue vigente en ARCA. La nota de crédito la anula por el mismo importe y período.
+        Si se saltea, el pago queda marcado "pago anulado, factura vigente" hasta emitirla.
+      </Typography.Paragraph>
+      {error && <Alert type="error" showIcon title={error} />}
+    </Modal>
+  );
+}
+
+export function EstadoFactura({ f, anulado, alFacturar, alAnularFactura }: {
+  f?: FacturaDePago | null; anulado?: boolean; alFacturar: () => void; alAnularFactura: () => void;
+}) {
+  if (anulado && f?.estado === 'aprobado') {
+    return (
+      <Space size="small">
+        <Tag color="orange">pago anulado, factura vigente</Tag>
+        {f.nc_motivo && <Typography.Text type="danger" ellipsis={{ tooltip: f.nc_motivo }} style={{ maxWidth: 240 }}>{f.nc_motivo}</Typography.Text>}
+        <Button size="small" onClick={alAnularFactura}>Emitir nota de crédito</Button>
+      </Space>
+    );
+  }
+  if (anulado) return null;
   if (f?.estado === 'aprobado' && f.ambiente === 'produccion') return <Tag color="green">emitida n.º {numeroCbte(f.punto_venta, f.numero!)}</Tag>;
   return (
     <Space size="small">
@@ -151,6 +205,7 @@ export function Transferencias() {
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);
   const [pagando, setPagando] = useState<Transferencia>();
   const [facturando, setFacturando] = useState<{ pagoId: number; t: Transferencia }>();
+  const [nc, setNc] = useState<{ factura: FacturaNC; codigo: string }>();
   const [soloPendientes, setSoloPendientes] = useState(false);
   const [error, setError] = useState<string>();
   const [version, setVersion] = useState(0);
@@ -165,9 +220,10 @@ export function Transferencias() {
   }, []);
   useEffect(() => { if (mes) get<Transferencia[]>(`transferencias?mes=${mes}`).then(setFilas, (e) => setError(String(e))); }, [mes, version]);
 
-  const anular = async (id: number) => {
+  const anular = async (id: number, t: Transferencia) => {
     try {
-      await enviar(`movimientos/${id}/anular`, 'POST', {});
+      const { facturaVigente } = await enviar<{ facturaVigente: FacturaNC | null }>(`movimientos/${id}/anular`, 'POST', {});
+      if (facturaVigente) setNc({ factura: facturaVigente, codigo: t.codigo });
       setVersion((v) => v + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -214,13 +270,18 @@ export function Transferencias() {
           rowExpandable: (t) => t.pagos.length > 0,
           expandedRowRender: (t) => (
             <Table size="small" pagination={false} rowKey="id" dataSource={t.pagos} columns={[
-              { title: 'Fecha', dataIndex: 'fecha' },
-              { title: 'Importe', dataIndex: 'importe', ...derecha, render: (v: number) => pesos(v, t.moneda) },
+              { title: 'Fecha', dataIndex: 'fecha', render: (v: string, p) => (p.anulado ? <Typography.Text delete>{v}</Typography.Text> : v) },
+              { title: 'Importe', dataIndex: 'importe', ...derecha, render: (v: number, p) => (p.anulado ? <Typography.Text delete>{pesos(v, t.moneda)}</Typography.Text> : pesos(v, t.moneda)) },
               { title: 'Cuenta', dataIndex: 'cuenta' },
-              { title: 'Factura', key: 'factura', render: (_: unknown, p) => !t.esHornera && <EstadoFactura f={p.factura} alFacturar={() => setFacturando({ pagoId: p.id, t })} /> },
               {
-                title: '', key: 'anular', ...derecha, render: (_: unknown, p) => (
-                  <Popconfirm title="El pago queda anulado (no se borra)." okText="Anular" cancelText="No" onConfirm={() => anular(p.id)}>
+                title: 'Factura', key: 'factura', render: (_: unknown, p) => !t.esHornera && (
+                  <EstadoFactura f={p.factura} anulado={p.anulado} alFacturar={() => setFacturando({ pagoId: p.id, t })}
+                    alAnularFactura={() => setNc({ factura: p.factura as FacturaNC, codigo: t.codigo })} />
+                ),
+              },
+              {
+                title: '', key: 'anular', ...derecha, render: (_: unknown, p) => (p.anulado ? <Tag>anulado</Tag> :
+                  <Popconfirm title="El pago queda anulado (no se borra)." okText="Anular" cancelText="No" onConfirm={() => anular(p.id, t)}>
                     <Button size="small" danger>Anular</Button>
                   </Popconfirm>
                 ),
@@ -235,6 +296,7 @@ export function Transferencias() {
           if (guardado) setVersion((v) => v + 1);
         }} />
       <FormFactura a={facturando} alCerrar={(cambio) => { setFacturando(undefined); if (cambio) setVersion((v) => v + 1); }} />
+      <FormNotaCredito nc={nc} alCerrar={(cambio) => { setNc(undefined); if (cambio) setVersion((v) => v + 1); }} />
     </Space>
   );
 }

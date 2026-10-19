@@ -19,7 +19,7 @@ import { historial } from './liquidacion/historial.ts';
 import { evolucion, resumenDelMes } from './resumen.ts';
 import { cargarCertificado, crearEmisor, editarEmisor, listarEmisores, probarEmisor, type AlmacenClaves } from './emisores.ts';
 import { ErrorArca } from './arca.ts';
-import { emitir, ErrorRevisar, propuesta } from './facturacion.ts';
+import { emitir, ErrorRevisar, facturaVigente, notaCredito, propuesta } from './facturacion.ts';
 import { datosFiscales, guardarDatosFiscales, padronDePropietario } from './propietarios.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
 
@@ -335,7 +335,11 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   app.get('/api/movimientos', (req, res) => { res.json(listarMovimientos(db, String(req.query.mes ?? ''))); });
   app.post('/api/movimientos', (req, res) => intentar(res, () => ({ id: crearMovimiento(db, req.body ?? {}) })));
   app.put('/api/movimientos/:id', (req, res) => intentar(res, () => editarMovimiento(db, Number(req.params.id), req.body ?? {})));
-  app.post('/api/movimientos/:id/anular', (req, res) => intentar(res, () => anularMovimiento(db, Number(req.params.id))));
+  // Anular un pago facturado no toca la factura: se devuelve para que la UI ofrezca la nota de crédito (plan 031).
+  app.post('/api/movimientos/:id/anular', (req, res) => intentar(res, () => {
+    anularMovimiento(db, Number(req.params.id));
+    return { ok: true, facturaVigente: facturaVigente(db, Number(req.params.id)) };
+  }));
   app.post('/api/transferencias', (req, res) => intentar(res, () => ({ id: transferir(db, req.body ?? {}) })));
   app.get('/api/conceptos', (_req, res) => {
     res.json(db.prepare('SELECT id, nombre FROM concepto WHERE activo = 1 ORDER BY nombre').all());
@@ -455,14 +459,16 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   // ---- Factura de los honorarios de un pago de liquidación (plan 031, etapa 5). El pago ya está registrado:
   // si ARCA falla, el intento queda rechazado y se reintenta desde Transferencias.
   app.get('/api/pagos/:id/factura', (req, res) => intentar(res, () => propuesta(db, Number(req.params.id), req.query.emisor ? Number(req.query.emisor) : null)));
-  app.post('/api/pagos/:id/factura', async (req, res) => {
+  const conArca = async (res: Response, fn: () => Promise<unknown>) => {
     try {
-      res.json(await emitir(db, claves, Number(req.params.id), req.body, fetchArca));
+      res.json(await fn());
     } catch (e) {
       if (e instanceof ErrorRevisar) return void res.status(409).json({ error: e.message, revisar: e.numero });
       res.status(e instanceof ErrorArca && e.tipo === 'red' ? 502 : 400).json({ error: mensaje(e) });
     }
-  });
+  };
+  app.post('/api/pagos/:id/factura', (req, res) => conArca(res, () => emitir(db, claves, Number(req.params.id), req.body, fetchArca)));
+  app.post('/api/comprobantes/:id/nota-credito', (req, res) => conArca(res, () => notaCredito(db, claves, Number(req.params.id), req.body, fetchArca)));
 
   // Las rutas nuevas van arriba de estas dos: lo que no es /api sigue a Vite/static.
   app.use('/api', (req, res) => {

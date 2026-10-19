@@ -2,7 +2,7 @@
 // lo pagado y lo pendiente. Los meses cerrados salen de Transferencias (con el dueño de ese mes);
 // el abierto, del cálculo en curso. Solo meses que están en la app (no `historico_mensual`).
 import type { DatabaseSync } from 'node:sqlite';
-import { listarTransferencias } from './pagos.ts';
+import { listarTransferencias, type Transferencia } from './pagos.ts';
 import { liquidarPeriodo } from './servicio.ts';
 
 export interface FilaHistorial {
@@ -21,7 +21,7 @@ export interface FilaHistorial {
   pendiente: number;
   estado: 'pagado' | 'parcial' | 'pendiente' | 'debe' | 'arrastrado' | 'en_curso';
   arrastradoA: string | null;
-  pagos: { id: number; fecha: string; importe: number; cuenta: string | null; anulado: boolean }[];
+  pagos: (Transferencia['pagos'][number] & { anulado: boolean })[];
 }
 
 export function historial(db: DatabaseSync, filtro: { deptoId?: number; propietarioId?: number }, anulados: boolean): FilaHistorial[] {
@@ -57,9 +57,11 @@ export function historial(db: DatabaseSync, filtro: { deptoId?: number; propieta
   for (const p of cerrados) {
     for (const t of listarTransferencias(db, p.mes)) {
       if (!pasa(t.deptoId, t.propietarioId)) continue;
-      const pagos = t.pagos.map((x) => ({ ...x, anulado: false }));
+      // Un anulado con la factura vigente ya viene de Transferencias (siempre se ve: falta su NC).
+      const pagos = t.pagos.map((x) => ({ ...x, anulado: !!x.anulado }));
       if (anulados) {
         for (const m of anuladosDe.all(p.id, t.deptoId) as any[]) {
+          if (pagos.some((x) => x.id === m.id)) continue;
           pagos.push({ id: m.id, fecha: m.fecha, importe: -(t.moneda === 'USD' ? m.importe_usd : m.importe_ars), cuenta: m.cuenta, anulado: true });
         }
         pagos.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.id - b.id);

@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
+import type { DatabaseSync } from 'node:sqlite';
 import forge from 'node-forge';
 import { abrirDb } from './db.ts';
 import { crearApp } from './app.ts';
@@ -70,7 +71,7 @@ function base() {
   return db;
 }
 
-async function conApi(fn: (llamar: (metodo: string, ruta: string, cuerpo?: unknown) => Promise<{ status: number; body: any }>) => Promise<void>, f: Fetch) {
+async function conApi(fn: (llamar: (metodo: string, ruta: string, cuerpo?: unknown) => Promise<{ status: number; body: any }>, db: DatabaseSync) => Promise<void>, f: Fetch) {
   const db = base();
   const guardadas = new Map<string, string>();
   const claves = { leer: (c: string) => guardadas.get(c) ?? null, guardar: (c: string, k: string) => { guardadas.set(c, k); } };
@@ -85,7 +86,7 @@ async function conApi(fn: (llamar: (metodo: string, ruta: string, cuerpo?: unkno
   try {
     await llamar('POST', 'emisores', { nombre: 'Emisor Uno', razon_social: 'PRUEBA UNO', cuit: '20111111112', condicion_iva: 'monotributista', punto_venta: 3, ambiente: 'homologacion' });
     await llamar('POST', 'emisores/1/certificado', CERT);
-    await fn(llamar);
+    await fn(llamar, db);
   } finally {
     console.error = error;
     server.close();
@@ -186,4 +187,31 @@ test('CAE perdido: timeout al pedir el CAE y la numeración avanzó → no se pi
   }, falso.fetchArca);
   const intentos = db.prepare('SELECT estado, response_json IS NULL AS sin_respuesta FROM comprobante ORDER BY id').all() as any[];
   assert.deepEqual(intentos.map((i) => [i.estado, i.sin_respuesta]), [['rechazado', 1], ['aprobado', 0]]);
+});
+
+test('anulación: el pago facturado queda marcado hasta la NC, que lleva Concepto 2 y el período de la factura', async () => {
+  const falso = arcaFalso();
+  const db = await conApi(async (llamar, db) => {
+    const p = await pagar(llamar, 1000000, restarDias(2));
+    const { body: fac } = await llamar('POST', `pagos/${p}/factura`, { emisor_id: 1, importe: 100000 });
+    assert.match((await llamar('POST', `comprobantes/${fac.id}/nota-credito`, {})).body.error, /este pago está vigente/);
+    const { body: anulado } = await llamar('POST', `movimientos/${p}/anular`, {});
+    assert.deepEqual([anulado.facturaVigente.id, anulado.facturaVigente.numero], [fac.id, 8]);
+
+    // La marca: el pago anulado sigue en Transferencias con su factura, sin sumar a lo pagado.
+    const [t] = listarTransferencias(db, '2026-05');
+    assert.deepEqual([t.pagado, t.pendiente, t.pagos.length, t.pagos[0].anulado], [0, 1000000, 1, true]);
+
+    const nc = await llamar('POST', `comprobantes/${fac.id}/nota-credito`, {});
+    assert.equal(nc.status, 200, nc.body.error);
+    assert.equal(nc.body.cbteTipo, 13);
+    assert.equal(listarTransferencias(db, '2026-05')[0].pagos.length, 0);
+    assert.match((await llamar('POST', `comprobantes/${fac.id}/nota-credito`, {})).body.error, /ya tiene su nota de crédito/);
+  }, falso.fetchArca);
+  const pedido = falso.pedidos[1];
+  assert.deepEqual(['Concepto', 'CbteTipo', 'CbteFch', 'FchVtoPago', 'FchServDesde', 'FchServHasta', 'Nro', 'ImpTotal'].map((t) => entre(pedido, t)),
+    ['2', '13', arca(hoyLocal()), arca(hoyLocal()), '20260501', '20260531', '8', '1000.00']);
+  const c = db.prepare(`SELECT asociado_id, serv_desde, serv_hasta FROM comprobante WHERE cbte_tipo = 13`).get() as any;
+  assert.deepEqual([c.asociado_id, c.serv_desde, c.serv_hasta], [1, '2026-05-01', '2026-05-31']);
+  assert.equal(db.prepare(`SELECT estado FROM movimiento WHERE tipo = 'liquidacion'`).get()!.estado, 'anulado');
 });
