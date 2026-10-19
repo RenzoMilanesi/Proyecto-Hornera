@@ -119,7 +119,14 @@ autorizado para el piso de la fecha. `qrcode` se instala en la etapa 7 (`qrArca`
 - Tests portados de Roble (`tests/arca.test.js`, los de `fiscal`) a `server/arca.test.ts` y
   `server/fiscal.test.ts`. Nada de red en tests: `fetch` inyectable, como `fetchDolar` en `crearApp`.
 
-### 3. Emisores y certificados
+### 3. Emisores y certificados — HECHA
+Al implementarla (`server/emisores.ts`, pantalla `src/Emisores.tsx` en Datos): también `POST /api/emisores`
+(alta). El CUIT no se edita (otro CUIT = otro emisor). Cambiar de ambiente borra el certificado (el de
+homologación no vale en producción). Cargar el certificado es `soloLocal` (la clave no viaja por la red)
+y rechaza uno vencido. El ticket de acceso ya se cachea acá (`ticketAcceso`, `configuracion`
+`arca.ta.<servicio>.<ambiente>.<cuit>`, 60 s de margen, un pedido por clave a la vez) y se descarta
+ante `esErrorDeToken`: la etapa 5 lo reusa con `emisorConClave` + `ticketAcceso`. Probado contra el
+WSAA real de homologación con un certificado autofirmado: llega y muestra el rechazo de ARCA.
 - `electron/main.ts`: `almacenClaves()` análogo a `almacenCredenciales()` (`arca-<cuit>.key` con
   `safeStorage`), pasado a `crearApp` en `opciones`.
 - API: `GET/PUT /api/emisores`, `POST /api/emisores/:id/certificado` (recibe `.crt` y `.key`; valida

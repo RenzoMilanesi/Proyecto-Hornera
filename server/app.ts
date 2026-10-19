@@ -17,6 +17,8 @@ import { excelTransferencias, listarTransferencias, pagarLiquidacion } from './l
 import { hojaDepto } from './liquidacion/hoja.ts';
 import { historial } from './liquidacion/historial.ts';
 import { evolucion, resumenDelMes } from './resumen.ts';
+import { cargarCertificado, crearEmisor, editarEmisor, listarEmisores, probarEmisor, type AlmacenClaves } from './emisores.ts';
+import { ErrorArca } from './arca.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
 
 // Dónde viven las credenciales de Stays. En Electron, cifradas con safeStorage
@@ -89,9 +91,9 @@ function hostPermitido(host: string) {
   return h === '127.0.0.1' || h === 'localhost' || nombresDeEstaPc().includes(h);
 }
 
-export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf; fetchDolar?: Fetch } = {}) {
+export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf; fetchDolar?: Fetch; claves?: AlmacenClaves; fetchArca?: Fetch } = {}) {
   const app = express();
-  const { credenciales, urlStays = URL_STAYS, pdf, fetchDolar = fetch } = opciones;
+  const { credenciales, urlStays = URL_STAYS, pdf, fetchDolar = fetch, claves, fetchArca } = opciones;
   app.use((req, res, next) => {
     if (hostPermitido(req.headers.host ?? '')) return next();
     res.status(403).json({ error: 'Host no permitido' });
@@ -420,6 +422,20 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
       res.json({ carpeta, archivos, en_servidor: !esLocal(req) });
     } catch (e) {
       res.status(400).json({ error: mensaje(e) });
+    }
+  });
+
+  // ---- Emisores de las facturas de honorarios (plan 031)
+  app.get('/api/emisores', (_req, res) => { res.json(listarEmisores(db, claves)); });
+  app.post('/api/emisores', (req, res) => intentar(res, () => crearEmisor(db, req.body)));
+  app.put('/api/emisores/:id', (req, res) => intentar(res, () => editarEmisor(db, Number(req.params.id), req.body)));
+  // La clave privada viaja solo dentro de la PC servidor, como la clave de Stays.
+  app.post('/api/emisores/:id/certificado', soloLocal, (req, res) => intentar(res, () => cargarCertificado(db, claves, Number(req.params.id), req.body)));
+  app.post('/api/emisores/:id/probar', async (req, res) => {
+    try {
+      res.json(await probarEmisor(db, claves, Number(req.params.id), fetchArca));
+    } catch (e) {
+      res.status(e instanceof ErrorArca && e.tipo === 'red' ? 502 : 400).json({ error: mensaje(e) });
     }
   });
 

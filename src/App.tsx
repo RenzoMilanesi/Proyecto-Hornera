@@ -13,6 +13,7 @@ import { Deptos } from './Deptos.tsx';
 import { Propietarios } from './Propietarios.tsx';
 import { Historial } from './Historial.tsx';
 import { Emparejar } from './Emparejar.tsx';
+import { Emisores } from './Emisores.tsx';
 
 const secciones = {
   resumen: { grupo: '', titulo: 'Resumen', ayuda: 'Cómo viene el mes: ocupación, plata y resultado de Hornera.', vista: <Resumen /> },
@@ -23,6 +24,7 @@ const secciones = {
   deptos: { grupo: 'Datos', titulo: 'Deptos', ayuda: 'Los deptos que administra Hornera, con su dueño y estado.', vista: <Deptos /> },
   propietarios: { grupo: 'Datos', titulo: 'Propietarios', ayuda: 'Dueños de los deptos y en qué moneda se les liquida.', vista: <Propietarios /> },
   cuentas: { grupo: 'Datos', titulo: 'Cuentas', ayuda: 'Cuentas de la empresa con su saldo y a qué cuenta entra cada medio de pago.', vista: <Cuentas /> },
+  emisores: { grupo: 'Datos', titulo: 'Emisores', ayuda: 'Quién factura los honorarios en ARCA y su certificado.', vista: <Emisores /> },
   stays: { grupo: 'Herramientas', titulo: 'Stays', ayuda: 'Trae reservas y pagos del mes desde Stays.', vista: <Stays /> },
   importar: { grupo: 'Herramientas', titulo: 'Importar Excel', ayuda: 'Carga un mes desde el Google Sheet de liquidaciones.', vista: <Importar /> },
   terminales: { grupo: 'Herramientas', titulo: 'Terminales', ayuda: 'Otras PCs de la oficina conectadas a esta.', vista: <Terminales /> }, // solo en la PC servidor

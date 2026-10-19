@@ -8,6 +8,7 @@ import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { abrirDb } from '../server/db.ts';
 import { crearApp, type AlmacenCredenciales, type GeneradorPdf } from '../server/app.ts';
+import type { AlmacenClaves } from '../server/emisores.ts';
 import { respaldar } from '../server/backup.ts';
 
 const PUERTO = 4310;
@@ -71,6 +72,27 @@ function almacenCredenciales(): AlmacenCredenciales {
   };
 }
 
+// Clave privada del certificado de ARCA de cada emisor, cifrada igual que la de Stays: un archivo
+// por CUIT, fuera de la base y de los backups. Sin cifrado disponible no se guarda (nunca en claro).
+function almacenClaves(): AlmacenClaves {
+  const ruta = (cuit: string) => join(app.getPath('userData'), `arca-${cuit.replace(/\D/g, '')}.key`);
+  return {
+    leer(cuit) {
+      if (!existsSync(ruta(cuit))) return null;
+      try {
+        return safeStorage.decryptString(readFileSync(ruta(cuit)));
+      } catch (e) {
+        console.error('No se pudo leer la clave de ARCA:', e);
+        return null;
+      }
+    },
+    guardar(cuit, keyPem) {
+      if (!safeStorage.isEncryptionAvailable()) throw new Error('Windows no permite cifrar la clave en esta PC.');
+      writeFileSync(ruta(cuit), safeStorage.encryptString(keyPem));
+    },
+  };
+}
+
 // PDF de la hoja de un depto: la vista imprimible de la app en una ventana oculta + printToPDF.
 // La vista marca document.body.dataset.listo ('1' o el mensaje de error) cuando terminó de cargar.
 function generadorPdf(origen: string): GeneradorPdf {
@@ -97,7 +119,7 @@ function generadorPdf(origen: string): GeneradorPdf {
 
 async function iniciarServidor() {
   const db = abrirDb(join(app.getPath('userData'), 'hornera.db'));
-  const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales(), pdf: generadorPdf(ORIGEN_LOCAL) });
+  const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales(), claves: almacenClaves(), pdf: generadorPdf(ORIGEN_LOCAL) });
   const http = createServer(api);
 
   if (app.isPackaged) {

@@ -13,3 +13,7 @@ node_modules/
 dist/
 release/
 .venv/
+
+# Certificados de ARCA: la clave privada nunca al repo
+*.key
+*.crt

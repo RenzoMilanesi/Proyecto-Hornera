@@ -16,10 +16,10 @@ Versión `1.0.0` = reemplaza al Excel en producción, después de correr 1-2 mes
 | 6 | Resumen: KPIs, resultado Hornera, saldos de cuentas, histórico | A testear |
 | — | Instalador de Windows (`npm run dist`) y guía de prueba (`GUIA-PRUEBAS.md`) | A testear |
 | — | Variables operativas: las del mes (Liquidación) y las de cada depto (Deptos) | A testear |
-| — | Facturación ARCA de los honorarios al pagar ([plan 031](plans/031-facturacion-arca.md)) | En curso: etapas 1 (esquema) y 2 (transporte ARCA) hechas |
+| — | Facturación ARCA de los honorarios al pagar ([plan 031](plans/031-facturacion-arca.md)) | En curso: etapas 1 a 3 hechas (esquema, transporte ARCA, emisores y certificados) |
 | — | Fuera de la v1: mails, mantenimiento, obligaciones, checklist | — |
 
-Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, tema visual "Ladrillo", buscadores y filtros en todas las pantallas, historial de pagos por depto y propietario, cotización del dólar desde la API, variables operativas editables, versión `0.18.0`) está **a testear**: tiene tests automáticos y se
+Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, tema visual "Ladrillo", buscadores y filtros en todas las pantallas, historial de pagos por depto y propietario, cotización del dólar desde la API, variables operativas editables, versión `0.19.0`) está **a testear**: tiene tests automáticos y se
 probó en la app con datos de prueba, pero falta revisarlo a mano con los dueños y con datos reales.
 
 ## Pendientes (pedidos 2026-10-16)
@@ -36,7 +36,7 @@ probó en la app con datos de prueba, pero falta revisarlo a mano con los dueño
    (comisión y tarifas propias). Solo el mes abierto; queda en la auditoría.
 5. **Tarjetas**: vincular los gastos de la tarjeta con el costo que representan en cada depto. Hoy
    usan un Excel; falta recibir esa información.
-6. **Facturación ARCA** — **En curso** (etapas 1, esquema, y 2, transporte ARCA y reglas fiscales, hechas) (`plans/031-facturacion-arca.md`): facturar los honorarios
+6. **Facturación ARCA** — **En curso** (etapas 1 a 3 hechas: esquema, transporte ARCA, emisores y certificados en Datos → Emisores) (`plans/031-facturacion-arca.md`): facturar los honorarios
    al pagar cada liquidación, con emisor Lautaro o Amancay. Antes de probar en producción, cada uno
    tiene que hacer el trámite del certificado y del punto de venta Web Services (manual de Roble).
 
@@ -94,6 +94,11 @@ Cómo probar cada punto, paso a paso: `GUIA-PRUEBAS.md`.
 - [ ] Con abril importado: ocupación, bruto y honorarios por depto iguales a las hojas del Excel.
 - [ ] Revisar con los dueños la definición de "Resultado de Hornera" (DECISIONES, "Pendiente").
 - [ ] Evolución: los meses del histórico (12/2021 a 10/2024) con sus noches; los meses cerrados con todo.
+
+**Facturación ARCA · Emisores** (necesita el certificado de homologación de WSASS, manual de Roble)
+- [ ] Datos → Emisores: cargar a Lautaro y a Amancay con su CUIT, punto de venta Web Services y ambiente homologación.
+- [ ] "Certificado" (en la PC servidor): subir el .crt y el .key; uno de otro CUIT o una clave que no es la suya, rechazados.
+- [ ] "Probar": ARCA responde el último comprobante autorizado (0 si nunca se facturó por Web Services).
 
 **Preguntas para los dueños** (`DECISIONES.md`, "Pendiente"): contraseña de Stays, meses del Sheet,
 RIO/AND, 4 % de R64, qué plataformas cobran comisión, fee de AND, honorarios en meses sin reservas,
