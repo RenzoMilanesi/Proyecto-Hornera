@@ -213,6 +213,12 @@ total. Probado en la app con facturas de homologación sembradas: PDF suelto y h
 - Checklist del ROADMAP: tildar a medida que se prueba.
 
 ## Done criteria
+> **Verificado en homologación (2026-10-19)** con el certificado de homologación de Roble (mismo CUIT y punto de
+> venta que usa Roble en homologación; los números de prueba se comparten): "Probar" ok; pago → Factura C
+> aprobada con CAE (Concepto 2, `FchVtoPago` = `CbteFch`, fecha del pago dentro de la ventana); anular el pago →
+> NC C aprobada con `CbtesAsoc` y el período de la factura; PDF de los dos con QR. Pendiente: escanear el QR con
+> el celular y el pre-vuelo en producción (etapa 8). Observado: un emisor sin domicilio imprime la factura sin
+> "Domicilio comercial", que la RG 1415 pide: cargarlo al dar de alta a Lautaro y Amancay.
 - En homologación: pagar una liquidación ofrece la factura, se emite con CAE, se ve el PDF con QR
   y aparece en el PDF del depto; un pago parcial propone su proporción; anular el pago ofrece la NC.
 - `npm test` y `npm run typecheck` en verde; ningún test toca la red.
