@@ -19,6 +19,7 @@ import { historial } from './liquidacion/historial.ts';
 import { evolucion, resumenDelMes } from './resumen.ts';
 import { cargarCertificado, crearEmisor, editarEmisor, listarEmisores, probarEmisor, type AlmacenClaves } from './emisores.ts';
 import { ErrorArca } from './arca.ts';
+import { datosFiscales, guardarDatosFiscales, padronDePropietario } from './propietarios.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
 
 // Dónde viven las credenciales de Stays. En Electron, cifradas con safeStorage
@@ -434,6 +435,17 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   app.post('/api/emisores/:id/probar', async (req, res) => {
     try {
       res.json(await probarEmisor(db, claves, Number(req.params.id), fetchArca));
+    } catch (e) {
+      res.status(e instanceof ErrorArca && e.tipo === 'red' ? 502 : 400).json({ error: mensaje(e) });
+    }
+  });
+
+  // ---- Datos fiscales del propietario (receptor de las facturas, plan 031)
+  app.get('/api/propietarios/:id/fiscal', (req, res) => intentar(res, () => datosFiscales(db, Number(req.params.id))));
+  app.put('/api/propietarios/:id/fiscal', (req, res) => intentar(res, () => guardarDatosFiscales(db, Number(req.params.id), req.body)));
+  app.post('/api/propietarios/:id/padron', async (req, res) => {
+    try {
+      res.json(await padronDePropietario(db, claves, Number(req.params.id), req.body, fetchArca));
     } catch (e) {
       res.status(e instanceof ErrorArca && e.tipo === 'red' ? 502 : 400).json({ error: mensaje(e) });
     }

@@ -136,7 +136,14 @@ WSAA real de homologación con un certificado autofirmado: llega y muestra el re
 - UI: pantalla o modal "Emisores" (skill `modales`). Muestra vencimiento del certificado y avisa a
   30 días.
 
-### 4. Datos fiscales del propietario
+### 4. Datos fiscales del propietario — HECHA
+Al implementarla (`server/propietarios.ts`, botón "Datos fiscales" en `src/Propietarios.tsx`): `GET/PUT
+/api/propietarios/:id/fiscal`. Sin datos guardados, el GET propone los del Excel (CUIT válido → 80, si no el
+primer número de 7-8 dígitos de `documento` → 96; `categoria_fiscal` → condición). Se puede guardar
+incompleto (la etapa 5 exige todo al emitir), pero CUIT con dígito verificador, DNI de 7-8 dígitos y un
+inscripto o monotributista solo con CUIT. El padrón recibe el CUIT del formulario y responde con la lógica
+de Roble (no existe / servicio no habilitado / sin respuesta; el TA del padrón se descarta ante error de
+token); no cachea la constancia como Roble (`cliente_padron`): se consulta a mano y pocas veces.
 - Sección "Datos fiscales" en la ficha (`src/Propietarios.tsx`, skill `modales`) + validación de
   CUIT (dígito verificador).
 - `POST /api/propietarios/:id/padron`: consulta `ws_sr_constancia_inscripcion` con el primer emisor
