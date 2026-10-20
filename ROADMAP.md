@@ -122,6 +122,5 @@ prueben Lautaro y Amancay con sus propios certificados.
 - [ ] Primera factura real chica: PDF revisado, QR escaneado y la factura visible en "Mis Comprobantes" de ARCA.
 - [ ] Vencimiento de cada certificado anotado (2 años).
 
-**Preguntas para los dueños** (`DECISIONES.md`, "Pendiente"): contraseña de Stays, meses del Sheet,
-RIO/AND, 4 % de R64, qué plataformas cobran comisión, fee de AND, honorarios en meses sin reservas,
-qué es el resultado de Hornera, cómo cargan en Stays las estadías del propietario y los bloqueos.
+**Preguntas para los dueños** (`DECISIONES.md`, "Pendiente"): qué plataformas cobran comisión,
+honorarios en meses sin reservas, cómo cargan en Stays las estadías del propietario y los bloqueos.

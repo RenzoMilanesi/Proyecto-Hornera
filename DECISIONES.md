@@ -113,15 +113,12 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - **Backups:** como Roble pero al cerrar, al apagar Windows y cada 6 h con la app abierta; se conservan 60 copias (unas 2 semanas en el peor caso), con `VACUUM INTO`, con carpeta de destino configurable (Drive/OneDrive) en `configuracion.backup.carpeta`.
 
 ## Pendiente
-- Cambiar la contraseña de Stays: está en el historial git de `LMilanesi/balances-hornera`.
-- Conseguir los demás meses del Google Sheet.
-- Confirmar quién es Bibi.
-- Fórmula co-host Airbnb: qué son el 0,85 y el 0,20 de `calcular_cobrado_hornera` (¿el 0,20 es la comisión del depto?).
-- RIO y AND (abril 2026): en sus hojas hay −124.008 tipeado a mano en la columna de tarifa (Z14) y, en AND, la fórmula de costos invertida (`J32 = Z57`). Les cambia costos, honorarios y saldo. ¿Es un error? Si lo es, esas dos liquidaciones salieron mal.
-- R64 convierte a USD con `cambio / 0,96`, y S38, MAI, ITU y COT con `cambio`. ¿El 4 % es la comisión de Payoneer? ¿Por qué solo R64?
+Preguntas para los dueños, para más adelante:
 - Comisión por plataforma: aplicar el % de `Plataformas` (Website 1,7 %) daría comisiones que el Excel no cobra (OVL tiene 0). ¿Qué plataformas generan comisión de verdad?
-- Fee del channel manager: se aplica USD 25 (lo que cobra el Excel en K33). Confirmar que B7 = 20 no se usa.
-- AND no figura en NO COMISIONABLES: en abril el Excel no le cobró el fee del channel manager y la app sí. ¿Corresponde?
-- Resultado de Hornera (pantalla Resumen): ¿es honorarios + costos operativos cobrados + gastos e ingresos de la empresa (INT)? ¿Los costos operativos son ingreso de Hornera (y la limpieza se paga como gasto INT)?
 - Mes sin reservas: con la fórmula del Excel, la base de honorarios queda negativa (solo el fee) y los honorarios dan positivos (se le devuelve plata al propietario). La app lo reproduce. ¿Es lo correcto o los honorarios deberían ser 0?
 - Bloqueos desde Stays (para que "traer mes" los cargue solo y la ocupación no salga inflada): cuando el propietario usa su propio depto, ¿en Stays se carga como bloqueo, como mantenimiento o como reserva? ¿Y los bloqueos por arreglos? La liquidación separa las noches del propietario de las no disponibles.
+
+Respondidas (2026-10-20):
+- AND paga el fee del channel manager aunque en abril el Excel no se lo cobró: la app está bien.
+- Fórmula co-host Airbnb (`calcular_cobrado_hornera`): el 0,20 es la comisión del depto; al implementarla, usar la del depto y no un 0,20 fijo. El 0,85 no se confirmó.
+- Bibi facturaba a mano en ARCA; con la facturación desde la app (plan 031) deja de hacerlo.
