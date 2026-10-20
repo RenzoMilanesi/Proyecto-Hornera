@@ -19,7 +19,7 @@ Versión `1.0.0` = reemplaza al Excel en producción, después de correr 1-2 mes
 | — | Facturación ARCA de los honorarios al pagar ([plan 031](plans/031-facturacion-arca.md)) | En curso: etapas 1 a 7 hechas (esquema, transporte ARCA, emisores y certificados, datos fiscales del propietario, emitir al pagar, nota de crédito al anular, PDF con QR) |
 | — | Fuera de la v1: mails, mantenimiento, obligaciones, checklist | — |
 
-Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, tema visual "Ladrillo", buscadores y filtros en todas las pantallas, historial de pagos por depto y propietario, cotización del dólar desde la API, variables operativas editables, versión `0.23.0`) está **a testear**: tiene tests automáticos y se
+Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, tema visual "Ladrillo", buscadores y filtros en todas las pantallas, historial de pagos por depto y propietario, cotización del dólar desde la API, variables operativas editables, versión `0.23.1`) está **a testear**: tiene tests automáticos y se
 probó en la app con datos de prueba, pero falta revisarlo a mano con los dueños y con datos reales.
 
 ## Pendientes (pedidos 2026-10-16)

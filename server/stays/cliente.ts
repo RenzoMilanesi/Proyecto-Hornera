@@ -60,10 +60,26 @@ export interface ClienteStays {
   pagos(codigoReserva: string): Promise<PagoStays[]>;
 }
 
+const INTENTOS = 3;
+
 export function crearClienteStays({ usuario, clave }: Credenciales, base = URL_STAYS): ClienteStays {
   const auth = 'Basic ' + Buffer.from(`${usuario}:${clave}`).toString('base64');
   const pedir = async (ruta: string) => {
-    const res = await fetch(`${base}/${ruta}`, { headers: { Authorization: auth }, redirect: 'error', signal: AbortSignal.timeout(60_000) });
+    let res: Response;
+    // Las conexiones nuevas a Stays a veces no abren (medido: ~1 de cada 7 colgada 10 s, UND_ERR_CONNECT_TIMEOUT)
+    // y "traer mes" hace cientos de pedidos: un corte tiraba todo el mes. Un socket nuevo casi siempre conecta, y
+    // son lecturas: repetirlas no duplica nada. El timeout de 60 s (Stays lento, no caído) no se reintenta.
+    for (let intento = 1; ; intento++) {
+      try {
+        res = await fetch(`${base}/${ruta}`, { headers: { Authorization: auth }, redirect: 'error', signal: AbortSignal.timeout(60_000) });
+        break;
+      } catch (e) {
+        const x = e as Error & { cause?: { code?: string } };
+        if (intento < INTENTOS && x.name !== 'TimeoutError') continue;
+        throw new Error(`No se pudo conectar con Stays (${x.cause?.code ?? x.message}) en ${ruta.split('?')[0]}. `
+          + 'Revisá internet y volvé a traer el mes: no se guardó nada.');
+      }
+    }
     if (res.status === 401 || res.status === 403) throw new Error('Stays rechazó el usuario o la clave.');
     if (!res.ok) throw new Error(`Stays respondió ${res.status} en ${ruta.split('?')[0]}: ${(await res.text()).slice(0, 200)}`);
     return res;
