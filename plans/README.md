@@ -35,7 +35,7 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 028 | [Historial de pagos por depto y por propietario](028-historial-de-pagos.md) | P2 | M | — | A TESTEAR |
 | 029 | [La cotización manual no se pisa en carrera; aviso de "Pedir a la API"](029-cotizacion-carrera-y-aviso.md) | P3 | S | 026 | A TESTEAR |
 | 030 | [El descuento sobre el dólar cripto tiene que ser menor a 100 %](030-descuento-dolar-menor-a-100.md) | P2 | S | — | A TESTEAR |
-| 031 | [Facturación electrónica con ARCA (honorarios a propietarios)](031-facturacion-arca.md) | P2 | L | — | EN CURSO (etapas 1 a 7 de 8) |
+| 031 | [Facturación electrónica con ARCA (honorarios a propietarios)](031-facturacion-arca.md) | P2 | L | — | A TESTEAR (8 etapas hechas) |
 | 032 | [Una nota de crédito siempre dice qué factura anula](032-nota-credito-con-asociado.md) | P3 | S | 031 (etapa 1) | A TESTEAR |
 | 033 | [Fechas de servicio en facturas y NC, y CAE perdido por timeout](033-arca-fechas-servicio-y-cae-perdido.md) | P2 | S | 031 (etapa 2) | A TESTEAR |
 | 034 | [El ticket de acceso de ARCA no viaja en los backups](034-ticket-arca-fuera-de-backups.md) | P3 | S | 031 (etapa 3) | A TESTEAR |

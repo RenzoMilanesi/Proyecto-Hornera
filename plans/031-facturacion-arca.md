@@ -207,7 +207,10 @@ total. Probado en la app con facturas de homologación sembradas: PDF suelto y h
 - `GET /api/comprobantes/:id/pdf` con el `generadorPdf` existente.
 - El PDF de la liquidación del depto agrega una página por factura aprobada sin NC.
 
-### 8. Documentación
+### 8. Documentación — HECHA
+Al implementarla: `GUIA-PRUEBAS.md` sección 9 (trámite en ARCA resumido del manual de Roble, prueba en homologación,
+pre-vuelo y primera factura en producción) y bloques de facturación en el checklist del ROADMAP. No se tildó nada:
+la verificación en homologación fue en desarrollo; falta la de Lautaro y Amancay con sus certificados.
 - `GUIA-PRUEBAS.md`: prueba en homologación (certificado de testing con WSASS) y pre-vuelo en
   producción (manual de Roble §5).
 - Checklist del ROADMAP: tildar a medida que se prueba.

@@ -16,7 +16,7 @@ Versión `1.0.0` = reemplaza al Excel en producción, después de correr 1-2 mes
 | 6 | Resumen: KPIs, resultado Hornera, saldos de cuentas, histórico | A testear |
 | — | Instalador de Windows (`npm run dist`) y guía de prueba (`GUIA-PRUEBAS.md`) | A testear |
 | — | Variables operativas: las del mes (Liquidación) y las de cada depto (Deptos) | A testear |
-| — | Facturación ARCA de los honorarios al pagar ([plan 031](plans/031-facturacion-arca.md)) | En curso: etapas 1 a 7 hechas (esquema, transporte ARCA, emisores y certificados, datos fiscales del propietario, emitir al pagar, nota de crédito al anular, PDF con QR) |
+| — | Facturación ARCA de los honorarios al pagar ([plan 031](plans/031-facturacion-arca.md)) | A testear: las 8 etapas hechas; falta probarla con los certificados de Lautaro y Amancay |
 | — | Fuera de la v1: mails, mantenimiento, obligaciones, checklist | — |
 
 Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, tema visual "Ladrillo", buscadores y filtros en todas las pantallas, historial de pagos por depto y propietario, cotización del dólar desde la API, variables operativas editables, versión `0.23.1`) está **a testear**: tiene tests automáticos y se
@@ -36,7 +36,7 @@ probó en la app con datos de prueba, pero falta revisarlo a mano con los dueño
    (comisión y tarifas propias). Solo el mes abierto; queda en la auditoría.
 5. **Tarjetas**: vincular los gastos de la tarjeta con el costo que representan en cada depto. Hoy
    usan un Excel; falta recibir esa información.
-6. **Facturación ARCA** — **En curso** (etapas 1 a 7 hechas: esquema, transporte ARCA, emisores y certificados en Datos → Emisores, datos fiscales en Datos → Propietarios, factura al pagar en Transferencias, nota de crédito al anular el pago, PDF de la factura con QR; falta la pantalla de comprobantes, `plans/035-pantalla-comprobantes.md`) (`plans/031-facturacion-arca.md`): facturar los honorarios
+6. **Facturación ARCA** — **A testear** (las 8 etapas hechas: esquema, transporte ARCA, emisores y certificados en Datos → Emisores, datos fiscales en Datos → Propietarios, factura al pagar en Transferencias, nota de crédito al anular el pago, PDF de la factura con QR; falta la pantalla de comprobantes, `plans/035-pantalla-comprobantes.md`) (`plans/031-facturacion-arca.md`): facturar los honorarios
    al pagar cada liquidación, con emisor Lautaro o Amancay. Antes de probar en producción, cada uno
    tiene que hacer el trámite del certificado y del punto de venta Web Services (manual de Roble).
 
@@ -95,6 +95,10 @@ Cómo probar cada punto, paso a paso: `GUIA-PRUEBAS.md`.
 - [ ] Revisar con los dueños la definición de "Resultado de Hornera" (DECISIONES, "Pendiente").
 - [ ] Evolución: los meses del histórico (12/2021 a 10/2024) con sus noches; los meses cerrados con todo.
 
+Facturación ARCA, paso a paso: `GUIA-PRUEBAS.md`, sección 9. En desarrollo ya se verificó en homologación
+(2026-10-19, con el certificado de prueba de Roble): Factura C y NC C aprobadas, PDF con QR. Falta que la
+prueben Lautaro y Amancay con sus propios certificados.
+
 **Facturación ARCA · Emisores** (necesita el certificado de homologación de WSASS, manual de Roble)
 - [ ] Datos → Emisores: cargar a Lautaro y a Amancay con su CUIT, punto de venta Web Services y ambiente homologación.
 - [ ] "Certificado" (en la PC servidor): subir el .crt y el .key; uno de otro CUIT o una clave que no es la suya, rechazados.
@@ -111,6 +115,11 @@ Cómo probar cada punto, paso a paso: `GUIA-PRUEBAS.md`.
 - [ ] Propietario sin datos fiscales completos: no deja emitir y dice qué falta.
 - [ ] "PDF" en la factura de un pago: datos del emisor y del receptor, período, CAE y QR (escanearlo con el celular abre la verificación de ARCA). El PDF de la liquidación del depto suma una página por factura vigente.
 - [ ] Anular un pago facturado ofrece "Emitir nota de crédito"; si se saltea, el pago queda "pago anulado, factura vigente" en Transferencias e Historial hasta emitirla.
+
+**Facturación ARCA · Producción** (después de homologación)
+- [ ] Certificado y punto de venta Web Services de producción cargados; "Probar" responde un número.
+- [ ] Primera factura real chica: PDF revisado, QR escaneado y la factura visible en "Mis Comprobantes" de ARCA.
+- [ ] Vencimiento de cada certificado anotado (2 años).
 
 **Preguntas para los dueños** (`DECISIONES.md`, "Pendiente"): contraseña de Stays, meses del Sheet,
 RIO/AND, 4 % de R64, qué plataformas cobran comisión, fee de AND, honorarios en meses sin reservas,

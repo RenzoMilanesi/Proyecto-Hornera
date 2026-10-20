@@ -118,6 +118,70 @@ copia aparte que no toque los datos de verdad:
 4. **Evolución mensual**: los meses de 12/2021 a 10/2024 solo con noches (hoja OCUPACION); los meses
    cerrados con todo.
 
+## 9. Facturación ARCA de los honorarios — primero en homologación, en la carpeta de prueba
+
+Cada emisor (Lautaro, Amancay) factura con **su** CUIT y **su** certificado. Homologación es el ARCA
+de prueba: las facturas no valen nada, aunque el CUIT sea real. Producción es la de verdad. Los
+certificados de uno no sirven en el otro.
+
+### Antes: el trámite en ARCA (una vez por emisor)
+Lo hace cada uno con su clave fiscal; el detalle está en el manual del certificado de Roble
+(`docs/manual-certificado-arca.md`). Resumen:
+1. **Clave fiscal nivel 3** y un **punto de venta de tipo "Web Services"** (*Administración de puntos de
+   venta y domicilios*). No sirve el de "Comprobantes en Línea": es otro, con otra numeración.
+2. Generar la **clave privada (.key)** y el pedido (.csr) con openssl, en la PC servidor. El CUIT va
+   en el `serialNumber` como `CUIT 20123456789`, sin guiones.
+3. Subir el .csr y bajar el **certificado (.crt)**: en homologación desde **WSASS**; en producción desde
+   *Administración de Certificados Digitales*.
+4. **Autorizar el servicio "Facturación Electrónica" (wsfe)** al certificado (*Administrador de
+   Relaciones* → Nueva relación). Si falta, "Probar" dice *Computador no autorizado a acceder al
+   servicio*: casi nunca es el certificado, es esta autorización. Para "Consultar ARCA" en los datos
+   fiscales del propietario, autorizar también `ws_sr_constancia_inscripcion` (solo producción).
+
+> La .key es como la clave fiscal: quien la tiene factura a nombre de ese CUIT. No mandarla por mail ni
+> dejar copias en pendrives; una vez cargada en Hornera, borrar las copias sueltas.
+
+### Prueba en homologación
+1. **Datos → Emisores → Nuevo emisor**: nombre, CUIT, razón social, condición (monotributista),
+   **domicilio** (la factura lo imprime; la RG 1415 lo pide), punto de venta Web Services y ambiente
+   **Homologación**.
+2. **Certificado** (en la PC servidor): elegir el .crt y el .key. Tienen que rechazarse un certificado de
+   otro CUIT y una clave que no es la de ese certificado.
+3. **Probar**: tiene que decir *ARCA respondió bien … último comprobante autorizado Factura C n.º X*
+   (0 si nunca se facturó por Web Services). En homologación los números pueden venir altos: el punto
+   de venta de prueba es compartido.
+4. **Datos → Propietarios → Datos fiscales** de un propietario: razón social, CUIT o DNI, condición IVA y
+   domicilio. Sin esos datos no se puede facturar. ("Consultar ARCA" en homologación responde que es
+   solo de producción.)
+5. **Transferencias** de un mes cerrado → **Marcar pagado** un depto de ese propietario. Se abre
+   **Facturar este pago**: emisor, importe propuesto (los honorarios del depto; la parte proporcional si
+   el pago es parcial) → **Emitir**. La fila del pago muestra **prueba n.º 0003-…** (en homologación) y el
+   botón **PDF**.
+6. **PDF**: datos del emisor y del propietario, "FACTURA C", período del servicio (el mes liquidado),
+   CAE, vencimiento y el **QR**. Escanear el QR con el celular: abre la página de ARCA con los datos del
+   comprobante.
+7. Pagar otro depto en **dos partes**: cada pago propone su proporción. Facturar de más avisa pero deja.
+8. **Anular** un pago facturado: queda marcado y aparece **Emitir nota de crédito**. Emitirla: NC C con
+   la factura asociada; la marca desaparece.
+9. Sin internet (desenchufar el cable o cortar el Wi-Fi) → Marcar pagado y Emitir: el pago queda
+   registrado, la factura **rechazada** con el motivo y el botón **Reintentar**. Volver a conectar y
+   reintentar.
+10. **PDF de la liquidación** del depto: suma una página por factura; las de homologación salen marcadas
+    "sin validez fiscal".
+
+### Antes de la primera factura real (producción)
+1. Repetir el trámite con el certificado **de producción** y el punto de venta Web Services real.
+2. En Emisores, **Editar** → ambiente **Producción** (borra el certificado de homologación) → **Certificado**
+   con el .crt y .key de producción.
+3. **Probar** antes de emitir nada: es solo lectura y no gasta números. Si responde un número (aunque
+   sea 0), certificado, autorización y punto de venta están bien.
+4. **Consultar ARCA** en los datos fiscales de un propietario con CUIT: completa razón social, condición y
+   domicilio (revisarlos y guardar).
+5. Primera factura real: un pago chico de un propietario de confianza. Revisar el PDF, escanear el QR y
+   verla en *Mis Comprobantes* de ARCA.
+6. Anotar la **fecha de vencimiento** del certificado (2 años; Emisores avisa 30 días antes). Para
+   renovarlo, en ARCA usar **"Actualizar"** sobre el mismo alias: así no hay que volver a autorizar wsfe.
+
 ---
 
 ## Cómo reportar un problema
