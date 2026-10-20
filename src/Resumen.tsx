@@ -1,6 +1,6 @@
 // Resumen interno (fase 6): KPIs del mes por depto, resultado de Hornera, saldos de cuentas y evolución.
 import { useEffect, useState } from 'react';
-import { Alert, Card, Col, Descriptions, Row, Select, Space, Statistic, Table, Tag, Typography, theme } from 'antd';
+import { Alert, Card, Col, Descriptions, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
 import type { KpiDepto, resumenDelMes } from '../server/resumen.ts';
 import { get, pesos } from './api.ts';
 
@@ -11,13 +11,6 @@ interface Mes { mes: string; noches_disponibles: number | null; noches_ocupadas:
 const derecha = { align: 'right' as const, onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }) };
 const pct = (ocupadas: number, disponibles: number) => (disponibles ? `${Math.round((100 * ocupadas) / disponibles)} %` : '');
 const porNoche = (bruto: number, noches: number) => (noches ? pesos(Math.round(bruto / noches)) : '');
-
-// Barra horizontal proporcional al máximo de la columna (sin librería de gráficos).
-function Barra({ valor, maximo }: { valor: number | null; maximo: number }) {
-  const { token } = theme.useToken();
-  if (valor == null || maximo <= 0) return null;
-  return <div style={{ height: 8, width: `${Math.max(0, (100 * valor) / maximo)}%`, background: token.colorPrimary, borderRadius: 4, minWidth: valor > 0 ? 2 : 0 }} />;
-}
 
 export function Resumen() {
   const [meses, setMeses] = useState<{ mes: string; estado: string }[]>([]);
@@ -42,8 +35,6 @@ export function Resumen() {
   const t = datos?.totales;
   const r = datos?.resultado;
   const totalCuentas = (moneda: 'ARS' | 'USD') => (datos?.cuentas as Cuenta[] | undefined)?.filter((c) => c.moneda === moneda).reduce((s, c) => s + c.saldo, 0) ?? 0;
-  const maxNoches = Math.max(0, ...(historia ?? []).map((m) => m.noches_ocupadas ?? 0));
-  const maxResultado = Math.max(0, ...(historia ?? []).map((m) => m.resultado_ars ?? 0));
 
   return (
     <Space orientation="vertical" size="large" style={{ width: '100%' }}>
@@ -115,12 +106,10 @@ export function Resumen() {
           dataSource={historia ? [...historia].reverse() : undefined} columns={[
             { title: 'Mes', dataIndex: 'mes', width: 90 },
             { title: 'Noches ocupadas', dataIndex: 'noches_ocupadas', width: 130, ...derecha },
-            { title: '', key: 'barra_noches', width: 160, render: (_, m) => <Barra valor={m.noches_ocupadas} maximo={maxNoches} /> },
             { title: 'Ocupación', key: 'ocupacion', ...derecha, render: (_, m) => (m.noches_disponibles ? pct(m.noches_ocupadas ?? 0, m.noches_disponibles) : '') },
             { title: 'Bruto', dataIndex: 'bruto', ...derecha, render: (v: number | null) => (v == null ? '' : pesos(v)) },
             { title: 'Honorarios', dataIndex: 'honorarios', ...derecha, render: (v: number | null) => (v == null ? '' : pesos(v)) },
             { title: 'Resultado', dataIndex: 'resultado_ars', ...derecha, render: (v: number | null) => (v == null ? '' : pesos(v)) },
-            { title: '', key: 'barra_resultado', width: 160, render: (_, m) => <Barra valor={m.resultado_ars} maximo={maxResultado} /> },
           ]} />
       </Card>
     </Space>
