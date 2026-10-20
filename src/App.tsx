@@ -12,6 +12,7 @@ import { Resumen } from './Resumen.tsx';
 import { Deptos } from './Deptos.tsx';
 import { Propietarios } from './Propietarios.tsx';
 import { Historial } from './Historial.tsx';
+import { Comprobantes } from './Comprobantes.tsx';
 import { Emparejar } from './Emparejar.tsx';
 import { Emisores } from './Emisores.tsx';
 
@@ -20,6 +21,7 @@ const secciones = {
   liquidacion: { grupo: 'Mes', titulo: 'Liquidación', ayuda: 'Lo que le corresponde a cada propietario. Al cerrar el mes queda guardado.', vista: <Liquidacion /> },
   transferencias: { grupo: 'Mes', titulo: 'Transferencias', ayuda: 'Qué se le paga a cada propietario de un mes cerrado y la lista para el banco.', vista: <Transferencias /> },
   historial: { grupo: 'Mes', titulo: 'Historial', ayuda: 'Pagos a cada propietario mes a mes: lo liquidado, lo pagado y lo pendiente.', vista: <Historial /> },
+  comprobantes: { grupo: 'Mes', titulo: 'Comprobantes', ayuda: 'Facturas y notas de crédito emitidas en ARCA, por mes de emisión.', vista: <Comprobantes /> },
   movimientos: { grupo: 'Mes', titulo: 'Movimientos', ayuda: 'Gastos, ingresos, adelantos y transferencias entre cuentas. No se borran: se anulan.', vista: <Movimientos /> },
   deptos: { grupo: 'Datos', titulo: 'Deptos', ayuda: 'Los deptos que administra Hornera, con su dueño y estado.', vista: <Deptos /> },
   propietarios: { grupo: 'Datos', titulo: 'Propietarios', ayuda: 'Dueños de los deptos y en qué moneda se les liquida.', vista: <Propietarios /> },

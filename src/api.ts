@@ -13,6 +13,16 @@ export const get = <T>(ruta: string) => pedir<T>(ruta);
 export const enviar = <T>(ruta: string, metodo: 'POST' | 'PUT', datos: unknown) =>
   pedir<T>(ruta, { method: metodo, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos) });
 
+// PDF suelto de un comprobante: lo arma la PC servidor y baja como archivo. Devuelve el error, si hubo.
+export async function descargarPdfComprobante(id: number) {
+  const r = await fetch(`/api/comprobantes/${id}/pdf`);
+  if (!r.ok) return ((await r.json().catch(() => null))?.error ?? `${r.status} ${r.statusText}`) as string;
+  const nombre = /filename="([^"]+)"/.exec(r.headers.get('Content-Disposition') ?? '')?.[1] ?? 'factura.pdf';
+  const enlace = Object.assign(document.createElement('a'), { href: URL.createObjectURL(await r.blob()), download: nombre });
+  enlace.click();
+  URL.revokeObjectURL(enlace.href);
+}
+
 export const subirArchivo = <T>(ruta: string, archivo: Blob) =>
   pedir<T>(ruta, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: archivo });
 

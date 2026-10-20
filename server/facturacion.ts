@@ -247,6 +247,63 @@ async function autorizar(db: DatabaseSync, e: Emisor, keyPem: string, c: {
   return { id, cbteTipo, puntoVenta: e.punto_venta, numero: res.numero, cae: res.cae, vencimiento, fecha: cbteFecha, observaciones };
 }
 
+// ---- Pantalla Comprobantes (plan 035): lo emitido en un mes, por fecha de emisión.
+
+/**
+ * Comprobantes con fecha en `mes`: los aprobados y los rechazos pendientes (el último por pago y tipo, de una
+ * factura cuyo pago sigue vigente o de una NC cuya factura sigue sin anular). Los de homologación, solo con la
+ * app sin instalar (`desarrollo`).
+ */
+export function listarComprobantes(db: DatabaseSync, mes: string, desarrollo: boolean) {
+  if (!/^\d{4}-\d{2}$/.test(mes)) throw new Error('Mes inválido (AAAA-MM).');
+  const [a, m] = mes.split('-').map(Number);
+  const siguiente = m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, '0')}`;
+  const crudas = db.prepare(`
+    SELECT c.id, c.fecha, c.cbte_tipo, c.punto_venta, c.numero, c.cae, c.estado, c.ambiente, c.motivo, c.importe, c.emisor_id,
+           c.movimiento_id, c.cbte_tipo IN (3, 8, 13) AS es_nc, d.codigo, json_extract(c.receptor_json, '$.razon_social') AS propietario,
+           e.nombre AS emisor, m.estado = 'anulado' AS pago_anulado, pr.moneda_liquidacion AS moneda,
+           (SELECT nc.punto_venta || '-' || nc.numero FROM comprobante nc WHERE nc.asociado_id = c.id AND nc.estado = 'aprobado') AS anulada_por,
+           (SELECT f.punto_venta || '-' || f.numero FROM comprobante f WHERE f.id = c.asociado_id) AS anula,
+           (${SQL_FACTURA_VIGENTE}) AND m.estado = 'anulado' AS nc_pendiente
+    FROM comprobante c JOIN depto d ON d.id = c.depto_id JOIN emisor e ON e.id = c.emisor_id
+    JOIN movimiento m ON m.id = c.movimiento_id JOIN propietario pr ON pr.id = c.propietario_id
+    WHERE c.fecha >= ? AND c.fecha < ? AND (? OR c.ambiente = 'produccion')
+      AND (c.estado = 'aprobado' OR (
+        NOT EXISTS (SELECT 1 FROM comprobante o WHERE o.movimiento_id = c.movimiento_id AND o.cbte_tipo = c.cbte_tipo AND o.ambiente = c.ambiente
+          AND (o.estado = 'aprobado' OR o.id > c.id))
+        AND CASE WHEN c.asociado_id IS NULL THEN m.estado = 'vigente'
+          ELSE NOT EXISTS (SELECT 1 FROM comprobante nc WHERE nc.asociado_id = c.asociado_id AND nc.estado = 'aprobado') END))
+    ORDER BY c.fecha, c.id`).all(`${mes}-01`, `${siguiente}-01`, desarrollo ? 1 : 0) as any[];
+  // "3-16" → "00003-00000016"
+  const formato = (s: string | null) => s && numeroCbte(...(s.split('-').map(Number) as [number, number]));
+  const filas = crudas.map((c) => ({
+    id: c.id as number, fecha: c.fecha as string, tipo: NOMBRE_CBTE[c.cbte_tipo], es_nc: !!c.es_nc,
+    numero: c.numero == null ? null : numeroCbte(c.punto_venta, c.numero), punto_venta: c.punto_venta as number, numero_n: c.numero as number | null,
+    cae: c.cae as string | null, estado: c.estado as 'aprobado' | 'rechazado', ambiente: c.ambiente as 'homologacion' | 'produccion', motivo: c.motivo as string | null,
+    importe: c.importe as number, codigo: c.codigo as string, propietario: c.propietario as string, emisor_id: c.emisor_id as number, emisor: c.emisor as string,
+    movimiento_id: c.movimiento_id as number, pago_anulado: !!c.pago_anulado, moneda: c.moneda as 'ARS' | 'USD',
+    anulada_por: formato(c.anulada_por), anula: formato(c.anula), nc_pendiente: !!c.nc_pendiente,
+  }));
+  const totales = new Map<number, { emisor_id: number; emisor: string; neto: number; cantidad: number }>();
+  for (const f of filas.filter((x) => x.estado === 'aprobado')) {
+    const t = totales.get(f.emisor_id) ?? { emisor_id: f.emisor_id, emisor: f.emisor, neto: 0, cantidad: 0 };
+    t.neto += f.es_nc ? -f.importe : f.importe;
+    t.cantidad++;
+    totales.set(f.emisor_id, t);
+  }
+  return { filas, totales: [...totales.values()] };
+}
+export type FilaComprobante = ReturnType<typeof listarComprobantes>['filas'][number];
+
+/** Todo el intento, con lo que mandó y contestó ARCA (el request se guarda sin el ticket). */
+export function detalleComprobante(db: DatabaseSync, id: number) {
+  const c = db.prepare(`SELECT c.*, e.nombre AS emisor, d.codigo FROM comprobante c JOIN emisor e ON e.id = c.emisor_id
+      JOIN depto d ON d.id = c.depto_id WHERE c.id = ?`).get(id) as any;
+  if (!c) throw new Error('No existe el comprobante.');
+  const { receptor_json, ...resto } = c;
+  return { ...resto, tipo: NOMBRE_CBTE[c.cbte_tipo], numero: c.numero == null ? null : numeroCbte(c.punto_venta, c.numero), receptor: JSON.parse(receptor_json) as Receptor };
+}
+
 // ---- Para el papel (etapa 7): todo lo que muestra el PDF de un comprobante aprobado.
 
 // QR como SVG, armado acá (sincrónico): la vista imprimible lo pega tal cual.

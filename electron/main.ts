@@ -131,7 +131,7 @@ function generadorPdf(origen: string): GeneradorPdf {
 
 async function iniciarServidor() {
   const db = abrirDb(join(app.getPath('userData'), 'hornera.db'));
-  const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales(), claves: almacenClaves(), pdf: generadorPdf(ORIGEN_LOCAL) });
+  const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales(), claves: almacenClaves(), pdf: generadorPdf(ORIGEN_LOCAL), desarrollo: !app.isPackaged });
   const http = createServer(api);
 
   if (app.isPackaged) {

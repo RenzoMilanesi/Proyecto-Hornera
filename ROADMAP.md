@@ -20,7 +20,7 @@ Versión `1.0.0` = reemplaza al Excel en producción, después de correr 1-2 mes
 | — | Manual de usuario en PDF con capturas (`manual/`, datos ficticios), dentro del instalador y abierto desde el menú | A testear (v0.24.0) |
 | — | Fuera de la v1: mails, mantenimiento, obligaciones, checklist | — |
 
-Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, tema visual "Ladrillo", buscadores y filtros en todas las pantallas, historial de pagos por depto y propietario, cotización del dólar desde la API, variables operativas editables, versión `0.24.2`) está **a testear**: tiene tests automáticos y se
+Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, tema visual "Ladrillo", buscadores y filtros en todas las pantallas, historial de pagos por depto y propietario, cotización del dólar desde la API, variables operativas editables, versión `0.25.0`) está **a testear**: tiene tests automáticos y se
 probó en la app con datos de prueba, pero falta revisarlo a mano con los dueños y con datos reales.
 
 ## Pendientes (pedidos 2026-10-16)
@@ -37,7 +37,7 @@ probó en la app con datos de prueba, pero falta revisarlo a mano con los dueño
    (comisión y tarifas propias). Solo el mes abierto; queda en la auditoría.
 5. **Tarjetas**: vincular los gastos de la tarjeta con el costo que representan en cada depto. Hoy
    usan un Excel; falta recibir esa información.
-6. **Facturación ARCA** — **A testear** (las 8 etapas hechas: esquema, transporte ARCA, emisores y certificados en Datos → Emisores, datos fiscales en Datos → Propietarios, factura al pagar en Transferencias, nota de crédito al anular el pago, PDF de la factura con QR; falta la pantalla de comprobantes, `plans/035-pantalla-comprobantes.md`) (`plans/031-facturacion-arca.md`): facturar los honorarios
+6. **Facturación ARCA** — **A testear** (las 8 etapas hechas: esquema, transporte ARCA, emisores y certificados en Datos → Emisores, datos fiscales en Datos → Propietarios, factura al pagar en Transferencias, nota de crédito al anular el pago, PDF de la factura con QR, y la pantalla Mes → Comprobantes del plan 035) (`plans/031-facturacion-arca.md`): facturar los honorarios
    al pagar cada liquidación, con emisor Lautaro o Amancay. Antes de probar en producción, cada uno
    tiene que hacer el trámite del certificado y del punto de venta Web Services (manual de Roble).
 
@@ -116,6 +116,7 @@ prueben Lautaro y Amancay con sus propios certificados.
 - [ ] Propietario sin datos fiscales completos: no deja emitir y dice qué falta.
 - [ ] "PDF" en la factura de un pago: datos del emisor y del receptor, período, CAE y QR (escanearlo con el celular abre la verificación de ARCA). El PDF de la liquidación del depto suma una página por factura vigente.
 - [ ] Anular un pago facturado ofrece "Emitir nota de crédito"; si se saltea, el pago queda "pago anulado, factura vigente" en Transferencias e Historial hasta emitirla.
+- [ ] Mes → Comprobantes: las facturas y NC del mes de emisión, el neto por emisor, la factura "anulada por NC" y la NC "anula FC", los rechazos pendientes con "Reintentar", "Emitir nota de crédito", PDF y "Ver detalle". En el instalador no aparecen los de homologación.
 
 **Facturación ARCA · Producción** (después de homologación)
 - [ ] Certificado y punto de venta Web Services de producción cargados; "Probar" responde un número.

@@ -72,11 +72,11 @@ function base() {
   return db;
 }
 
-async function conApi(fn: (llamar: (metodo: string, ruta: string, cuerpo?: unknown) => Promise<{ status: number; body: any }>, db: DatabaseSync) => Promise<void>, f: Fetch) {
+async function conApi(fn: (llamar: (metodo: string, ruta: string, cuerpo?: unknown) => Promise<{ status: number; body: any }>, db: DatabaseSync) => Promise<void>, f: Fetch, desarrollo = false) {
   const db = base();
   const guardadas = new Map<string, string>();
   const claves = { leer: (c: string) => guardadas.get(c) ?? null, guardar: (c: string, k: string) => { guardadas.set(c, k); } };
-  const server = crearApp(db, '0.0.0', { claves, fetchArca: f }).listen(0);
+  const server = crearApp(db, '0.0.0', { claves, fetchArca: f, desarrollo }).listen(0);
   const llamar = async (metodo: string, ruta: string, cuerpo?: unknown) => {
     const r = await fetch(`http://127.0.0.1:${(server.address() as AddressInfo).port}/api/${ruta}`,
       { method: metodo, headers: json, body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo) });
@@ -241,4 +241,95 @@ test('PDF: datos del comprobante con QR, y la hoja del depto suma sus facturas v
     assert.deepEqual([dn.tipo, dn.asociado.numero, dn.asociado.tipo], ['NOTA DE CRÉDITO C', '00003-00000008', 'FACTURA C']);
     assert.equal(hojaDepto(db, '2026-05', 'AAA').facturas.length, 0);  // con NC la factura ya no va
   }, falso.fetchArca);
+});
+
+// Pantalla Comprobantes (plan 035). El emisor de los tests está en homologación: la lista se pide en desarrollo.
+const mesDe = (fecha: string) => fecha.slice(0, 7);
+const mesAnterior = (mes: string) => new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)) - 2, 1)).toISOString().slice(0, 7);
+
+test('comprobantes: la factura aparece en el mes de su emisión, con el neto del emisor', async () => {
+  const { fetchArca } = arcaFalso();
+  await conApi(async (llamar) => {
+    const p = await pagar(llamar, 1000000);
+    const { body: fac } = await llamar('POST', `pagos/${p}/factura`, { emisor_id: 1, importe: 100000 });
+    const { body } = await llamar('GET', `comprobantes?mes=${mesDe(fac.fecha)}`);
+    assert.deepEqual(body.filas.map((f: any) => [f.tipo, f.numero, f.codigo, f.propietario, f.estado]), [['FACTURA C', '00003-00000008', 'AAA', 'PROPIETARIO UNO', 'aprobado']]);
+    assert.deepEqual(body.totales, [{ emisor_id: 1, emisor: 'Emisor Uno', neto: 100000, cantidad: 1 }]);
+    assert.deepEqual((await llamar('GET', `comprobantes?mes=${mesAnterior(mesDe(fac.fecha))}`)).body.filas, []);
+  }, fetchArca, true);
+});
+
+test('comprobantes: un rechazo queda pendiente hasta que un reintento sale aprobado', async () => {
+  const falso = arcaFalso();
+  falso.estado.cae = 'rechazo';
+  await conApi(async (llamar) => {
+    const p = await pagar(llamar, 1000000);
+    await llamar('POST', `pagos/${p}/factura`, { emisor_id: 1, importe: 100000 });
+    await llamar('POST', `pagos/${p}/factura`, { emisor_id: 1, importe: 100000 });
+    const mes = mesDe(hoyLocal());
+    const { body } = await llamar('GET', `comprobantes?mes=${mes}`);
+    assert.deepEqual(body.filas.map((f: any) => [f.id, f.estado, f.numero]), [[2, 'rechazado', null]]);  // solo el último intento
+    assert.match(body.filas[0].motivo, /token vencido/);
+    assert.deepEqual(body.totales, []);
+
+    falso.estado.cae = 'ok';
+    assert.equal((await llamar('POST', `pagos/${p}/factura`, { emisor_id: 1, importe: 100000 })).status, 200);
+    assert.deepEqual((await llamar('GET', `comprobantes?mes=${mes}`)).body.filas.map((f: any) => f.estado), ['aprobado']);
+  }, falso.fetchArca, true);
+});
+
+test('comprobantes: factura de un pago anulado ofrece la NC; con la NC las dos filas se cruzan y el neto da 0', async () => {
+  const { fetchArca } = arcaFalso();
+  await conApi(async (llamar) => {
+    const p = await pagar(llamar, 1000000);
+    const { body: fac } = await llamar('POST', `pagos/${p}/factura`, { emisor_id: 1, importe: 100000 });
+    await llamar('POST', `movimientos/${p}/anular`, {});
+    const mes = mesDe(hoyLocal());
+    let { body } = await llamar('GET', `comprobantes?mes=${mes}`);
+    assert.deepEqual(body.filas.map((f: any) => [f.nc_pendiente, f.pago_anulado]), [[true, true]]);
+
+    await llamar('POST', `comprobantes/${fac.id}/nota-credito`, {});
+    ({ body } = await llamar('GET', `comprobantes?mes=${mes}`));
+    assert.deepEqual(body.filas.map((f: any) => [f.tipo, f.anulada_por, f.anula, f.nc_pendiente]), [
+      ['FACTURA C', '00003-00000009', null, false],
+      ['NOTA DE CRÉDITO C', null, '00003-00000008', false],
+    ]);
+    assert.deepEqual(body.totales.map((t: any) => [t.neto, t.cantidad]), [[0, 2]]);
+  }, fetchArca, true);
+});
+
+test('comprobantes: una NC rechazada queda pendiente hasta que sale la NC', async () => {
+  const falso = arcaFalso();
+  await conApi(async (llamar) => {
+    const p = await pagar(llamar, 1000000);
+    const { body: fac } = await llamar('POST', `pagos/${p}/factura`, { emisor_id: 1, importe: 100000 });
+    await llamar('POST', `movimientos/${p}/anular`, {});
+    falso.estado.cae = 'rechazo';
+    await llamar('POST', `comprobantes/${fac.id}/nota-credito`, {});
+    const mes = mesDe(hoyLocal());
+    const filas = async () => (await llamar('GET', `comprobantes?mes=${mes}`)).body.filas.map((f: any) => [f.tipo, f.estado, f.nc_pendiente]);
+    assert.deepEqual(await filas(), [['FACTURA C', 'aprobado', true], ['NOTA DE CRÉDITO C', 'rechazado', false]]);
+    falso.estado.cae = 'ok';
+    await llamar('POST', `comprobantes/${fac.id}/nota-credito`, {});
+    assert.deepEqual(await filas(), [['FACTURA C', 'aprobado', false], ['NOTA DE CRÉDITO C', 'aprobado', false]]);
+  }, falso.fetchArca, true);
+});
+
+test('comprobantes: sin desarrollo no se ven los de homologación; mes inválido y detalle sin el ticket', async () => {
+  const { fetchArca } = arcaFalso();
+  await conApi(async (llamar) => {
+    const p = await pagar(llamar, 1000000);
+    const { body: fac } = await llamar('POST', `pagos/${p}/factura`, { emisor_id: 1, importe: 100000 });
+    assert.deepEqual((await llamar('GET', `comprobantes?mes=${mesDe(fac.fecha)}`)).body, { filas: [], totales: [] });
+
+    const mal = await llamar('GET', 'comprobantes?mes=mal');
+    assert.equal(mal.status, 400);
+    assert.match(mal.body.error, /Mes inválido/);
+
+    const { body: d } = await llamar('GET', `comprobantes/${fac.id}/detalle`);
+    assert.deepEqual([d.numero, d.emisor, d.receptor.razon_social], ['00003-00000008', 'Emisor Uno', 'PROPIETARIO UNO']);
+    assert.ok(d.request_json && d.response_json);
+    assert.doesNotMatch(JSON.stringify(d), /TK|SG/);
+    assert.equal((await llamar('GET', 'comprobantes/99/detalle')).status, 400);
+  }, fetchArca);
 });

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
 import type { FacturaDePago, Transferencia } from '../server/liquidacion/pagos.ts';
-import { entradaPlata, enviar, get, pesos, simbolo } from './api.ts';
+import { descargarPdfComprobante, entradaPlata, enviar, get, pesos, simbolo } from './api.ts';
 
 interface Periodo { mes: string; estado: string; fecha_pago: string }
 interface Cuenta { id: number; nombre: string; moneda: 'ARS' | 'USD'; activo: number }
@@ -62,7 +62,8 @@ interface Propuesta {
 const numeroCbte = (pv: number, n: number) => `${String(pv).padStart(5, '0')}-${String(n).padStart(8, '0')}`;
 
 // Factura de los honorarios de un pago (plan 031). El pago ya está registrado: si ARCA falla, queda pendiente.
-export function FormFactura({ a, alCerrar }: { a?: { pagoId: number; t: Transferencia }; alCerrar: (cambio: boolean) => void }) {
+export interface AFacturar { pagoId: number; codigo: string; moneda: 'ARS' | 'USD' }
+export function FormFactura({ a, alCerrar }: { a?: AFacturar; alCerrar: (cambio: boolean) => void }) {
   const [form] = Form.useForm();
   const [emisores, setEmisores] = useState<EmisorLista[]>([]);
   const [p, setP] = useState<Propuesta>();
@@ -103,12 +104,12 @@ export function FormFactura({ a, alCerrar }: { a?: { pagoId: number; t: Transfer
     }
   };
   return (
-    <Modal open={!!a} title={a && `Facturar este pago de ${a.t.codigo}`} okText={revisar ? 'Ya lo revisé: emitir igual' : 'Emitir'} cancelText="Ahora no"
+    <Modal open={!!a} title={a && `Facturar este pago de ${a.codigo}`} okText={revisar ? 'Ya lo revisé: emitir igual' : 'Emitir'} cancelText="Ahora no"
       onOk={emitir} onCancel={() => alCerrar(intento)} width={560} confirmLoading={emitiendo} okButtonProps={{ disabled: !p?.ofrece }} destroyOnHidden>
       {a && p && (
         <dl className="ficha">
           <dt>Propietario</dt><dd><b>{p.propietario}</b></dd>
-          <dt>Pago</dt><dd><b>{pesos(p.importe_pago, a.t.moneda)}</b> · {p.fecha_pago}</dd>
+          <dt>Pago</dt><dd><b>{pesos(p.importe_pago, a.moneda)}</b> · {p.fecha_pago}</dd>
           <dt>Honorarios</dt><dd>{pesos(p.honorarios)} de {p.mes}{p.ofrece && <> · ya facturado {pesos(p.facturado!)}</>}</dd>
         </dl>
       )}
@@ -207,7 +208,7 @@ export function Transferencias() {
   const [filas, setFilas] = useState<Transferencia[]>();
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);
   const [pagando, setPagando] = useState<Transferencia>();
-  const [facturando, setFacturando] = useState<{ pagoId: number; t: Transferencia }>();
+  const [facturando, setFacturando] = useState<AFacturar>();
   const [nc, setNc] = useState<{ factura: FacturaNC; codigo: string }>();
   const [soloPendientes, setSoloPendientes] = useState(false);
   const [error, setError] = useState<string>();
@@ -232,15 +233,7 @@ export function Transferencias() {
       setError(e instanceof Error ? e.message : String(e));
     }
   };
-  // PDF suelto de la factura: lo arma la PC servidor y baja como archivo.
-  const pdfFactura = async (id: number) => {
-    const r = await fetch(`/api/comprobantes/${id}/pdf`);
-    if (!r.ok) return setError((await r.json().catch(() => null))?.error ?? `${r.status} ${r.statusText}`);
-    const nombre = /filename="([^"]+)"/.exec(r.headers.get('Content-Disposition') ?? '')?.[1] ?? 'factura.pdf';
-    const enlace = Object.assign(document.createElement('a'), { href: URL.createObjectURL(await r.blob()), download: nombre });
-    enlace.click();
-    URL.revokeObjectURL(enlace.href);
-  };
+  const pdfFactura = async (id: number) => setError(await descargarPdfComprobante(id));
   const exportar = async () => {
     const r = await fetch(`/api/transferencias/excel?mes=${mes}`);
     const enlace = Object.assign(document.createElement('a'), { href: URL.createObjectURL(await r.blob()), download: `transferencias-${mes}.xlsx` });
@@ -287,7 +280,7 @@ export function Transferencias() {
               { title: 'Cuenta', dataIndex: 'cuenta' },
               {
                 title: 'Factura', key: 'factura', render: (_: unknown, p) => !t.esHornera && (
-                  <EstadoFactura f={p.factura} anulado={p.anulado} alFacturar={() => setFacturando({ pagoId: p.id, t })}
+                  <EstadoFactura f={p.factura} anulado={p.anulado} alFacturar={() => setFacturando({ pagoId: p.id, codigo: t.codigo, moneda: t.moneda })}
                     alAnularFactura={() => setNc({ factura: p.factura as FacturaNC, codigo: t.codigo })} alPdf={() => pdfFactura(p.factura!.id)} />
                 ),
               },
@@ -303,7 +296,7 @@ export function Transferencias() {
         }} />
       <FormPago t={pagando} fecha={periodos.find((p) => p.mes === mes)?.fecha_pago ?? ''} cuentas={cuentas}
         alCerrar={(guardado, pagoId) => {
-          if (pagoId && pagando && !pagando.esHornera) setFacturando({ pagoId, t: pagando });  // ofrece la factura del pago
+          if (pagoId && pagando && !pagando.esHornera) setFacturando({ pagoId, codigo: pagando.codigo, moneda: pagando.moneda });  // ofrece la factura del pago
           setPagando(undefined);
           if (guardado) setVersion((v) => v + 1);
         }} />
