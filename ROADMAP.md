@@ -17,10 +17,10 @@ Versión `1.0.0` = reemplaza al Excel en producción, después de correr 1-2 mes
 | — | Instalador de Windows (`npm run dist`) y guía de prueba (`GUIA-PRUEBAS.md`) | A testear |
 | — | Variables operativas: las del mes (Liquidación) y las de cada depto (Deptos) | A testear |
 | — | Facturación ARCA de los honorarios al pagar ([plan 031](plans/031-facturacion-arca.md)) | A testear: las 8 etapas hechas; falta probarla con los certificados de Lautaro y Amancay |
-| — | Manual de usuario en PDF con capturas (`manual/`, datos ficticios) | Hecho (v0.23.1) |
+| — | Manual de usuario en PDF con capturas (`manual/`, datos ficticios), dentro del instalador y abierto desde el menú | A testear (v0.24.0) |
 | — | Fuera de la v1: mails, mantenimiento, obligaciones, checklist | — |
 
-Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, tema visual "Ladrillo", buscadores y filtros en todas las pantallas, historial de pagos por depto y propietario, cotización del dólar desde la API, variables operativas editables, versión `0.23.1`) está **a testear**: tiene tests automáticos y se
+Todo lo construido (fases 0 a 6, instalador, y alojamientos, fotos, propietarios, canceladas, horarios y desglose de Stays, tema visual "Ladrillo", buscadores y filtros en todas las pantallas, historial de pagos por depto y propietario, cotización del dólar desde la API, variables operativas editables, versión `0.24.0`) está **a testear**: tiene tests automáticos y se
 probó en la app con datos de prueba, pero falta revisarlo a mano con los dueños y con datos reales.
 
 ## Pendientes (pedidos 2026-10-16)

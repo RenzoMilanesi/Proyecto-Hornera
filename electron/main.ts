@@ -41,10 +41,22 @@ async function rolDeEstaPc(): Promise<Rol> {
   return rol;
 }
 
+// Manual de usuario: viaja dentro del instalador (extraResources). Cada PC abre su copia, también una terminal.
+const MANUAL = app.isPackaged ? join(process.resourcesPath, 'manual.pdf') : join(RAIZ, 'manual', 'Manual de usuario Hornera.pdf');
+
 // La ventana solo muestra la app: sin ventanas nuevas, sin permisos. Navegar fuera, lo decide cada rol.
+// Única excepción: el link /manual.pdf abre el manual con el visor de PDF de Windows.
 function crearVentana() {
   const ventana = new BrowserWindow({ width: 1280, height: 800, title: 'Hornera', autoHideMenuBar: true });
-  ventana.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  ventana.webContents.setWindowOpenHandler(({ url }) => {
+    // openPath no tira: devuelve el error como texto ('' si abrió).
+    if (URL.canParse(url) && new URL(url).pathname === '/manual.pdf') {
+      shell.openPath(MANUAL).then((error) => {
+        if (error) dialog.showErrorBox('Manual de usuario', `No se pudo abrir el manual (${MANUAL}): ${error}`);
+      });
+    }
+    return { action: 'deny' };
+  });
   session.defaultSession.setPermissionRequestHandler((_wc, _permiso, responder) => responder(false));
   ventana.maximize();
   return ventana;

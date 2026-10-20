@@ -1,6 +1,6 @@
 {
   "name": "hornera",
-  "version": "0.23.1",
+  "version": "0.24.0",
   "description": "HORNERA — liquidación mensual a propietarios",
   "private": true,
   "type": "module",
@@ -56,6 +56,9 @@
       "server/**/*.ts",
       "!server/**/*.test.ts",
       "!server/liquidacion/abril-en-base.ts"
+    ],
+    "extraResources": [
+      { "from": "manual/Manual de usuario Hornera.pdf", "to": "manual.pdf" }
     ],
     "win": {
       "target": "nsis",

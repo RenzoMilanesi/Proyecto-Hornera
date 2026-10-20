@@ -60,7 +60,9 @@ export function App() {
       <Layout.Sider width={200} style={{ position: 'sticky', top: 0, height: '100vh', overflow: 'auto' }}>
         <Typography.Title level={4} style={{ padding: '16px 24px', margin: 0, color: '#fff' }}>Hornera</Typography.Title>
         <Menu theme="dark" selectedKeys={[seccion]} onClick={(e) => setSeccion(e.key as Seccion)} items={items} />
-        <Typography.Text style={{ display: 'block', padding: '16px 24px', color: '#B3A698' }}>v{version}</Typography.Text>
+        {/* Lo abre electron/main.ts (setWindowOpenHandler) con la copia del manual de esta PC. */}
+        <Typography.Link href="/manual.pdf" target="_blank" style={{ display: 'block', padding: '16px 24px 0', color: '#E8C9A8' }}>Manual de usuario</Typography.Link>
+        <Typography.Text style={{ display: 'block', padding: '8px 24px 16px', color: '#B3A698' }}>v{version}</Typography.Text>
       </Layout.Sider>
       <Layout.Content style={{ padding: '24px 28px', minWidth: 0 }}>
         <Typography.Title level={3} style={{ marginBottom: 4 }}>{actual.titulo}</Typography.Title>
