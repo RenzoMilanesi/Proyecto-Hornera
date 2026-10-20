@@ -116,8 +116,11 @@ function FormMovimiento({ abierto, mes, editando, deptos, cuentas, conceptos, al
 function FormTransferencia({ abierto, mes, cuentas, alCerrar }: { abierto: boolean; mes: string; cuentas: Cuenta[]; alCerrar: (guardado: boolean) => void }) {
   const [form] = Form.useForm();
   const [error, setError] = useState<string>();
-  const desde = cuentas.find((c) => c.id === Form.useWatch('desde', form));
-  const hacia = cuentas.find((c) => c.id === Form.useWatch('hacia', form));
+  // Los hooks fuera del find: adentro se llamaban una vez por cuenta recorrida y React rompía la pantalla al elegir.
+  const desdeId = Form.useWatch('desde', form);
+  const haciaId = Form.useWatch('hacia', form);
+  const desde = cuentas.find((c) => c.id === desdeId);
+  const hacia = cuentas.find((c) => c.id === haciaId);
   const mismaMoneda = !!desde && !!hacia && desde.moneda === hacia.moneda;
   useEffect(() => { if (abierto) { setError(undefined); form.setFieldsValue({ fecha: fechaPorDefecto(mes), desde: null, hacia: null, sale: null, entra: null, detalle: '' }); } }, [abierto, form, mes]);
 

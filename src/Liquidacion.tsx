@@ -91,6 +91,12 @@ export function Liquidacion() {
   };
   const [ocupado, setOcupado] = useState<string>(); // acción en curso: 'cerrar', 'reabrir', 'pdf', 'pdf:OVL'…
   const [aviso, setAviso] = useState<string>();
+  // El aviso de éxito (PDF guardado, cotización) se va solo a los 15 s.
+  useEffect(() => {
+    if (!aviso) return;
+    const t = setTimeout(() => setAviso(undefined), 15_000);
+    return () => clearTimeout(t);
+  }, [aviso]);
   const accion = async (cual: string, fn: () => Promise<unknown>, exito?: string) => {
     setOcupado(cual);
     setError(undefined);
