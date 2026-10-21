@@ -23,8 +23,11 @@ export interface Transferencia {
   // El mes siguiente ya está cerrado: lo pendiente quedó como saldo anterior de ese mes y se paga desde ahí.
   arrastradoA: string | null;
   // Los vigentes y los anulados cuya factura sigue vigente (falta la NC): esos no suman a "pagado".
-  pagos: { id: number; fecha: string; importe: number; cuenta: string | null; anulado?: boolean; factura?: FacturaDePago | null }[];
+  pagos: { id: number; fecha: string; importe: number; cuenta: string | null; anulado?: boolean; factura?: FacturaDePago | null; externa?: FacturaExterna | null }[];
 }
+
+// Factura hecha por fuera de Hornera (Comprobantes en Línea) y vinculada al pago (plan 036).
+export interface FacturaExterna { id: number; punto_venta: number; numero: number; importe: number; emisor: string }
 
 // La factura de un pago: la de producción si hubo algún intento (la aprobada o, si no, el último rechazado); si no, la de prueba.
 export interface FacturaDePago {
@@ -48,7 +51,9 @@ export function listarTransferencias(db: DatabaseSync, mes: string): Transferenc
          'numero', c.numero, 'motivo', c.motivo, 'importe', c.importe, 'emisor', e.nombre,
          'nc_motivo', (SELECT nc.motivo FROM comprobante nc WHERE nc.asociado_id = c.id ORDER BY nc.id DESC LIMIT 1))
        FROM comprobante c JOIN emisor e ON e.id = c.emisor_id WHERE c.movimiento_id = m.id AND c.asociado_id IS NULL
-       ORDER BY c.ambiente = 'produccion' DESC, c.estado = 'aprobado' DESC, c.id DESC LIMIT 1) AS factura
+       ORDER BY c.ambiente = 'produccion' DESC, c.estado = 'aprobado' DESC, c.id DESC LIMIT 1) AS factura,
+      (SELECT json_object('id', ca.id, 'punto_venta', ca.punto_venta, 'numero', ca.numero, 'importe', ca.importe, 'emisor', e.nombre)
+       FROM comprobante_arca ca JOIN emisor e ON e.id = ca.emisor_id WHERE ca.movimiento_id = m.id) AS externa
     FROM movimiento m LEFT JOIN cuenta cu ON cu.id = m.cuenta_id
     WHERE m.periodo_id = ? AND m.depto_id = ? AND m.tipo = 'liquidacion'
       AND (m.estado = 'vigente' OR EXISTS (SELECT 1 FROM comprobante c WHERE c.movimiento_id = m.id AND ${SQL_FACTURA_VIGENTE}))
@@ -57,7 +62,7 @@ export function listarTransferencias(db: DatabaseSync, mes: string): Transferenc
     const usd = f.moneda === 'USD';
     const pagos = (pagosDe.all(f.periodo_id, f.depto_id) as any[])
       .map((m) => ({ id: m.id, fecha: m.fecha, importe: -(usd ? m.importe_usd : m.importe_ars), cuenta: m.cuenta,
-        ...(m.anulado ? { anulado: true } : {}), factura: m.factura && JSON.parse(m.factura) }));
+        ...(m.anulado ? { anulado: true } : {}), factura: m.factura && JSON.parse(m.factura), externa: m.externa && JSON.parse(m.externa) }));
     const saldo = usd ? f.saldo_final_usd : f.saldo_final_ars;
     const pagado = pagos.reduce((s, x) => s + (x.anulado ? 0 : x.importe), 0);
     return {

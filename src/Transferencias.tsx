@@ -1,9 +1,10 @@
 // Transferencias a propietarios de un mes cerrado: qué se le paga a cada uno, "marcar pagado"
 // (genera el movimiento "Liquidacion periodo") y la lista para el banco en Excel.
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
-import type { FacturaDePago, Transferencia } from '../server/liquidacion/pagos.ts';
+import type { FacturaDePago, FacturaExterna, Transferencia } from '../server/liquidacion/pagos.ts';
+import type { FacturaExterna as Externa } from '../server/misComprobantes.ts';
 import { descargarPdfComprobante, entradaPlata, enviar, get, pesos, simbolo } from './api.ts';
 
 interface Periodo { mes: string; estado: string; fecha_pago: string }
@@ -58,6 +59,7 @@ interface EmisorLista { id: number; nombre: string; ambiente: 'homologacion' | '
 interface Propuesta {
   ofrece: boolean; motivo?: string; honorarios: number; facturado?: number; propuesto?: number;
   mes: string; codigo: string; propietario: string; importe_pago: number; fecha_pago: string;
+  externas?: Externa[];   // hechas por fuera de Hornera al mismo propietario (plan 036)
 }
 const numeroCbte = (pv: number, n: number) => `${String(pv).padStart(5, '0')}-${String(n).padStart(8, '0')}`;
 
@@ -71,11 +73,12 @@ export function FormFactura({ a, alCerrar }: { a?: AFacturar; alCerrar: (cambio:
   const [revisar, setRevisar] = useState(false);   // ARCA pudo haber autorizado el intento anterior
   const [intento, setIntento] = useState(false);   // quedó un intento guardado: el padre recarga
   const [emitiendo, setEmitiendo] = useState(false);
+  const [ignorar, setIgnorar] = useState(false);    // "no es ninguna de estas": emitir igual
   const emisorId = Form.useWatch('emisor_id', form) as number | undefined;
   const importe = Form.useWatch('importe', form) as number | undefined;
   useEffect(() => {
     if (!a) return;
-    setError(undefined); setRevisar(false); setIntento(false); setP(undefined);
+    setError(undefined); setRevisar(false); setIntento(false); setP(undefined); setIgnorar(false);
     form.resetFields();
     get<EmisorLista[]>('emisores').then((es) => setEmisores(es.filter((e) => e.activo && e.certificado && e.tiene_clave)));
   }, [a, form]);
@@ -88,12 +91,21 @@ export function FormFactura({ a, alCerrar }: { a?: AFacturar; alCerrar: (cambio:
   }, [a, emisorId, form]);
   // Aviso, no error: el importe es libre (plan 031).
   const pasa = !!p?.ofrece && importe != null && p.facturado! + Math.round(importe * 100) > p.honorarios;
+  const externas = p?.externas ?? [];
+  const vincular = async (x: Externa) => {
+    try {
+      await enviar(`mis-comprobantes/${x.id}/vincular`, 'POST', { movimiento_id: a!.pagoId });
+      alCerrar(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
   const emitir = async () => {
     const v = await form.validateFields().catch(() => null);  // los errores ya se ven en los campos
     if (!v) return;
     setEmitiendo(true);
     try {
-      await enviar(`pagos/${a!.pagoId}/factura`, 'POST', { emisor_id: v.emisor_id, importe: Math.round(v.importe * 100), revisado: revisar });
+      await enviar(`pagos/${a!.pagoId}/factura`, 'POST', { emisor_id: v.emisor_id, importe: Math.round(v.importe * 100), revisado: revisar, ignorar_externas: ignorar });
       alCerrar(true);
     } catch (e) {
       setIntento(true);
@@ -105,13 +117,28 @@ export function FormFactura({ a, alCerrar }: { a?: AFacturar; alCerrar: (cambio:
   };
   return (
     <Modal open={!!a} title={a && `Facturar este pago de ${a.codigo}`} okText={revisar ? 'Ya lo revisé: emitir igual' : 'Emitir'} cancelText="Ahora no"
-      onOk={emitir} onCancel={() => alCerrar(intento)} width={560} confirmLoading={emitiendo} okButtonProps={{ disabled: !p?.ofrece }} destroyOnHidden>
+      onOk={emitir} onCancel={() => alCerrar(intento)} width={externas.length ? 720 : 560} confirmLoading={emitiendo} okButtonProps={{ disabled: !p?.ofrece || (externas.length > 0 && !ignorar) }} destroyOnHidden>
       {a && p && (
         <dl className="ficha">
           <dt>Propietario</dt><dd><b>{p.propietario}</b></dd>
           <dt>Pago</dt><dd><b>{pesos(p.importe_pago, a.moneda)}</b> · {p.fecha_pago}</dd>
           <dt>Honorarios</dt><dd>{pesos(p.honorarios)} de {p.mes}{p.ofrece && <> · ya facturado {pesos(p.facturado!)}</>}</dd>
         </dl>
+      )}
+      {externas.length > 0 && (
+        <>
+          <Typography.Text strong type="warning">En ARCA ya hay {externas.length === 1 ? 'una factura' : `${externas.length} facturas`} a {p!.propietario} hecha{externas.length === 1 ? '' : 's'} por fuera de Hornera</Typography.Text>
+          <Typography.Paragraph type="secondary" style={{ margin: '0 0 8px' }}>
+            Salen de lo importado de Mis Comprobantes. Si una es de este pago, vinculala: el pago queda facturado y no se emite otra.
+          </Typography.Paragraph>
+          <Table<Externa> size="small" pagination={false} rowKey="id" dataSource={externas} style={{ marginBottom: 12 }} columns={[
+            { title: 'Fecha', dataIndex: 'fecha' },
+            { title: 'Factura', key: 'n', render: (_: unknown, x) => <b>{numeroCbte(x.punto_venta, x.numero)}</b> },
+            { title: 'Emisor', dataIndex: 'emisor' },
+            { title: 'Importe', dataIndex: 'importe', align: 'right', render: (v: number) => pesos(v) },
+            { title: '', key: 'v', align: 'right', render: (_: unknown, x) => <Button size="small" type="primary" onClick={() => vincular(x)}>Es esta</Button> },
+          ]} />
+        </>
       )}
       <Form form={form} layout="vertical" disabled={!!p && !p.ofrece}>
         <Space wrap align="start" size="middle">
@@ -126,6 +153,7 @@ export function FormFactura({ a, alCerrar }: { a?: AFacturar; alCerrar: (cambio:
             <InputNumber {...entradaPlata} prefix="$" style={{ width: 220 }} />
           </Form.Item>
         </Space>
+        {externas.length > 0 && <Checkbox checked={ignorar} onChange={(e) => setIgnorar(e.target.checked)}>No es ninguna de estas: emitir igual</Checkbox>}
       </Form>
       {p && !p.ofrece && <Alert type="info" showIcon title={`No se factura: ${p.motivo}`} />}
       {error && <Alert type="error" showIcon title={error} />}
@@ -175,8 +203,8 @@ export function FormNotaCredito({ nc, alCerrar }: { nc?: { factura: FacturaNC; c
   );
 }
 
-export function EstadoFactura({ f, anulado, alFacturar, alAnularFactura, alPdf }: {
-  f?: FacturaDePago | null; anulado?: boolean; alFacturar: () => void; alAnularFactura: () => void; alPdf?: () => void;
+export function EstadoFactura({ f, externa, anulado, alFacturar, alAnularFactura, alPdf }: {
+  f?: FacturaDePago | null; externa?: FacturaExterna | null; anulado?: boolean; alFacturar: () => void; alAnularFactura: () => void; alPdf?: () => void;
 }) {
   const pdf = alPdf && f?.estado === 'aprobado' && <Button size="small" onClick={alPdf}>PDF</Button>;
   if (anulado && f?.estado === 'aprobado') {
@@ -190,6 +218,7 @@ export function EstadoFactura({ f, anulado, alFacturar, alAnularFactura, alPdf }
     );
   }
   if (anulado) return null;
+  if (externa) return <Tag color="green" title={`Hecha por fuera de Hornera por ${externa.emisor}`}>por fuera n.º {numeroCbte(externa.punto_venta, externa.numero)}</Tag>;
   if (f?.estado === 'aprobado' && f.ambiente === 'produccion') return <Space size="small"><Tag color="green">emitida n.º {numeroCbte(f.punto_venta, f.numero!)}</Tag>{pdf}</Space>;
   return (
     <Space size="small">
@@ -280,7 +309,7 @@ export function Transferencias() {
               { title: 'Cuenta', dataIndex: 'cuenta' },
               {
                 title: 'Factura', key: 'factura', render: (_: unknown, p) => !t.esHornera && (
-                  <EstadoFactura f={p.factura} anulado={p.anulado} alFacturar={() => setFacturando({ pagoId: p.id, codigo: t.codigo, moneda: t.moneda })}
+                  <EstadoFactura f={p.factura} externa={p.externa} anulado={p.anulado} alFacturar={() => setFacturando({ pagoId: p.id, codigo: t.codigo, moneda: t.moneda })}
                     alAnularFactura={() => setNc({ factura: p.factura as FacturaNC, codigo: t.codigo })} alPdf={() => pdfFactura(p.factura!.id)} />
                 ),
               },

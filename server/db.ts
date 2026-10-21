@@ -110,6 +110,25 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
    CREATE INDEX ix_cbte_movimiento ON comprobante(movimiento_id);
    CREATE INDEX ix_cbte_asociado ON comprobante(asociado_id);
    CREATE UNIQUE INDEX uq_cbte_numero ON comprobante(emisor_id, ambiente, cbte_tipo, punto_venta, numero) WHERE numero IS NOT NULL;`,
+  // 10 → 11: comprobantes emitidos en ARCA por cualquier medio, importados de Mis Comprobantes (plan 036).
+  `CREATE TABLE comprobante_arca (
+       id             INTEGER PRIMARY KEY,
+       emisor_id      INTEGER NOT NULL REFERENCES emisor(id),
+       fecha          TEXT    NOT NULL CHECK (date(fecha) IS fecha),
+       cbte_tipo      INTEGER NOT NULL,                     -- código de ARCA (11 Factura C, 13 NC C...)
+       punto_venta    INTEGER NOT NULL,
+       numero         INTEGER NOT NULL,                     -- Número Desde
+       numero_hasta   INTEGER NOT NULL,
+       cae            TEXT,
+       doc_tipo       INTEGER,                              -- 80 CUIT, 96 DNI, 99 consumidor final...
+       doc_nro        TEXT,
+       receptor       TEXT,
+       importe        INTEGER NOT NULL,                     -- centavos ARS (Imp. Total)
+       movimiento_id  INTEGER REFERENCES movimiento(id),    -- pago al que se vinculó a mano (factura hecha por fuera)
+       importado_en   TEXT    NOT NULL,
+       CONSTRAINT uq_cbte_arca UNIQUE (emisor_id, cbte_tipo, punto_venta, numero)
+   ) STRICT;
+   CREATE INDEX ix_cbte_arca_movimiento ON comprobante_arca(movimiento_id);`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

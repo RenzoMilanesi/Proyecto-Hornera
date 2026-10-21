@@ -500,6 +500,27 @@ CREATE INDEX ix_cbte_movimiento ON comprobante(movimiento_id);
 CREATE INDEX ix_cbte_asociado ON comprobante(asociado_id);
 CREATE UNIQUE INDEX uq_cbte_numero ON comprobante(emisor_id, ambiente, cbte_tipo, punto_venta, numero) WHERE numero IS NOT NULL;
 
+-- Lo emitido en ARCA por cualquier medio (Mis Comprobantes → Emitidos, CSV importado a mano; plan 036).
+-- Incluye lo de Comprobantes en Línea, que Hornera no emite: sirve para no facturar dos veces.
+CREATE TABLE comprobante_arca (
+    id             INTEGER PRIMARY KEY,
+    emisor_id      INTEGER NOT NULL REFERENCES emisor(id),
+    fecha          TEXT    NOT NULL CHECK (date(fecha) IS fecha),
+    cbte_tipo      INTEGER NOT NULL,                     -- código de ARCA (11 Factura C, 13 NC C...)
+    punto_venta    INTEGER NOT NULL,
+    numero         INTEGER NOT NULL,                     -- Número Desde
+    numero_hasta   INTEGER NOT NULL,
+    cae            TEXT,
+    doc_tipo       INTEGER,                              -- 80 CUIT, 96 DNI, 99 consumidor final...
+    doc_nro        TEXT,
+    receptor       TEXT,
+    importe        INTEGER NOT NULL,                     -- centavos ARS (Imp. Total)
+    movimiento_id  INTEGER REFERENCES movimiento(id),    -- pago al que se vinculó a mano (factura hecha por fuera)
+    importado_en   TEXT    NOT NULL,
+    CONSTRAINT uq_cbte_arca UNIQUE (emisor_id, cbte_tipo, punto_venta, numero)
+) STRICT;
+CREATE INDEX ix_cbte_arca_movimiento ON comprobante_arca(movimiento_id);
+
 -- Histórico previo al sistema (hojas OCUPACION y Resumen, 12/2021 en adelante).
 -- Desde el primer cierre en el sistema, el histórico sale de `liquidacion`.
 CREATE TABLE historico_mensual (

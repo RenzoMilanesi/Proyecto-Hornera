@@ -95,12 +95,19 @@ export function editarEmisor(db: DatabaseSync, id: number, cuerpo: unknown) {
   return { certificado_borrado: !!antes.cert_pem && !certPem };
 }
 
-/** Solo sin comprobantes: los emitidos son de ese emisor y no se pierden (si tiene, se desactiva). */
+/**
+ * Solo sin comprobantes: los emitidos son de ese emisor y no se pierden (si tiene, se desactiva). Lo importado de
+ * Mis Comprobantes se borra con él, salvo una factura vinculada a un pago: esa dice que el pago ya se facturó.
+ */
 export function borrarEmisor(db: DatabaseSync, id: number) {
   const e = db.prepare('SELECT * FROM emisor WHERE id = ?').get(id) as unknown as Emisor | undefined;
   if (!e) throw new Error('No existe el emisor.');
   const { n } = db.prepare('SELECT count(*) n FROM comprobante WHERE emisor_id = ?').get(id) as { n: number };
   if (n) throw new Error(`${e.nombre} tiene ${n} comprobante${n === 1 ? '' : 's'}: no se puede borrar. Desactivalo desde Editar.`);
+  if (db.prepare('SELECT 1 FROM comprobante_arca WHERE emisor_id = ? AND movimiento_id IS NOT NULL').get(id)) {
+    throw new Error(`${e.nombre} tiene facturas de ARCA vinculadas a pagos: no se puede borrar. Desactivalo desde Editar.`);
+  }
+  db.prepare('DELETE FROM comprobante_arca WHERE emisor_id = ?').run(id);
   db.prepare('DELETE FROM emisor WHERE id = ?').run(id);
   db.prepare(`DELETE FROM configuracion WHERE clave LIKE ?`).run(`arca.ta.%.${e.cuit}`);
   // ponytail: la .key cifrada queda en el AlmacenClaves (no tiene "borrar"); si se vuelve a cargar el CUIT, se pisa.

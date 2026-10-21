@@ -19,6 +19,7 @@ import { historial } from './liquidacion/historial.ts';
 import { evolucion, resumenDelMes } from './resumen.ts';
 import { borrarEmisor, cargarCertificado, crearEmisor, editarEmisor, listarEmisores, probarEmisor, type AlmacenClaves } from './emisores.ts';
 import { ErrorArca } from './arca.ts';
+import { desvincular, importarMisComprobantes, listarMisComprobantes, vincular } from './misComprobantes.ts';
 import { datosComprobante, detalleComprobante, emitir, ErrorRevisar, facturaVigente, listarComprobantes, notaCredito, propuesta } from './facturacion.ts';
 import { datosFiscales, guardarDatosFiscales, padronDePropietario } from './propietarios.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
@@ -470,6 +471,12 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   };
   app.post('/api/pagos/:id/factura', (req, res) => conArca(res, () => emitir(db, claves, Number(req.params.id), req.body, fetchArca)));
   // Pantalla Comprobantes: los de homologación solo con la app sin instalar.
+  // Lo emitido en ARCA por cualquier medio: CSV de Mis Comprobantes (plan 036). Texto aparte: un año pasa el límite del JSON.
+  app.post('/api/emisores/:id/mis-comprobantes', express.text({ type: 'text/csv', limit: '20mb' }), (req, res) =>
+    intentar(res, () => importarMisComprobantes(db, Number(req.params.id), String(req.query.nombre ?? ''), typeof req.body === 'string' ? req.body : '')));
+  app.get('/api/mis-comprobantes', (req, res) => intentar(res, () => listarMisComprobantes(db, String(req.query.mes ?? ''))));
+  app.post('/api/mis-comprobantes/:id/vincular', (req, res) => intentar(res, () => vincular(db, Number(req.params.id), req.body)));
+  app.post('/api/mis-comprobantes/:id/desvincular', (req, res) => intentar(res, () => desvincular(db, Number(req.params.id))));
   app.get('/api/comprobantes', (req, res) => intentar(res, () => listarComprobantes(db, String(req.query.mes ?? ''), desarrollo)));
   app.get('/api/comprobantes/:id/detalle', (req, res) => intentar(res, () => detalleComprobante(db, Number(req.params.id))));
   // PDF suelto de un comprobante: la vista imprimible (/?imprimir=1&comprobante=ID) con el generador de la hoja.

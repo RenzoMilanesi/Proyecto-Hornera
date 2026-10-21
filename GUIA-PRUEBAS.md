@@ -168,6 +168,11 @@ Lo hace cada uno con su clave fiscal; el detalle está en el manual del certific
    reintentar.
 10. **PDF de la liquidación** del depto: suma una página por factura; las de homologación salen marcadas
     "sin validez fiscal".
+11. **Lo facturado por fuera** (Comprobantes en Línea): en ARCA, *Mis Comprobantes → Emitidos* → exportar a
+    CSV. En Hornera, **Mes → Comprobantes → En ARCA → Importar de ARCA**, elegir el emisor y el archivo. Una
+    factura a un propietario aparece "propietario, sin vincular"; al facturar un pago de ese propietario,
+    "Facturar este pago" la muestra: **Es esta** la vincula (el pago queda "por fuera n.º …") y **No es
+    ninguna de estas** deja emitir igual. Importar el archivo de otro emisor tiene que rechazarse.
 
 ### Antes de la primera factura real (producción)
 1. Repetir el trámite con el certificado **de producción** y el punto de venta Web Services real.

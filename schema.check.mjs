@@ -108,4 +108,11 @@ falla(cbte('rechazado', 'NULL', 'NULL', 13), 'ck_comprobante_nc');
 falla(cbte('rechazado', 'NULL', 'NULL', 11, 1), 'ck_comprobante_nc');
 run(cbte('rechazado', 'NULL', 'NULL', 13, 1));
 
+// Comprobante importado de Mis Comprobantes: uno por emisor, tipo, punto de venta y número
+const arca = (fecha) => `INSERT INTO comprobante_arca(emisor_id, fecha, cbte_tipo, punto_venta, numero, numero_hasta, importe, importado_en)
+  VALUES (1, '${fecha}', 11, 1, 316, 316, 12227810, 'x')`;
+falla(arca('2026-10-32'), 'CHECK');
+run(arca('2026-10-16'));
+falla(arca('2026-10-16'), 'UNIQUE');
+
 console.log('schema OK');

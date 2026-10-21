@@ -7,6 +7,7 @@ import { auditar } from './auditoria.ts';
 import { consultarComprobante, ErrorArca, esErrorDeToken, solicitarCAE, ultimoAutorizado } from './arca.ts';
 import { hoyLocal, type Fetch } from './cotizacion.ts';
 import { descartarTicket, emisorConClave, ticketAcceso, type AlmacenClaves, type Emisor } from './emisores.ts';
+import { externaDePago, facturasExternas } from './misComprobantes.ts';
 import { COND_IVA, desglosarIva, fechaArca, fechaComprobante, isoDeArca, LETRA_CBTE, NOMBRE_CBTE, notaCreditoDe, qrArca, tipoComprobante, type CondicionIva, type Importes } from './fiscal.ts';
 
 interface Pago {
@@ -33,10 +34,14 @@ function leerPago(db: DatabaseSync, movimientoId: number) {
 }
 
 // Facturado de la liquidación del depto: facturas aprobadas menos sus NC, por ambiente (una factura de
-// homologación es de prueba: no cuenta para el tope ni impide la de producción).
+// homologación es de prueba: no cuenta para el tope ni impide la de producción), más las hechas por fuera
+// y vinculadas a sus pagos (plan 036; esas son siempre de producción).
 const facturado = (db: DatabaseSync, p: Pago, ambiente: string) => (db.prepare(`
-  SELECT COALESCE(SUM(CASE WHEN cbte_tipo IN (3, 8, 13) THEN -importe ELSE importe END), 0) AS n FROM comprobante
-  WHERE periodo_id = ? AND depto_id = ? AND estado = 'aprobado' AND ambiente = ?`).get(p.periodo_id, p.depto_id, ambiente) as { n: number }).n;
+  SELECT COALESCE(SUM(CASE WHEN cbte_tipo IN (3, 8, 13) THEN -importe ELSE importe END), 0)
+    + CASE WHEN ? = 'produccion' THEN (SELECT COALESCE(SUM(ca.importe), 0) FROM comprobante_arca ca JOIN movimiento m ON m.id = ca.movimiento_id
+        WHERE m.periodo_id = ? AND m.depto_id = ? AND m.estado = 'vigente') ELSE 0 END AS n FROM comprobante
+  WHERE periodo_id = ? AND depto_id = ? AND estado = 'aprobado' AND ambiente = ?`)
+  .get(ambiente, p.periodo_id, p.depto_id, p.periodo_id, p.depto_id, ambiente) as { n: number }).n;
 
 const ambienteDe = (db: DatabaseSync, emisorId: number | null) =>
   (emisorId && (db.prepare('SELECT ambiente FROM emisor WHERE id = ?').get(emisorId) as { ambiente: string } | undefined)?.ambiente) || 'produccion';
@@ -51,10 +56,12 @@ export function propuesta(db: DatabaseSync, movimientoId: number, emisorId: numb
   if (p.saldo <= 0 || p.honorarios <= 0 || p.es_hornera) {
     return { ...base, ofrece: false as const, motivo: p.es_hornera ? 'El depto es de Hornera.' : 'La liquidación no tiene honorarios o saldo a pagar.' };
   }
+  const externa = externaDePago(db, movimientoId);
+  if (externa) return { ...base, ofrece: false as const, motivo: `Ya tiene la factura ${numeroCbte(externa.punto_venta, externa.numero)} de ${externa.emisor}, hecha por fuera de Hornera.` };
   const ya = facturado(db, p, ambienteDe(db, emisorId));
   const propuesto = Math.round(p.honorarios * p.importe / p.saldo);
   return {
-    ...base, ofrece: true as const, facturado: ya, propuesto,
+    ...base, ofrece: true as const, facturado: ya, propuesto, externas: facturasExternas(db, p.propietario_id, p.mes),
     aviso: ya + propuesto > p.honorarios ? 'Con esta factura lo facturado del mes pasa los honorarios del depto.' : null,
   };
 }
@@ -110,7 +117,7 @@ export function facturaVigente(db: DatabaseSync, movimientoId: number) {
 }
 
 async function emitirSinCandado(db: DatabaseSync, claves: AlmacenClaves | undefined, movimientoId: number, cuerpo: unknown, f?: Fetch) {
-  const b = (cuerpo ?? {}) as { emisor_id?: unknown; importe?: unknown; revisado?: unknown };
+  const b = (cuerpo ?? {}) as { emisor_id?: unknown; importe?: unknown; revisado?: unknown; ignorar_externas?: unknown };
   const p = leerPago(db, movimientoId);
   if (p.estado !== 'vigente') throw new Error('El pago está anulado: no se factura.');
   if (p.saldo <= 0 || p.es_hornera) throw new Error('Esta liquidación no se factura.');
@@ -127,6 +134,14 @@ async function emitirSinCandado(db: DatabaseSync, claves: AlmacenClaves | undefi
   const vigente = db.prepare(`SELECT punto_venta, numero FROM comprobante c WHERE movimiento_id = ? AND ambiente = ? AND ${SQL_FACTURA_VIGENTE}`)
     .get(movimientoId, e.ambiente) as { punto_venta: number; numero: number } | undefined;
   if (vigente) throw new Error(`Este pago ya tiene la factura ${numeroCbte(vigente.punto_venta, vigente.numero)}.`);
+  // Plan 036: lo facturado por fuera (Comprobantes en Línea) no se factura de nuevo sin confirmarlo.
+  const externa = externaDePago(db, movimientoId);
+  if (externa) throw new Error(`Este pago ya tiene la factura ${numeroCbte(externa.punto_venta, externa.numero)}, hecha por fuera de Hornera.`);
+  const externas = facturasExternas(db, p.propietario_id, p.mes);
+  if (externas.length && b.ignorar_externas !== true) {
+    throw new Error(`En ARCA ya hay ${externas.length === 1 ? 'una factura' : `${externas.length} facturas`} a ${p.propietario} hecha${externas.length === 1 ? '' : 's'} por fuera de Hornera: `
+      + 'revisá si es de este pago antes de emitir otra.');
+  }
 
   return autorizar(db, e, keyPem, {
     periodo_id: p.periodo_id, depto_id: p.depto_id, propietario_id: p.propietario_id, movimiento_id: movimientoId,

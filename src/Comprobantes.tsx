@@ -1,10 +1,12 @@
 // Facturas y notas de crédito emitidas desde Hornera, por mes de emisión (plan 035): las aprobadas y los
 // rechazos pendientes. Los de homologación solo llegan con la app sin instalar (lo filtra el servidor).
+// La vista "En ARCA" muestra lo importado de Mis Comprobantes, también lo hecho por fuera (plan 036).
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Descriptions, Drawer, Input, Select, Space, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Descriptions, Drawer, Input, Segmented, Select, Space, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
 import type { FilaComprobante } from '../server/facturacion.ts';
 import { descargarPdfComprobante, get, pesos } from './api.ts';
+import { EnArca } from './EnArca.tsx';
 import { FormFactura, FormNotaCredito, type AFacturar, type FacturaNC } from './Transferencias.tsx';
 
 interface Lista { filas: FilaComprobante[]; totales: { emisor_id: number; emisor: string; neto: number; cantidad: number }[] }
@@ -16,6 +18,7 @@ const json = (s: string | null) => {
 
 export function Comprobantes() {
   const [mes, setMes] = useState(() => new Date().toLocaleDateString('sv').slice(0, 7));
+  const [vista, setVista] = useState<'hornera' | 'arca'>('hornera');
   const [lista, setLista] = useState<Lista>();
   const [emisor, setEmisor] = useState<number>();
   const [tipo, setTipo] = useState<'facturas' | 'nc' | 'rechazados'>();
@@ -78,14 +81,19 @@ export function Comprobantes() {
     <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <Card size="small">
         <Space wrap size="large">
+          <Segmented value={vista} onChange={setVista} options={[{ value: 'hornera', label: 'Desde Hornera' }, { value: 'arca', label: 'En ARCA' }]} />
           <Input type="month" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)} style={{ width: 170 }} />
+          {vista === 'hornera' && <>
           <Select allowClear placeholder="Todos los emisores" style={{ width: 180 }} value={emisor} onChange={setEmisor}
             options={emisores.map(([id, nombre]) => ({ value: id, label: nombre }))} />
           <Select allowClear placeholder="Todos los tipos" style={{ width: 180 }} value={tipo} onChange={setTipo}
             options={[{ value: 'facturas', label: 'Facturas' }, { value: 'nc', label: 'Notas de crédito' }, { value: 'rechazados', label: 'Rechazados' }]} />
           <Input.Search allowClear placeholder="Buscar depto, propietario o número" style={{ width: 280 }} value={texto} onChange={(e) => setTexto(e.target.value)} />
+          </>}
         </Space>
       </Card>
+      {vista === 'arca' && <EnArca mes={mes} />}
+      {vista === 'hornera' && <>
       {lista && lista.totales.length > 0 && (
         <Space wrap size="large">
           {lista.totales.map((x) => <Typography.Text key={x.emisor_id}><b>{x.emisor}</b>: {pesos(x.neto)} · {x.cantidad} comprobante{x.cantidad === 1 ? '' : 's'}</Typography.Text>)}
@@ -94,6 +102,7 @@ export function Comprobantes() {
       {error && <Alert type="error" showIcon closable title={error} onClose={() => setError(undefined)} />}
       <Table<FilaComprobante> rowKey="id" size="small" pagination={false} sticky scroll={{ x: 'max-content' }} loading={!lista && !error}
         dataSource={visibles} columns={columnas} locale={{ emptyText: 'No hay comprobantes emitidos en este mes.' }} />
+      </>}
       <FormFactura a={facturando} alCerrar={(cambio) => { setFacturando(undefined); recargar(cambio); }} />
       <FormNotaCredito nc={nc} alCerrar={(cambio) => { setNc(undefined); recargar(cambio); }} />
       <Drawer open={!!detalle} onClose={() => setDetalle(undefined)} size={900} destroyOnHidden

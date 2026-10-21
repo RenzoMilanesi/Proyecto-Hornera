@@ -40,6 +40,7 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 033 | [Fechas de servicio en facturas y NC, y CAE perdido por timeout](033-arca-fechas-servicio-y-cae-perdido.md) | P2 | S | 031 (etapa 2) | A TESTEAR |
 | 034 | [El ticket de acceso de ARCA no viaja en los backups](034-ticket-arca-fuera-de-backups.md) | P3 | S | 031 (etapa 3) | A TESTEAR |
 | 035 | [Pantalla "Comprobantes": facturas y NC emitidas, mes a mes](035-pantalla-comprobantes.md) | P2 | M | 031 (etapas 1-7) | A TESTEAR |
+| 036 | [Lo facturado en ARCA dentro de Hornera, para no facturar dos veces](036-mis-comprobantes-arca.md) | P2 | M | 031, 035 | A TESTEAR |
 
 Los planes 001 a 030 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 
