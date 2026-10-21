@@ -61,7 +61,9 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
     { key: 'sal', concepto: 'Saldo a liquidar', importe: <Typography.Text type={saldo < 0 ? 'danger' : undefined}>{pesos(saldo, d.moneda)}</Typography.Text>, total: true },
   ];
   return (
-    <Space orientation="vertical" style={{ width: '100%' }}>
+    // width 0 + minWidth 100%: el detalle ocupa el ancho de la fila sin agrandarlo. La tabla de deptos es
+    // `scroll.x: max-content` y con `width: 100%` las tablas de adentro se estiraban a 1.000.000 px.
+    <Space orientation="vertical" style={{ width: 0, minWidth: '100%' }}>
       {comparacion?.estado === 'distinto' && (
         <Alert type="error" showIcon title="Diferencias con el Excel" description={
           <ul style={{ margin: 0, paddingLeft: 20 }}>{comparacion.diferencias.map((x, i) => (
