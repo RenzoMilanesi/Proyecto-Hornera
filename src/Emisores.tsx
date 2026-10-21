@@ -1,6 +1,6 @@
 // Quién factura los honorarios en ARCA (Lautaro, Amancay) y su certificado (plan 031).
 import { useEffect, useState } from 'react';
-import { Alert, Button, Col, Form, Input, InputNumber, Modal, Radio, Row, Select, Space, Switch, Table, Tag, Typography, Upload } from 'antd';
+import { Alert, Button, Col, Form, Input, InputNumber, Modal, Popconfirm, Radio, Row, Select, Space, Switch, Table, Tag, Typography, Upload } from 'antd';
 import { enviar, get } from './api.ts';
 
 interface Emisor {
@@ -61,6 +61,7 @@ function FormEmisor({ e, abierto, alCerrar }: { e?: Emisor; abierto: boolean; al
           <dt>Emisor</dt><dd><b>{e.nombre}</b> · {e.razon_social}</dd>
           <dt>CUIT</dt><dd>{cuitConGuiones(e.cuit)}</dd>
           <dt>Certificado</dt><dd><EstadoCertificado e={e} /></dd>
+          {!e.activo && <><dt>Estado</dt><dd><Tag color="red">de baja</Tag> no se ofrece para facturar</dd></>}
         </dl>
       )}
       <Form form={form} layout="vertical">
@@ -176,12 +177,32 @@ export function Emisores() {
     }
   };
 
+  const borrar = async (e: Emisor) => {
+    setAviso(undefined);
+    try {
+      await enviar(`emisores/${e.id}`, 'DELETE', {});
+      setAviso({ tipo: 'success', texto: `${e.nombre} se borró.` });
+      setVersion((v) => v + 1);
+    } catch (err) {
+      setAviso({ tipo: 'error', texto: err instanceof Error ? err.message : String(err) });
+    }
+  };
+
   return (
     <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       {aviso && <Alert type={aviso.tipo} showIcon closable title={aviso.texto} onClose={() => setAviso(undefined)} />}
       <div><Button type="primary" onClick={() => setEditando({})}>Nuevo emisor</Button></div>
-      <Table<Emisor> rowKey="id" size="small" pagination={false} loading={!emisores} dataSource={emisores} scroll={{ x: 'max-content' }} columns={[
-        { title: 'Emisor', dataIndex: 'nombre', render: (v: string, e) => <>{v} {!e.activo && <Tag>inactivo</Tag>}<br /><Typography.Text type="secondary">{e.razon_social}</Typography.Text></> },
+      <Table<Emisor> rowKey="id" size="small" pagination={false} loading={!emisores} dataSource={emisores} scroll={{ x: 'max-content' }}
+        // De baja: fila apagada y tachada, para que no se confunda con uno que factura.
+        onRow={(e) => ({ style: e.activo ? undefined : { opacity: 0.5, background: 'rgba(0, 0, 0, 0.04)' } })} columns={[
+        {
+          title: 'Emisor', dataIndex: 'nombre', render: (v: string, e) => (
+            <>
+              <Typography.Text delete={!e.activo} strong={!!e.activo}>{v}</Typography.Text> {!e.activo && <Tag color="red">de baja</Tag>}
+              <br /><Typography.Text type="secondary">{e.razon_social}</Typography.Text>
+            </>
+          ),
+        },
         { title: 'CUIT', dataIndex: 'cuit', render: cuitConGuiones },
         { title: 'Condición', dataIndex: 'condicion_iva', render: (v: string) => CONDICIONES.find((c) => c.value === v)?.label },
         { title: 'Punto de venta', dataIndex: 'punto_venta', align: 'right' },
@@ -193,6 +214,10 @@ export function Emisores() {
               <Button size="small" onClick={() => setEditando({ e })}>Editar</Button>
               <Button size="small" onClick={() => setCertificado(e)}>Certificado</Button>
               <Button size="small" loading={probando === e.id} disabled={!e.certificado || !e.tiene_clave} onClick={() => probar(e)}>Probar</Button>
+              <Popconfirm title={`¿Borrar a ${e.nombre}?`} description="Solo se puede si no emitió comprobantes; si emitió, desactivalo desde Editar."
+                okText="Borrar" okButtonProps={{ danger: true }} cancelText="No" onConfirm={() => borrar(e)}>
+                <Button size="small" danger>Borrar</Button>
+              </Popconfirm>
             </Space>
           ),
         },

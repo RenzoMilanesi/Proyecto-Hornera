@@ -17,3 +17,5 @@ release/
 # Certificados de ARCA: la clave privada nunca al repo
 *.key
 *.crt
+
+datos Fiscales/

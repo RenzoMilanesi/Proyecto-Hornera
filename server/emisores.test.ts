@@ -139,3 +139,22 @@ test('probar: login + último autorizado; el ticket se reusa y uno rechazado se 
     console.error = error;
   }
 });
+
+test('borrar: sin comprobantes se borra; con comprobantes no (se desactiva)', async () => {
+  const db = abrirDb(':memory:');
+  await conApi(db, async (base) => {
+    const { body: { id } } = await llamar(base, 'POST', 'emisores', EMISOR);
+    const otro = (await llamar(base, 'POST', 'emisores', { ...EMISOR, cuit: '27222222228' })).body.id;
+    // Un comprobante rechazado alcanza: sin período ni pago reales, por eso sin claves foráneas.
+    db.exec('PRAGMA foreign_keys = OFF');
+    db.prepare(`INSERT INTO comprobante(periodo_id, depto_id, propietario_id, movimiento_id, emisor_id, cbte_tipo, punto_venta, fecha,
+      serv_desde, serv_hasta, importe, receptor_json, estado, ambiente, creado_en)
+      VALUES (1, 1, 1, 1, ?, 11, 3, '2026-10-01', '2026-09-01', '2026-09-30', 100, '{}', 'rechazado', 'homologacion', '2026-10-01')`).run(otro);
+    db.exec('PRAGMA foreign_keys = ON');
+
+    assert.match((await llamar(base, 'DELETE', `emisores/${otro}`)).body.error, /tiene 1 comprobante: no se puede borrar/);
+    assert.equal((await llamar(base, 'DELETE', `emisores/${id}`)).status, 200);
+    assert.deepEqual((await llamar(base, 'GET', 'emisores')).body.map((e: { id: number }) => e.id), [otro]);
+    assert.match((await llamar(base, 'DELETE', `emisores/${id}`)).body.error, /No existe/);
+  });
+});

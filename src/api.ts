@@ -10,7 +10,7 @@ async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
 
 export const get = <T>(ruta: string) => pedir<T>(ruta);
 
-export const enviar = <T>(ruta: string, metodo: 'POST' | 'PUT', datos: unknown) =>
+export const enviar = <T>(ruta: string, metodo: 'POST' | 'PUT' | 'DELETE', datos: unknown) =>
   pedir<T>(ruta, { method: metodo, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos) });
 
 // PDF suelto de un comprobante: lo arma la PC servidor y baja como archivo. Devuelve el error, si hubo.

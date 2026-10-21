@@ -17,7 +17,7 @@ import { excelTransferencias, listarTransferencias, pagarLiquidacion } from './l
 import { hojaDepto } from './liquidacion/hoja.ts';
 import { historial } from './liquidacion/historial.ts';
 import { evolucion, resumenDelMes } from './resumen.ts';
-import { cargarCertificado, crearEmisor, editarEmisor, listarEmisores, probarEmisor, type AlmacenClaves } from './emisores.ts';
+import { borrarEmisor, cargarCertificado, crearEmisor, editarEmisor, listarEmisores, probarEmisor, type AlmacenClaves } from './emisores.ts';
 import { ErrorArca } from './arca.ts';
 import { datosComprobante, detalleComprobante, emitir, ErrorRevisar, facturaVigente, listarComprobantes, notaCredito, propuesta } from './facturacion.ts';
 import { datosFiscales, guardarDatosFiscales, padronDePropietario } from './propietarios.ts';
@@ -435,6 +435,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   app.get('/api/emisores', (_req, res) => { res.json(listarEmisores(db, claves)); });
   app.post('/api/emisores', (req, res) => intentar(res, () => crearEmisor(db, req.body)));
   app.put('/api/emisores/:id', (req, res) => intentar(res, () => editarEmisor(db, Number(req.params.id), req.body)));
+  app.delete('/api/emisores/:id', (req, res) => intentar(res, () => borrarEmisor(db, Number(req.params.id))));
   // La clave privada viaja solo dentro de la PC servidor, como la clave de Stays.
   app.post('/api/emisores/:id/certificado', soloLocal, (req, res) => intentar(res, () => cargarCertificado(db, claves, Number(req.params.id), req.body)));
   app.post('/api/emisores/:id/probar', async (req, res) => {

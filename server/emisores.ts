@@ -95,6 +95,19 @@ export function editarEmisor(db: DatabaseSync, id: number, cuerpo: unknown) {
   return { certificado_borrado: !!antes.cert_pem && !certPem };
 }
 
+/** Solo sin comprobantes: los emitidos son de ese emisor y no se pierden (si tiene, se desactiva). */
+export function borrarEmisor(db: DatabaseSync, id: number) {
+  const e = db.prepare('SELECT * FROM emisor WHERE id = ?').get(id) as unknown as Emisor | undefined;
+  if (!e) throw new Error('No existe el emisor.');
+  const { n } = db.prepare('SELECT count(*) n FROM comprobante WHERE emisor_id = ?').get(id) as { n: number };
+  if (n) throw new Error(`${e.nombre} tiene ${n} comprobante${n === 1 ? '' : 's'}: no se puede borrar. Desactivalo desde Editar.`);
+  db.prepare('DELETE FROM emisor WHERE id = ?').run(id);
+  db.prepare(`DELETE FROM configuracion WHERE clave LIKE ?`).run(`arca.ta.%.${e.cuit}`);
+  // ponytail: la .key cifrada queda en el AlmacenClaves (no tiene "borrar"); si se vuelve a cargar el CUIT, se pisa.
+  const { cert_pem: _c, ...sinCert } = e;
+  auditar(db, 'emisor', id, 'anulacion', sinCert, null);
+}
+
 /**
  * Guarda el .crt en la base y la .key cifrada, si son del mismo par y del CUIT del emisor.
  * Un certificado nuevo invalida los tickets de acceso que se pidieron con el anterior.
