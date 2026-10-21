@@ -3,7 +3,7 @@
 // vivo. Mes cerrado: del snapshot guardado al cerrar (un mes importado no tiene el detalle de
 // reservas: su PDF es el del Excel).
 import type { DatabaseSync } from 'node:sqlite';
-import { truncPesos, type Importe } from './motor.ts';
+import { cuentaLiquidacion, truncPesos, type CuentaLiquidacion, type Importe } from './motor.ts';
 import { liquidarPeriodo } from './servicio.ts';
 import { facturasDeLiquidacion, type DatosComprobante } from '../facturacion.ts';
 
@@ -19,11 +19,11 @@ export interface Hoja {
   servicios: { limpieza: number; lavanderia: number; blanqueria: number };
   depto: { codigo: string; nombre: string; direccion: string | null; comisionPct: number; tipoAdministracion: string };
   propietario: { nombre: string; cuit: string | null; categoria: string | null; cbu: string; mails: string | null; moneda: 'ARS' | 'USD' };
-  resumen: { bruto: number; gastosDirectos: number; saldoParcial: number; honorarios: number; saldo: number };
+  resumen: CuentaLiquidacion;
   noches: { total: number; disponibles: number; noDisponibles: number; propietario: number; ocupadas: number; reservas: number };
   detalle: {
     ingresos: Importe; costos: number; comisiones: Importe; honorarios: number; saldoAnterior: Importe;
-    movimientos: { fecha: string; concepto: string | null; detalle: string | null; ars: number; usd: number }[];
+    movimientos: { fecha: string; tipo: string; concepto: string | null; detalle: string | null; ars: number; usd: number }[];
     conversion: Importe; saldo: Importe; // saldo final, después de los pagos de liquidación
   };
   reservas: LineaHoja[];
@@ -46,7 +46,7 @@ export function hojaDepto(db: DatabaseSync, mes: string, codigo: string): Hoja {
     telefono: conf.get('empresa.telefono') ?? '', email: conf.get('empresa.email') ?? '',
   };
   const movimientos = db.prepare(`
-    SELECT m.fecha, c.nombre AS concepto, m.detalle, m.importe_ars AS ars, m.importe_usd AS usd
+    SELECT m.fecha, m.tipo, c.nombre AS concepto, m.detalle, m.importe_ars AS ars, m.importe_usd AS usd
     FROM movimiento m LEFT JOIN concepto c ON c.id = m.concepto_id
     WHERE m.periodo_id = ? AND m.depto_id = ? AND m.estado = 'vigente' AND m.tipo <> 'saldo_inicial'
     ORDER BY m.fecha, m.id`).all(p.id, d.id) as Hoja['detalle']['movimientos'];
@@ -86,6 +86,9 @@ export function hojaDepto(db: DatabaseSync, mes: string, codigo: string): Hoja {
       FROM liquidacion_reserva lr JOIN reserva r ON r.id = lr.reserva_id
       WHERE lr.liquidacion_id = ? ORDER BY r.llegada, r.codigo`).all(s.id) as unknown) as LineaHoja[];
   }
+  // Costos excepcionales de la cuenta: los movimientos del mes sin los pagos de liquidación.
+  const excepcionales = movimientos.filter((m) => m.tipo !== 'liquidacion')
+    .reduce((s, m) => ({ ars: s.ars + m.ars, usd: s.usd + m.usd }), { ars: 0, usd: 0 });
   // El saldo final de la hoja ([J55]/[K55]) ya resta los pagos de liquidación del detalle.
   const pagosLiq = db.prepare(`
     SELECT COALESCE(SUM(importe_ars), 0) AS ars, COALESCE(SUM(importe_usd), 0) AS usd FROM movimiento
@@ -100,7 +103,7 @@ export function hojaDepto(db: DatabaseSync, mes: string, codigo: string): Hoja {
       mails: d.mails, moneda,
     },
     facturas: facturasDeLiquidacion(db, p.id, d.id),
-    resumen: { bruto, gastosDirectos, saldoParcial: bruto + gastosDirectos, honorarios, saldo: bruto + gastosDirectos + honorarios },
+    resumen: cuentaLiquidacion(bruto, gastosDirectos, honorarios, excepcionales, cambio),
     noches: { total: dias(p.fecha_inicio, p.fecha_cierre_reservas), ...noches },
     detalle: {
       ingresos, costos, comisiones, honorarios, saldoAnterior, movimientos, conversion,

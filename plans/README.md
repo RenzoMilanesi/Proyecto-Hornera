@@ -43,6 +43,7 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 036 | [Lo facturado en ARCA dentro de Hornera, para no facturar dos veces](036-mis-comprobantes-arca.md) | P2 | M | 031, 035 | A TESTEAR |
 | 037 | [Importar los gastos varios (Excel "Comprobantes Hornera")](037-importar-gastos-varios.md) | P2 | S | — | A TESTEAR |
 | 038 | [Reimportar los gastos varios no duplica lo editado a mano](038-gastos-reimportar-tras-editar.md) | P2 | S | 037 | A TESTEAR |
+| 039 | [El manual y la guía de prueba explican la cuenta de la liquidación](039-manual-cuenta-liquidacion.md) | P2 | S | — | TODO |
 
 Los planes 001 a 030 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 

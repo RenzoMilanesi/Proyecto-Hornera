@@ -6,8 +6,8 @@ import type { TableColumnsType } from 'antd';
 import { entradaPlata, enviar, get, pesos, simbolo, useUnaVez } from './api.ts';
 
 interface Periodo { mes: string; estado: string }
-interface Cuenta { id: number; nombre: string; moneda: 'ARS' | 'USD'; activo: number }
-interface Movimiento {
+export interface Cuenta { id: number; nombre: string; moneda: 'ARS' | 'USD'; activo: number }
+export interface Movimiento {
   id: number; fecha: string; depto: string | null; tipo: string; concepto: string | null; detalle: string | null;
   importe_ars: number; importe_usd: number; cuenta_id: number | null; cuenta: string | null; estado: string; transferencia_grupo: number | null;
 }
@@ -31,8 +31,9 @@ const COLOR_TIPO: Record<string, string> = {
 };
 const importe = (v: number, moneda?: 'USD') => (v ? <Typography.Text type={v < 0 ? 'danger' : undefined}>{pesos(v, moneda)}</Typography.Text> : '');
 
-function FormMovimiento({ abierto, mes, editando, deptos, cuentas, conceptos, alCerrar }: {
-  abierto: boolean; mes: string; editando?: Movimiento; deptos: string[]; cuentas: Cuenta[]; conceptos: string[];
+// `depto`: el que se propone para uno nuevo (desde el detalle de la liquidación).
+export function FormMovimiento({ abierto, mes, editando, depto, deptos, cuentas, conceptos, alCerrar }: {
+  abierto: boolean; mes: string; editando?: Movimiento; depto?: string; deptos: string[]; cuentas: Cuenta[]; conceptos: string[];
   alCerrar: (guardado: boolean) => void;
 }) {
   const [form] = Form.useForm();
@@ -48,8 +49,8 @@ function FormMovimiento({ abierto, mes, editando, deptos, cuentas, conceptos, al
     form.setFieldsValue(m ? {
       fecha: m.fecha, depto: m.depto ?? EMPRESA, tipo: m.tipo, concepto: m.concepto ?? '', detalle: m.detalle ?? '',
       moneda: m.importe_usd ? 'USD' : 'ARS', importe: Math.abs(importe) / 100, signo: importe < 0 ? -1 : 1, cuenta_id: m.cuenta_id,
-    } : { fecha: fechaPorDefecto(mes), depto: undefined, tipo: 'gasto', concepto: '', detalle: '', moneda: 'ARS', importe: null, signo: -1, cuenta_id: null });
-  }, [abierto, editando, form, mes]);
+    } : { fecha: fechaPorDefecto(mes), depto, tipo: 'gasto', concepto: '', detalle: '', moneda: 'ARS', importe: null, signo: -1, cuenta_id: null });
+  }, [abierto, editando, depto, form, mes]);
   useEffect(() => { if (tipo && SIGNO_FIJO[tipo]) form.setFieldValue('signo', SIGNO_FIJO[tipo]); }, [tipo, form]);
   // La cuenta tiene que ser de la moneda del importe.
   useEffect(() => {

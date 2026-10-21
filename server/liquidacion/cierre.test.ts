@@ -110,7 +110,7 @@ test('la hoja del PDF da lo mismo con el mes abierto que cerrado, y su saldo fin
   const pagada = hojaDepto(db, '2026-05', 'AAA');
   assert.deepEqual(pagada.detalle.saldo, { ars: 0, usd: 0 });
   assert.deepEqual(pagada.detalle.movimientos.map((m) => m.concepto), ['EPE', 'Liquidacion periodo']);
-  assert.equal(pagada.resumen.saldo, cerrada.resumen.saldo); // el resumen es de antes de pagar
+  assert.deepEqual(pagada.resumen, cerrada.resumen); // la cuenta no incluye los pagos de liquidación
 });
 
 test('no se paga un mes cuyo saldo ya pasó al mes siguiente cerrado (se pagaría dos veces)', () => {

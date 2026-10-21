@@ -172,4 +172,21 @@ function codigoInterno(r: ReservaEntrada, depto: string, noches: number, dividid
   return `${base}${noches === 0 ? '-C' : ''} ${dividida ? ' DIV' : ''}`;
 }
 
-export const cambioDelPeriodo = (cotizacionUsd: number, descuentoPct: number) => cotizacionUsd * (1 - descuentoPct);
+// La cuenta de la liquidación en pesos, renglón por renglón (pedido 2026-10-16):
+//   Ingresos operativos − Costos = Ingreso bruto
+//   Ingreso bruto − Honorarios = Valor liquidación inicial
+//   Valor liquidación inicial − Costos excepcionales = Valor liquidación final
+// Costos = costos operativos + comisiones OTA/CM [F19]. Excepcionales = movimientos del mes del depto
+// (gastos, adelantos, cobros directos), sin saldo anterior ni pagos de liquidación; el USD al cambio del período.
+export interface CuentaLiquidacion {
+  ingresosOperativos: Centavos; costos: Centavos; ingresoBruto: Centavos; honorarios: Centavos;
+  valorInicial: Centavos; excepcionales: Centavos; valorFinal: Centavos;
+}
+export function cuentaLiquidacion(bruto: Centavos, gastosDirectos: Centavos, honorarios: Centavos, movimientos: Importe, cambio: number): CuentaLiquidacion {
+  const ingresoBruto = bruto + gastosDirectos;
+  const valorInicial = ingresoBruto + honorarios;
+  const excepcionales = redondearPesos(movimientos.ars + movimientos.usd * cambio);
+  return { ingresosOperativos: bruto, costos: gastosDirectos, ingresoBruto, honorarios, valorInicial, excepcionales, valorFinal: valorInicial + excepcionales };
+}
+
+export const cambioDelPeriodo =(cotizacionUsd: number, descuentoPct: number) => cotizacionUsd * (1 - descuentoPct);

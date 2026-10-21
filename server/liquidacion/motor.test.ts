@@ -1,7 +1,7 @@
 // Correr: node --test server/liquidacion/motor.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { liquidar, cambioDelPeriodo, type ParametrosPeriodo } from './motor.ts';
+import { liquidar, cambioDelPeriodo, cuentaLiquidacion, type ParametrosPeriodo } from './motor.ts';
 
 const c = (pesos: number) => Math.round(pesos * 100); // pesos → centavos
 
@@ -34,6 +34,15 @@ test('OVL abril 2026 da lo mismo que la hoja del Excel', () => {
   assert.deepEqual(r.saldo, { ars: c(841717), usd: 0 }); // el Excel muestra 0 porque ya resta la transferencia
   assert.equal(r.nochesOcupadas, 29);
   assert.equal(r.ocupacion, 29 / 30);
+  // La cuenta explícita cierra con el saldo (OVL liquida en pesos y no tiene saldo anterior).
+  assert.deepEqual(cuentaLiquidacion(r.bruto, r.gastosDirectos, r.honorarios, { ars: c(-10400), usd: 0 }, abril.cambio), {
+    ingresosOperativos: c(1245787), costos: c(-180670), ingresoBruto: c(1065117), honorarios: c(-213000),
+    valorInicial: c(852117), excepcionales: c(-10400), valorFinal: r.saldo.ars,
+  });
+});
+
+test('los costos excepcionales en dólares pasan a pesos al cambio del período', () => {
+  assert.equal(cuentaLiquidacion(0, 0, 0, { ars: c(-1000), usd: c(-10) }, 1400).excepcionales, c(-15000));
 });
 
 test('una reserva fuera del período no suma noches ni ingresos', () => {

@@ -3,7 +3,7 @@
 // No guarda nada: con el período abierto se recalcula cada vez (al cerrar se guardará
 // el snapshot en `liquidacion`).
 import type { DatabaseSync } from 'node:sqlite';
-import { cambioDelPeriodo, liquidar, type Importe, type ResultadoLiquidacion } from './motor.ts';
+import { cambioDelPeriodo, cuentaLiquidacion, liquidar, type CuentaLiquidacion, type Importe, type ResultadoLiquidacion } from './motor.ts';
 import { SQL_EN_PERIODO } from '../periodo.ts';
 
 export interface LiquidacionDepto {
@@ -18,8 +18,13 @@ export interface LiquidacionDepto {
   movimientos: Importe;                       // del período, sin saldo inicial ni pagos de liquidación
   comisiones: Importe;                        // fee del channel manager + las cargadas en las reservas
   // Mismo orden que resultado.reservas. `comision`: la que esta reserva suma en este período.
-  reservas: { id: number; codigo: string; llegada: string; huespedes: number; comision: Importe }[];
+  // Los ajustes y la observación, para abrir "Ajustes de la reserva" desde el detalle.
+  reservas: {
+    id: number; codigo: string; llegada: string; huespedes: number; comision: Importe;
+    ajuste_ars: number; ajuste_usd: number; ajuste_comision_ars: number; ajuste_comision_usd: number; observacion: string | null;
+  }[];
   resultado: ResultadoLiquidacion;
+  cuenta: CuentaLiquidacion;
 }
 
 export interface LiquidacionPeriodo {
@@ -80,7 +85,7 @@ export function liquidarPeriodo(db: DatabaseSync, mes: string): LiquidacionPerio
     FROM depto d JOIN propietario pr ON pr.id = d.propietario_id ORDER BY d.codigo`).all() as any[];
   const reservasDe = db.prepare(`
     SELECT r.id, r.codigo, r.llegada, r.salida, r.huespedes, r.moneda, r.precio_compra,
-           r.ajuste_ars, r.ajuste_usd, r.ajuste_comision_ars, r.ajuste_comision_usd, pl.codigo AS canal,
+           r.ajuste_ars, r.ajuste_usd, r.ajuste_comision_ars, r.ajuste_comision_usd, r.observacion, pl.codigo AS canal,
            EXISTS (SELECT 1 FROM depto_pago_directo dp WHERE dp.depto_id = r.depto_id AND dp.plataforma_id = r.plataforma_id) AS pago_directo,
            COALESCE((SELECT SUM(v.importe_neto) FROM v_pago_liquidable v WHERE v.reserva_id = r.id AND v.moneda = 'ARS'), 0) AS cobrado_ars,
            COALESCE((SELECT SUM(v.importe_neto) FROM v_pago_liquidable v WHERE v.reserva_id = r.id AND v.moneda = 'USD'), 0) AS cobrado_usd
@@ -130,11 +135,17 @@ export function liquidarPeriodo(db: DatabaseSync, mes: string): LiquidacionPerio
       comisiones,
       movimientos: iniciales.length ? movimientos : [saldoAnterior, ...movimientos],
     });
+    const movimientosMes = movimientos.filter((m) => m.tipo !== 'saldo_inicial').reduce(sumar, CERO);
     resultado.push({
       deptoId: d.id, codigo: d.codigo, nombre: d.nombre, propietario: d.propietario, moneda: d.moneda_liquidacion,
       comisionPct: d.comision_pct, nochesNoDisponibles, saldoAnterior, comisiones,
-      movimientos: movimientos.filter((m) => m.tipo !== 'saldo_inicial').reduce(sumar, CERO),
-      reservas: reservas.map((x) => ({ id: x.id, codigo: x.codigo, llegada: x.llegada, huespedes: x.huespedes, comision: comisionDe(x) })), resultado: r,
+      movimientos: movimientosMes,
+      reservas: reservas.map((x) => ({
+        id: x.id, codigo: x.codigo, llegada: x.llegada, huespedes: x.huespedes, comision: comisionDe(x),
+        ajuste_ars: x.ajuste_ars, ajuste_usd: x.ajuste_usd, ajuste_comision_ars: x.ajuste_comision_ars, ajuste_comision_usd: x.ajuste_comision_usd,
+        observacion: x.observacion,
+      })),
+      resultado: r, cuenta: cuentaLiquidacion(r.bruto, r.gastosDirectos, r.honorarios, movimientosMes, cambio),
     });
   }
   return { ...base, cambio, avisos, deptos: resultado };

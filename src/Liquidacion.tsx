@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Descriptions, Input, InputNumber, Popconfirm, Select, Space, Table, Tag, Typography, Upload } from 'antd';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Alert, Button, Card, Input, InputNumber, Popconfirm, Select, Space, Table, Tag, Typography, Upload } from 'antd';
 import type { TableColumnsType } from 'antd';
 import type { LiquidacionDepto, LiquidacionPeriodo } from '../server/liquidacion/servicio.ts';
 import type { ComparacionDepto } from '../server/liquidacion/comparar.ts';
 import { enviar, get, pesos, subirArchivo } from './api.ts';
 import { VariablesMes } from './Variables.tsx';
+import { AjustesReserva, type ReservaAjustable } from './AjustesReserva.tsx';
+import { FormMovimiento, TIPOS, type Cuenta, type Movimiento } from './Movimientos.tsx';
 
 interface Periodo {
   mes: string; estado: string; usd_cotizacion: number | null; usd_descuento_pct: number;
@@ -24,8 +26,38 @@ function Comparacion({ c }: { c?: ComparacionDepto }) {
   return <Tag color="red">{c.diferencias.length} diferencia{c.diferencias.length > 1 ? 's' : ''}</Tag>;
 }
 
-function Detalle({ d, comparacion }: { d: LiquidacionDepto; comparacion?: ComparacionDepto }) {
+// La cuenta de la liquidación renglón por renglón, con lo que compone cada uno y dónde se corrige.
+// Las acciones solo con el mes abierto (`editar`); un mes cerrado está congelado.
+interface Edicion {
+  ajustar: (r: ReservaAjustable) => void;
+  movimiento: (m?: Movimiento) => void;
+  variables: () => void;
+}
+interface Renglon { key: string; concepto: string; importe: ReactNode; detalle?: ReactNode; total?: boolean }
+
+function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto; comparacion?: ComparacionDepto; movimientos: Movimiento[]; editar?: Edicion }) {
   const r = d.resultado;
+  const c = d.cuenta;
+  const pct = `${(d.comisionPct * 100).toLocaleString('es-AR', { maximumFractionDigits: 2 })}%`;
+  const saldo = d.moneda === 'USD' ? r.saldo.usd : r.saldo.ars;
+  const enlace = (texto: string, fn?: () => void) => (fn ? <Typography.Link onClick={fn}>{texto}</Typography.Link> : texto);
+  const renglones: Renglon[] = [
+    { key: 'ing', concepto: 'Ingresos operativos', importe: pesos(c.ingresosOperativos),
+      detalle: <>Lo cobrado de las reservas del período{r.ingresos.usd ? ` (${pesos(r.ingresos.ars)} + ${pesos(r.ingresos.usd, 'USD')})` : ''}. Se corrige en cada reserva: Ajustar.</> },
+    { key: 'cos', concepto: '− Costos', importe: pesos(c.costos),
+      detalle: <>Costos operativos {pesos(-r.costosOperativos)} (tarifas: {enlace('Variables del mes', editar?.variables)}) y comisiones OTA/CM {ars(-d.comisiones.ars)} {usd(-d.comisiones.usd)} (en cada reserva: Ajustar).</> },
+    { key: 'bru', concepto: '= Ingreso bruto', importe: pesos(c.ingresoBruto), total: true },
+    { key: 'hon', concepto: `− Honorarios (${pct})`, importe: pesos(c.honorarios), detalle: 'Comisión del depto: Deptos → Variables.' },
+    { key: 'ini', concepto: '= Valor liquidación inicial', importe: pesos(c.valorInicial), total: true },
+    { key: 'exc', concepto: '− Costos excepcionales', importe: pesos(c.excepcionales),
+      detalle: <>Gastos del depto y adelantos al propietario del mes ({movimientos.length}, abajo){editar && <> · {enlace('Agregar', () => editar.movimiento())}</>}.</> },
+    { key: 'fin', concepto: '= Valor liquidación final', importe: pesos(c.valorFinal), total: true },
+    { key: 'ant', concepto: 'Saldo mes anterior', importe: <>{ars(d.saldoAnterior.ars)} {usd(d.saldoAnterior.usd)}</> },
+    // La cuenta ya está en pesos: solo el que liquida en dólares tiene un paso más.
+    ...(d.moneda === 'USD' ? [{ key: 'conv', concepto: 'Pasado a dólares', importe: '',
+      detalle: 'Liquida en dólares: los pesos pasan a USD con el cambio menos la comisión de cobro.' }] : []),
+    { key: 'sal', concepto: 'Saldo a liquidar', importe: <Typography.Text type={saldo < 0 ? 'danger' : undefined}>{pesos(saldo, d.moneda)}</Typography.Text>, total: true },
+  ];
   return (
     <Space orientation="vertical" style={{ width: '100%' }}>
       {comparacion?.estado === 'distinto' && (
@@ -34,21 +66,43 @@ function Detalle({ d, comparacion }: { d: LiquidacionDepto; comparacion?: Compar
             <li key={i}>{x.campo}{x.unidad === 'noches' ? '' : ` ${x.unidad}`}: app {x.unidad === 'noches' ? x.app : pesos(x.app, x.unidad)} · Excel {x.unidad === 'noches' ? x.excel : pesos(x.excel, x.unidad)}</li>
           ))}</ul>} />
       )}
-      <Descriptions size="small" bordered column={3} items={[
-        { label: 'Saldo anterior', children: <>{ars(d.saldoAnterior.ars)} {usd(d.saldoAnterior.usd)}</> },
-        { label: 'Costos operativos', children: pesos(-r.costosOperativos) },
-        { label: 'Comisiones', children: <>{ars(-d.comisiones.ars)} {usd(-d.comisiones.usd)}</> },
-        { label: 'Gastos directos', children: pesos(r.gastosDirectos) },
-        { label: 'Saldo parcial', children: pesos(r.saldoParcial) },
-        { label: 'Cambio de moneda', children: <>{ars(r.conversion.ars)} {usd(r.conversion.usd)}</> },
-      ]} />
-      <Table size="small" pagination={false} rowKey="codigoInterno" dataSource={r.reservas} columns={[
+      <Typography.Text strong>Cuenta de la liquidación</Typography.Text>
+      <Table<Renglon> size="small" pagination={false} showHeader={false} rowKey="key" dataSource={renglones}
+        columns={[
+          { dataIndex: 'concepto', width: 240, render: (v: string, x) => (x.total ? <b>{v}</b> : v) },
+          { dataIndex: 'importe', width: 170, ...derecha, render: (v: ReactNode, x) => (x.total ? <b>{v}</b> : v) },
+          { dataIndex: 'detalle', render: (v?: ReactNode) => <Typography.Text type="secondary">{v}</Typography.Text> },
+        ]} />
+      <Typography.Text strong>Reservas · ingresos y costos</Typography.Text>
+      <Table size="small" pagination={false} rowKey="codigoInterno" dataSource={r.reservas.map((l, i) => ({ ...l, reserva: d.reservas[i] }))} columns={[
         { title: 'Reserva', dataIndex: 'codigoInterno', render: (v: string) => <Typography.Text code>{v}</Typography.Text> },
         { title: 'Noches (período / total)', key: 'n', render: (_: unknown, l) => `${l.nochesPeriodo} / ${l.nochesTotales}` },
         { title: 'Cobrado ARS', dataIndex: 'importePeriodoArs', ...derecha, render: ars },
         { title: 'Cobrado USD', dataIndex: 'importePeriodoUsd', ...derecha, render: usd },
         { title: 'Tarifa', dataIndex: 'tarifaPeriodo', ...derecha, render: ars },
+        { title: 'Comisión', key: 'com', ...derecha, render: (_: unknown, l) => <>{ars(l.reserva.comision.ars)} {usd(l.reserva.comision.usd)}</> },
+        ...(editar ? [{
+          title: '', key: 'aj', width: 80,
+          render: (_: unknown, l: { reserva: LiquidacionDepto['reservas'][number] }) => (
+            <Button size="small" onClick={() => editar.ajustar({ ...l.reserva, depto: d.codigo, excluida: 0 })}>Ajustar</Button>
+          ),
+        }] : []),
       ]} />
+      <Space>
+        <Typography.Text strong>Costos excepcionales</Typography.Text>
+        {editar && <Button size="small" onClick={() => editar.movimiento()}>Agregar</Button>}
+      </Space>
+      {movimientos.length > 0 && (
+        <Table<Movimiento> size="small" pagination={false} rowKey="id" dataSource={movimientos} columns={[
+          { title: 'Fecha', dataIndex: 'fecha', width: 110 },
+          { title: 'Tipo', dataIndex: 'tipo', render: (v: string) => TIPOS[v] ?? v },
+          { title: 'Concepto', dataIndex: 'concepto' },
+          { title: 'Detalle', dataIndex: 'detalle', ellipsis: true },
+          { title: 'ARS', dataIndex: 'importe_ars', ...derecha, render: ars },
+          { title: 'USD', dataIndex: 'importe_usd', ...derecha, render: usd },
+          ...(editar ? [{ title: '', key: 'ed', width: 80, render: (_: unknown, m: Movimiento) => <Button size="small" onClick={() => editar.movimiento(m)}>Editar</Button> }] : []),
+        ]} />
+      )}
     </Space>
   );
 }
@@ -64,18 +118,30 @@ export function Liquidacion() {
   const [texto, setTexto] = useState('');
   const [abiertos, setAbiertos] = useState<number[]>([]); // deptos desplegados: se resaltan
   const [variables, setVariables] = useState(false);
+  const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
+  const [cuentas, setCuentas] = useState<Cuenta[]>([]);
+  const [conceptos, setConceptos] = useState<string[]>([]);
+  const [ajustando, setAjustando] = useState<ReservaAjustable>();
+  const [movimiento, setMovimiento] = useState<{ depto: string; editando?: Movimiento }>();
 
   const cargarPeriodos = () => get<Periodo[]>('periodos').then((ps) => {
     setPeriodos(ps);
     setMes((m) => m ?? (ps.find((p) => p.estado === 'abierto') ?? ps[0])?.mes);
     if (!ps.length) setError('No hay meses cargados: importá el Excel de un mes (Herramientas) o traelo de Stays.');
   });
-  useEffect(() => { cargarPeriodos().catch((e) => setError(String(e))); }, []);
+  useEffect(() => {
+    cargarPeriodos().catch((e) => setError(String(e)));
+    get<Cuenta[]>('cuentas').then(setCuentas, () => {});
+    get<{ nombre: string }[]>('conceptos').then((cs) => setConceptos(cs.map((c) => c.nombre)), () => {});
+  }, []);
 
   const calcular = (m: string) => {
     setError(undefined);
     setComparacion(undefined); // una comparación vieja no vale para el cálculo nuevo
     get<LiquidacionPeriodo>(`liquidacion?mes=${m}`).then((d) => { setDatos(d); setCotizacion(d.cotizacion); }, (e) => setError(String(e)));
+    // Los costos excepcionales del detalle: movimientos vigentes de cada depto, sin saldo inicial ni pagos.
+    get<Movimiento[]>(`movimientos?mes=${m}`).then((ms) => setMovimientos(ms.filter((x) =>
+      x.estado === 'vigente' && x.depto && x.tipo !== 'saldo_inicial' && x.tipo !== 'liquidacion')), (e) => setError(String(e)));
   };
   useEffect(() => { if (mes) calcular(mes); }, [mes]);
 
@@ -214,6 +280,10 @@ export function Liquidacion() {
       </Card>
 
       {mes && <VariablesMes mes={mes} abierto={variables} alCerrar={(guardado) => { setVariables(false); if (guardado) calcular(mes); }} />}
+      <AjustesReserva reserva={ajustando} alCerrar={(guardado) => { setAjustando(undefined); if (guardado && mes) calcular(mes); }} />
+      {mes && <FormMovimiento abierto={!!movimiento} mes={mes} editando={movimiento?.editando} depto={movimiento?.depto}
+        deptos={(datos?.deptos ?? []).map((d) => d.codigo)} cuentas={cuentas} conceptos={conceptos}
+        alCerrar={(guardado) => { setMovimiento(undefined); if (guardado) calcular(mes); }} />}
       {error && <Alert type="error" showIcon title={error} />}
       {aviso && <Alert type="success" showIcon closable title={aviso} onClose={() => setAviso(undefined)} />}
       {datos?.avisos.length ? <Alert type="warning" showIcon title="Avisos" description={<ul style={{ margin: 0, paddingLeft: 20 }}>{datos.avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>} /> : null}
@@ -238,7 +308,11 @@ export function Liquidacion() {
         rowClassName={(d) => (abiertos.includes(d.deptoId) ? 'fila-abierta' : '')}
         expandable={{
           expandedRowKeys: abiertos, onExpandedRowsChange: (k) => setAbiertos(k as number[]), expandedRowClassName: () => 'detalle-abierto',
-          expandedRowRender: (d) => <Detalle d={d} comparacion={comparacion?.get(d.codigo)} />,
+          expandedRowRender: (d) => <Detalle d={d} comparacion={comparacion?.get(d.codigo)} movimientos={movimientos.filter((m) => m.depto === d.codigo)}
+            editar={periodo?.estado === 'abierto' ? {
+              ajustar: setAjustando, variables: () => setVariables(true),
+              movimiento: (m) => setMovimiento({ depto: d.codigo, editando: m }),
+            } : undefined} />,
         }} />
     </Space>
   );
