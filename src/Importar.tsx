@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Descriptions, Typography, Upload } from 'antd';
+import { Alert, Descriptions, Divider, Typography, Upload } from 'antd';
 import { subirArchivo } from './api.ts';
 
 interface Reporte {
@@ -59,6 +59,70 @@ export function Importar() {
             { label: 'Liquidaciones', children: reporte.liquidaciones },
             { label: 'Histórico (depto × mes)', children: reporte.historico },
           ]} />
+          {reporte.avisos.length > 0 && (
+            <Alert style={{ marginTop: 16 }} type="warning" showIcon title={`Avisos (${reporte.avisos.length})`}
+              description={<ul style={{ margin: 0, paddingLeft: 20 }}>{reporte.avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>} />
+          )}
+        </>
+      )}
+
+      <Divider />
+      <GastosVarios />
+    </>
+  );
+}
+
+interface ReporteGastos {
+  importados: number; repetidos: number; anteriores: number; casa: number;
+  codigosDesconocidos: Record<string, number>; avisos: string[];
+}
+
+// Excel de gastos varios ("Comprobantes Hornera"): plans/037-importar-gastos-varios.md.
+function GastosVarios() {
+  const [cargando, setCargando] = useState(false);
+  const [reporte, setReporte] = useState<ReporteGastos>();
+  const [error, setError] = useState<string>();
+
+  const importar = async (archivo: File) => {
+    setCargando(true);
+    setError(undefined);
+    setReporte(undefined);
+    try {
+      setReporte(await subirArchivo<ReporteGastos>('importar/gastos', archivo));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setCargando(false);
+    }
+  };
+  const desconocidos = Object.entries(reporte?.codigosDesconocidos ?? {});
+
+  return (
+    <>
+      <Typography.Title level={5}>Gastos varios</Typography.Title>
+      <Typography.Paragraph type="secondary">
+        El Excel de comprobantes de gastos. Entran los del mes abierto como movimientos: con depto se le descuentan
+        al propietario; INT y los códigos que no son deptos, a Hornera; CASA no se importa. Se puede volver a importar:
+        lo que ya está no se duplica.
+      </Typography.Paragraph>
+      <Upload.Dragger accept=".xlsx" showUploadList={false} disabled={cargando}
+        beforeUpload={(archivo) => { importar(archivo); return false; }}>
+        <p style={{ fontSize: 16, margin: '8px 0' }}>{cargando ? 'Importando…' : 'Soltá el Excel de gastos o hacé clic para elegirlo'}</p>
+      </Upload.Dragger>
+
+      {error && <Alert style={{ marginTop: 16 }} type="error" showIcon title={error} />}
+      {reporte && (
+        <>
+          <Alert style={{ marginTop: 16 }} type="success" showIcon title={`${reporte.importados} gastos importados`} />
+          <Descriptions style={{ marginTop: 16 }} size="small" bordered column={2} items={[
+            { label: 'Ya estaban', children: reporte.repetidos },
+            { label: 'De meses anteriores (salteados)', children: reporte.anteriores },
+            { label: 'CASA (salteados)', children: reporte.casa },
+          ]} />
+          {desconocidos.length > 0 && (
+            <Alert style={{ marginTop: 16 }} type="info" showIcon title="Códigos que no son deptos (cargados a Hornera, con el código en el detalle)"
+              description={desconocidos.map(([c, n]) => `${c}: ${n}`).join(' · ')} />
+          )}
           {reporte.avisos.length > 0 && (
             <Alert style={{ marginTop: 16 }} type="warning" showIcon title={`Avisos (${reporte.avisos.length})`}
               description={<ul style={{ margin: 0, paddingLeft: 20 }}>{reporte.avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>} />

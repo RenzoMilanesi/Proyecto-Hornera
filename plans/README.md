@@ -41,9 +41,12 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 034 | [El ticket de acceso de ARCA no viaja en los backups](034-ticket-arca-fuera-de-backups.md) | P3 | S | 031 (etapa 3) | A TESTEAR |
 | 035 | [Pantalla "Comprobantes": facturas y NC emitidas, mes a mes](035-pantalla-comprobantes.md) | P2 | M | 031 (etapas 1-7) | A TESTEAR |
 | 036 | [Lo facturado en ARCA dentro de Hornera, para no facturar dos veces](036-mis-comprobantes-arca.md) | P2 | M | 031, 035 | A TESTEAR |
+| 037 | [Importar los gastos varios (Excel "Comprobantes Hornera")](037-importar-gastos-varios.md) | P2 | S | — | A TESTEAR |
+| 038 | [Reimportar los gastos varios no duplica lo editado a mano](038-gastos-reimportar-tras-editar.md) | P2 | S | 037 | A TESTEAR |
 
 Los planes 001 a 030 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 
+Plan 038: revisión `improve deep` del plan 037 (gastos varios), 2026-10-21. Descartado: una transacción por fila (reimportar completa sin duplicar); el corte de gastos del período no se aplica (nadie lo usa hoy); importar sin vista previa (cada gasto se anula desde Movimientos).
 Plan 035: feature pedida por el usuario, definida con `grill-me` el 2026-10-19 (hoy una NC emitida no se ve en ningún lado de la app). Implementado el 2026-10-20 (v0.25.0). Revisión `improve deep` del diff: sin plan nuevo; sumado en la misma tarea el test de la NC rechazada pendiente. Descartado: neto del mes que mezcla prueba y producción (solo con la app sin instalar); un rechazo con otro tipo de comprobante que el aprobado (cambio de condición IVA) sigue listado, como dice la definición del plan.
 Plan 031 etapa 7: revisión `improve deep` del diff (PDF de la factura), 2026-10-19: sin plan nuevo. Descartado: la alerta de `npm audit` de `node-forge` (GHSA-86w9-cpqp-85rv, verificación de firmas PKCS#1; Hornera solo firma el CMS y compara el módulo de la clave); decodificar el QR en los tests (lo arma `qrcode`, el test valida el SVG y `qrArca` ya tiene el suyo).
 Plan 031 etapa 6: revisión `improve deep` del diff (anulación y NC), 2026-10-19: sin plan nuevo; corregido en la misma etapa: la NC se podía pedir para la factura de un pago vigente (la fila quedaba "emitida"). Descartado: ofrecer la NC desde Movimientos (ahí solo se anula en el mes abierto).

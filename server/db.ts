@@ -129,6 +129,9 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
        CONSTRAINT uq_cbte_arca UNIQUE (emisor_id, cbte_tipo, punto_venta, numero)
    ) STRICT;
    CREATE INDEX ix_cbte_arca_movimiento ON comprobante_arca(movimiento_id);`,
+  // 11 → 12: fila de origen de los gastos varios importados, para no duplicarlos al reimportar (plan 038).
+  `ALTER TABLE movimiento ADD COLUMN origen TEXT;
+   CREATE UNIQUE INDEX uq_mov_origen ON movimiento(origen) WHERE origen IS NOT NULL;`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

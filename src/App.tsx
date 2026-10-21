@@ -28,7 +28,7 @@ const secciones = {
   cuentas: { grupo: 'Datos', titulo: 'Cuentas', ayuda: 'Cuentas de la empresa con su saldo y a qué cuenta entra cada medio de pago.', vista: <Cuentas /> },
   emisores: { grupo: 'Datos', titulo: 'Emisores', ayuda: 'Quién factura los honorarios en ARCA y su certificado.', vista: <Emisores /> },
   stays: { grupo: 'Herramientas', titulo: 'Stays', ayuda: 'Trae reservas y pagos del mes desde Stays.', vista: <Stays /> },
-  importar: { grupo: 'Herramientas', titulo: 'Importar Excel', ayuda: 'Carga un mes desde el Google Sheet de liquidaciones.', vista: <Importar /> },
+  importar: { grupo: 'Herramientas', titulo: 'Importar Excel', ayuda: 'Carga un mes desde el Google Sheet de liquidaciones, o los gastos varios del mes abierto.', vista: <Importar /> },
   terminales: { grupo: 'Herramientas', titulo: 'Terminales', ayuda: 'Otras PCs de la oficina conectadas a esta.', vista: <Terminales /> }, // solo en la PC servidor
 };
 type Seccion = keyof typeof secciones;

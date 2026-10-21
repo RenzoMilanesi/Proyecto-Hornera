@@ -19,6 +19,7 @@ export interface DatosMovimiento {
   importe_ars: number;         // centavos, con signo
   importe_usd: number;
   cuenta_id: number | null;    // null = no mueve plata de una cuenta
+  origen?: string | null;      // fila de un Excel importado (solo al crear; editar no lo cambia)
 }
 
 const ahora = () => new Date().toLocaleString('sv-SE').replace('T', ' ').slice(0, 19); // hora local
@@ -94,9 +95,9 @@ export function crearMovimiento(db: DatabaseSync, d: DatosMovimiento): number {
   return enTransaccion(db, () => {
     const v = validar(db, d);
     const id = Number(db.prepare(`
-      INSERT INTO movimiento(periodo_id, fecha, depto_id, tipo, concepto_id, detalle, importe_ars, importe_usd, cuenta_id, creado_en)
-      VALUES (:periodo_id, :fecha, :depto_id, :tipo, :concepto_id, :detalle, :importe_ars, :importe_usd, :cuenta_id, :creado_en)`)
-      .run({ ...v, creado_en: ahora() }).lastInsertRowid);
+      INSERT INTO movimiento(periodo_id, fecha, depto_id, tipo, concepto_id, detalle, importe_ars, importe_usd, cuenta_id, origen, creado_en)
+      VALUES (:periodo_id, :fecha, :depto_id, :tipo, :concepto_id, :detalle, :importe_ars, :importe_usd, :cuenta_id, :origen, :creado_en)`)
+      .run({ ...v, origen: d.origen ?? null, creado_en: ahora() }).lastInsertRowid);
     auditar(db, 'movimiento', id, 'alta', null, v);
     return id;
   });

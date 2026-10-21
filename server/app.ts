@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import { importarExcel } from './importador/excel.ts';
+import { importarGastos } from './importador/gastos.ts';
 import { crearClienteStays, URL_STAYS, type Credenciales } from './stays/cliente.ts';
 import { sincronizarMes } from './stays/sync.ts';
 import { SQL_EN_PERIODO } from './periodo.ts';
@@ -145,6 +146,14 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     } catch (e) {
       res.status(400).json({ error: mensaje(e) });
     }
+  });
+
+  app.post('/api/importar/gastos', express.raw({ type: 'application/octet-stream', limit: '50mb' }), (req, res) => {
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+      res.status(400).json({ error: 'Falta el archivo .xlsx' });
+      return;
+    }
+    intentar(res, () => importarGastos(db, req.body));
   });
 
   // ---- Stays. La clave nunca vuelve al cliente.
@@ -334,7 +343,8 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     }
   };
   app.get('/api/movimientos', (req, res) => { res.json(listarMovimientos(db, String(req.query.mes ?? ''))); });
-  app.post('/api/movimientos', (req, res) => intentar(res, () => ({ id: crearMovimiento(db, req.body ?? {}) })));
+  // El origen lo pone solo el importador de gastos.
+  app.post('/api/movimientos', (req, res) => intentar(res, () => ({ id: crearMovimiento(db, { ...req.body, origen: null }) })));
   app.put('/api/movimientos/:id', (req, res) => intentar(res, () => editarMovimiento(db, Number(req.params.id), req.body ?? {})));
   // Anular un pago facturado no toca la factura: se devuelve para que la UI ofrezca la nota de crédito (plan 031).
   app.post('/api/movimientos/:id/anular', (req, res) => intentar(res, () => {

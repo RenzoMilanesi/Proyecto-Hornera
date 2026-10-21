@@ -115,4 +115,8 @@ falla(arca('2026-10-32'), 'CHECK');
 run(arca('2026-10-16'));
 falla(arca('2026-10-16'), 'UNIQUE');
 
+// Gastos importados: una fila de origen, un movimiento
+run(mov('tipo, importe_ars, origen', "'gasto', -100, 'gastos:x'"));
+falla(mov('tipo, importe_ars, origen', "'gasto', -100, 'gastos:x'"), 'UNIQUE');
+
 console.log('schema OK');

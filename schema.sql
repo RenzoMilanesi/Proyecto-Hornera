@@ -302,6 +302,7 @@ CREATE TABLE movimiento (
     transferencia_grupo  INTEGER,
     estado               TEXT    NOT NULL DEFAULT 'vigente' CHECK (estado IN ('vigente','anulado')),
     creado_en            TEXT    NOT NULL,
+    origen               TEXT,                   -- fila de un Excel importado (gastos varios): no se vuelve a importar
     CONSTRAINT ck_mov_importe CHECK (importe_ars <> 0 OR importe_usd <> 0),
     CONSTRAINT fk_mov_periodo FOREIGN KEY (periodo_id) REFERENCES periodo(id) ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_mov_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -312,6 +313,7 @@ CREATE INDEX ix_mov_periodo ON movimiento(periodo_id);
 CREATE INDEX ix_mov_depto ON movimiento(depto_id);
 CREATE INDEX ix_mov_concepto ON movimiento(concepto_id);
 CREATE INDEX ix_mov_cuenta ON movimiento(cuenta_id);
+CREATE UNIQUE INDEX uq_mov_origen ON movimiento(origen) WHERE origen IS NOT NULL;
 
 -- Período cerrado = congelado. Única excepción: tipo 'liquidacion', porque el
 -- pago al propietario se hace después del cierre (fecha_pago) y se imputa al
