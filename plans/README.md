@@ -44,6 +44,8 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 037 | [Importar los gastos varios (Excel "Comprobantes Hornera")](037-importar-gastos-varios.md) | P2 | S | — | A TESTEAR |
 | 038 | [Reimportar los gastos varios no duplica lo editado a mano](038-gastos-reimportar-tras-editar.md) | P2 | S | 037 | A TESTEAR |
 | 039 | [El manual y la guía de prueba explican la cuenta de la liquidación](039-manual-cuenta-liquidacion.md) | P2 | S | — | TODO |
+| 040 | [La pantalla Liquidación de un mes cerrado muestra lo guardado al cerrar](040-liquidacion-cerrada-desde-snapshot.md) | P1 | M | — | TODO |
+| 041 | [La cuenta de la liquidación cierra al peso con el saldo](041-cuenta-cierra-al-peso.md) | P2 | S | 040 (mismo archivo) | TODO (decidir A/B con los dueños) |
 
 Los planes 001 a 030 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 
