@@ -43,11 +43,13 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
   const enlace = (texto: string, fn?: () => void) => (fn ? <Typography.Link onClick={fn}>{texto}</Typography.Link> : texto);
   const renglones: Renglon[] = [
     { key: 'ing', concepto: 'Ingresos operativos', importe: pesos(c.ingresosOperativos),
-      detalle: <>Lo cobrado de las reservas del período{r.ingresos.usd ? ` (${pesos(r.ingresos.ars)} + ${pesos(r.ingresos.usd, 'USD')})` : ''}. Se corrige en cada reserva: Ajustar.</> },
+      detalle: <>Lo cobrado de las reservas del período{r.ingresos.usd ? ` (${pesos(r.ingresos.ars)} + ${pesos(r.ingresos.usd, 'USD')})` : ''}.{editar && ' Se corrige en cada reserva: Ajustar.'}</> },
     { key: 'cos', concepto: '− Costos', importe: pesos(c.costos),
-      detalle: <>Costos operativos {pesos(-r.costosOperativos)} (tarifas: {enlace('Variables del mes', editar?.variables)}) y comisiones OTA/CM {ars(-d.comisiones.ars)} {usd(-d.comisiones.usd)} (en cada reserva: Ajustar).</> },
+      detalle: editar
+        ? <>Costos operativos {pesos(-r.costosOperativos)} (tarifas: {enlace('Variables del mes', editar.variables)}) y comisiones OTA/CM {ars(-d.comisiones.ars)} {usd(-d.comisiones.usd)} (en cada reserva: Ajustar).</>
+        : <>Costos operativos {pesos(-r.costosOperativos)} y comisiones OTA/CM {ars(-d.comisiones.ars)} {usd(-d.comisiones.usd)}.</> },
     { key: 'bru', concepto: '= Ingreso bruto', importe: pesos(c.ingresoBruto), total: true },
-    { key: 'hon', concepto: `− Honorarios (${pct})`, importe: pesos(c.honorarios), detalle: 'Comisión del depto: Deptos → Variables.' },
+    { key: 'hon', concepto: `− Honorarios (${pct})`, importe: pesos(c.honorarios), detalle: editar ? 'Comisión del depto: Deptos → Variables.' : undefined },
     { key: 'ini', concepto: '= Valor liquidación inicial', importe: pesos(c.valorInicial), total: true },
     { key: 'exc', concepto: '− Costos excepcionales', importe: pesos(c.excepcionales),
       detalle: <>Gastos del depto y adelantos al propietario del mes ({movimientos.length}, abajo){editar && <> · {enlace('Agregar', () => editar.movimiento())}</>}.</> },

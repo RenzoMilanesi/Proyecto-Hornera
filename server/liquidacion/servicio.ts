@@ -3,7 +3,7 @@
 // No guarda nada: con el período abierto se recalcula cada vez (al cerrar se guardará
 // el snapshot en `liquidacion`).
 import type { DatabaseSync } from 'node:sqlite';
-import { cambioDelPeriodo, cuentaLiquidacion, liquidar, type CuentaLiquidacion, type Importe, type ResultadoLiquidacion } from './motor.ts';
+import { cambioDelPeriodo, cuentaLiquidacion, liquidar, truncPesos, type CuentaLiquidacion, type Importe, type ResultadoLiquidacion } from './motor.ts';
 import { SQL_EN_PERIODO } from '../periodo.ts';
 
 export interface LiquidacionDepto {
@@ -149,4 +149,58 @@ export function liquidarPeriodo(db: DatabaseSync, mes: string): LiquidacionPerio
     });
   }
   return { ...base, cambio, avisos, deptos: resultado };
+}
+
+/**
+ * La liquidación de un mes cerrado tal como se guardó al cerrar (o al importar el Excel): lo que se ve en
+ * Liquidación, igual que el PDF y Transferencias. `liquidarPeriodo` recalcula con los datos de hoy, que para
+ * un mes cerrado pueden ser otros (comisión o moneda cambiadas, mes importado sin reservas en la base);
+ * esa recalculación la sigue usando "Comparar con el Excel".
+ */
+export function liquidacionGuardada(db: DatabaseSync, mes: string): LiquidacionPeriodo {
+  const p = db.prepare('SELECT * FROM periodo WHERE mes = ?').get(mes) as any;
+  if (!p) throw new Error(`No existe el período ${mes}.`);
+  if (p.estado !== 'cerrado') throw new Error(`El período ${mes} no está cerrado.`);
+  const filas = db.prepare(`
+    SELECT l.*, d.codigo, d.nombre, pr.nombre AS propietario
+    FROM liquidacion l JOIN depto d ON d.id = l.depto_id
+    JOIN propietario pr ON pr.id = COALESCE(l.propietario_id, d.propietario_id)
+    WHERE l.periodo_id = ? ORDER BY d.codigo`).all(p.id) as any[];
+  const reservasDe = db.prepare(`
+    SELECT r.id, r.codigo, r.llegada, r.huespedes, r.ajuste_ars, r.ajuste_usd, r.ajuste_comision_ars, r.ajuste_comision_usd,
+           r.observacion, lr.*
+    FROM liquidacion_reserva lr JOIN reserva r ON r.id = lr.reserva_id
+    WHERE lr.liquidacion_id = ? ORDER BY r.llegada, r.codigo`);
+  const cambio: number | null = filas[0]?.cambio ?? (p.usd_cotizacion == null ? null : cambioDelPeriodo(p.usd_cotizacion, p.usd_descuento_pct));
+
+  const deptos = filas.map((l): LiquidacionDepto => {
+    const reservas = reservasDe.all(l.id) as any[];
+    const comisiones = { ars: l.comisiones_ars, usd: l.comisiones_usd };
+    const movimientos = { ars: l.movimientos_ars, usd: l.movimientos_usd };
+    const gastosDirectos = truncPesos(-l.costos_operativos - comisiones.ars - comisiones.usd * l.cambio); // [F19], no se guarda
+    const resultado: ResultadoLiquidacion = {
+      reservas: reservas.map((x) => ({
+        codigoInterno: x.codigo_interno, nochesTotales: x.noches_totales, nochesPeriodo: x.noches_periodo,
+        importeArs: x.importe_ars, importePeriodoArs: x.importe_periodo_ars, importeUsd: x.importe_usd, importePeriodoUsd: x.importe_periodo_usd,
+        tarifa: x.tarifa, tarifaPeriodo: x.tarifa_periodo, pagoPlataformaUsd: x.pago_plataforma_usd,
+      })),
+      ingresos: { ars: l.ingresos_ars, usd: l.ingresos_usd }, costosOperativos: l.costos_operativos,
+      bruto: l.bruto, gastosDirectos, honorarios: l.honorarios, saldoParcial: l.bruto + gastosDirectos + l.honorarios,
+      conversion: { ars: l.conversion_ars, usd: l.conversion_usd }, saldo: { ars: l.saldo_final_ars, usd: l.saldo_final_usd },
+      nochesDisponibles: l.noches_disponibles, nochesOcupadas: l.noches_ocupadas, nochesPropietario: l.noches_propietario,
+      ocupacion: l.noches_disponibles === 0 ? 0 : l.noches_ocupadas / l.noches_disponibles,
+    };
+    return {
+      deptoId: l.depto_id, codigo: l.codigo, nombre: l.nombre, propietario: l.propietario, moneda: l.moneda,
+      comisionPct: l.comision_pct, nochesNoDisponibles: l.noches_no_disponibles,
+      saldoAnterior: { ars: l.saldo_anterior_ars, usd: l.saldo_anterior_usd }, movimientos, comisiones,
+      reservas: reservas.map((x) => ({
+        id: x.id, codigo: x.codigo, llegada: x.llegada, huespedes: x.huespedes, comision: { ars: x.comision_ars, usd: x.comision_usd },
+        ajuste_ars: x.ajuste_ars, ajuste_usd: x.ajuste_usd, ajuste_comision_ars: x.ajuste_comision_ars, ajuste_comision_usd: x.ajuste_comision_usd,
+        observacion: x.observacion,
+      })),
+      resultado, cuenta: cuentaLiquidacion(l.bruto, gastosDirectos, l.honorarios, movimientos, l.cambio),
+    };
+  });
+  return { mes, estado: p.estado, cotizacion: p.usd_cotizacion, cambio, avisos: [], deptos };
 }

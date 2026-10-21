@@ -6,7 +6,7 @@ import { abrirDb } from '../db.ts';
 import { crearMovimiento, anularMovimiento } from '../movimientos.ts';
 import { cerrarPeriodo, reabrirPeriodo } from './cierre.ts';
 import { excelTransferencias, listarTransferencias, pagarLiquidacion } from './pagos.ts';
-import { liquidarPeriodo } from './servicio.ts';
+import { liquidacionGuardada, liquidarPeriodo } from './servicio.ts';
 import { hojaDepto } from './hoja.ts';
 
 // Abril cerrado (sin liquidaciones) y mayo abierto con una reserva de AAA cobrada por MP.
@@ -153,4 +153,22 @@ test('la moneda de un mes cerrado es la del cierre, aunque después el dueño pa
   const despues = listarTransferencias(db, '2026-05')[0];
   assert.deepEqual([despues.moneda, despues.saldo, despues.pendiente], ['ARS', antes.saldo, antes.saldo]);
   assert.equal(hojaDepto(db, '2026-05', 'AAA').propietario.moneda, 'ARS');
+});
+
+test('la pantalla de un mes cerrado muestra lo guardado: igual que al cerrar, aunque después cambien la comisión o la moneda', () => {
+  const db = base();
+  const redondear = (x: unknown) => JSON.parse(JSON.stringify(x, (_k, v) => (typeof v === 'number' ? Math.round(v) : v)));
+  const abierta = liquidarPeriodo(db, '2026-05');
+  cerrarPeriodo(db, '2026-05');
+  const guardada = liquidacionGuardada(db, '2026-05');
+  assert.equal(guardada.estado, 'cerrado');
+  assert.equal(guardada.cambio, abierta.cambio);
+  assert.deepEqual(redondear(guardada.deptos), redondear(abierta.deptos));
+
+  db.exec(`UPDATE depto SET comision_pct = 0.5; UPDATE propietario SET moneda_liquidacion = 'USD'`);
+  assert.deepEqual(liquidacionGuardada(db, '2026-05').deptos, guardada.deptos);
+  assert.notDeepEqual(redondear(liquidarPeriodo(db, '2026-05').deptos), redondear(guardada.deptos)); // "Comparar con el Excel" sigue recalculando
+  // La cuenta de la pantalla es la del PDF.
+  assert.deepEqual(guardada.deptos[0].cuenta, hojaDepto(db, '2026-05', 'AAA').resumen);
+  assert.throws(() => liquidacionGuardada(db, '2026-06'), /No existe el período/);
 });

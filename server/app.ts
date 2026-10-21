@@ -8,7 +8,7 @@ import { importarGastos } from './importador/gastos.ts';
 import { crearClienteStays, URL_STAYS, type Credenciales } from './stays/cliente.ts';
 import { sincronizarMes } from './stays/sync.ts';
 import { SQL_EN_PERIODO } from './periodo.ts';
-import { liquidarPeriodo } from './liquidacion/servicio.ts';
+import { liquidacionGuardada, liquidarPeriodo } from './liquidacion/servicio.ts';
 import { compararConExcel } from './liquidacion/comparar.ts';
 import { auditar } from './auditoria.ts';
 import { actualizarCotizacion, type Fetch } from './cotizacion.ts';
@@ -313,7 +313,10 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
 
   app.get('/api/liquidacion', (req, res) => {
     try {
-      res.json(liquidarPeriodo(db, String(req.query.mes ?? '')));
+      // Un mes cerrado se muestra como se guardó al cerrar, no recalculado con los datos de hoy.
+      const mes = String(req.query.mes ?? '');
+      const cerrado = (db.prepare('SELECT estado FROM periodo WHERE mes = ?').get(mes) as { estado: string } | undefined)?.estado === 'cerrado';
+      res.json(cerrado ? liquidacionGuardada(db, mes) : liquidarPeriodo(db, mes));
     } catch (e) {
       res.status(400).json({ error: mensaje(e) });
     }
