@@ -158,3 +158,28 @@ test('borrar: sin comprobantes se borra; con comprobantes no (se desactiva)', as
     assert.match((await llamar(base, 'DELETE', `emisores/${id}`)).body.error, /No existe/);
   });
 });
+
+test('volver a cargar el mismo certificado conserva el ticket; si ARCA dice que ya dio uno, el mensaje lo explica', async () => {
+  const db = abrirDb(':memory:');
+  const claves = almacen();
+  const ok = arcaFalso();
+  const cert = certificado(EMISOR.cuit);
+  await conApi(db, async (base) => {
+    const { body: { id } } = await llamar(base, 'POST', 'emisores', EMISOR);
+    await llamar(base, 'POST', `emisores/${id}/certificado`, cert);
+    await llamar(base, 'POST', `emisores/${id}/probar`);
+    await llamar(base, 'POST', `emisores/${id}/certificado`, cert);  // el mismo: el ticket sigue
+    await llamar(base, 'POST', `emisores/${id}/probar`);
+    assert.equal(ok.llamadas.login, 1);
+    await llamar(base, 'POST', `emisores/${id}/certificado`, certificado(EMISOR.cuit));  // otro: se pide uno nuevo
+    await llamar(base, 'POST', `emisores/${id}/probar`);
+    assert.equal(ok.llamadas.login, 2);
+  }, { claves, fetchArca: ok.fetchArca });
+
+  db.exec(`DELETE FROM configuracion WHERE clave LIKE 'arca.ta.%'`);
+  const yaTiene = (async () => new Response('<r><faultstring>El CEE ya posee un TA valido para el acceso al WSN solicitado</faultstring></r>')) as unknown as Fetch;
+  await conApi(db, async (base) => {
+    const r = await llamar(base, 'POST', 'emisores/1/probar');
+    assert.match(r.body.error, /no da otro hasta que venza/);
+  }, { claves, fetchArca: yaTiene });
+});

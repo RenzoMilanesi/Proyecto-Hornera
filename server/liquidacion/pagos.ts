@@ -39,7 +39,7 @@ export interface FacturaDePago {
 export function listarTransferencias(db: DatabaseSync, mes: string): Transferencia[] {
   const filas = db.prepare(`
     SELECT l.id, l.periodo_id, l.depto_id, d.codigo, d.nombre AS depto, pr.id AS propietario_id, pr.nombre AS propietario, pr.cbu, pr.es_hornera,
-           pr.moneda_liquidacion AS moneda, l.saldo_final_ars, l.saldo_final_usd
+           l.moneda, l.saldo_final_ars, l.saldo_final_usd
     FROM liquidacion l JOIN periodo p ON p.id = l.periodo_id JOIN depto d ON d.id = l.depto_id
     JOIN propietario pr ON pr.id = COALESCE(l.propietario_id, d.propietario_id) -- el dueño de ese mes
     WHERE p.mes = ? ORDER BY d.codigo`).all(mes) as any[];

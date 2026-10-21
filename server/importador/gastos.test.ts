@@ -67,3 +67,13 @@ test('rechaza un Excel que no es el de gastos', () => {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Otra', 'Cosa'], [1, 2]]));
   assert.throws(() => importarGastos(base(), XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })), /No es el Excel de gastos/);
 });
+
+test('corregir el depto o el monto en el Excel no lo duplica; los avisos dicen el renglón real', () => {
+  const db = base();
+  importarGastos(db, excel([[d('2026-10-04'), '10:00', 'Uno', 'ZZZ', 'súper', 2000, 'M1', '']]));
+  const corregido = excel([[], [d('2026-10-04'), '10:00', 'Uno', 'AAA', 'súper', 2100, 'M1', ''], ['x', '', '', 'AAA', 'luz', 5, 'M2', '']]);
+  const r = importarGastos(db, corregido);
+  assert.deepEqual([r.importados, r.repetidos], [0, 1]);
+  assert.deepEqual(r.avisos, ['Fila 4: fecha inválida, no se importa.']);
+
+});

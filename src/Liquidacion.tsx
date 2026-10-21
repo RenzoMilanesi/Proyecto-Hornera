@@ -68,6 +68,7 @@ export function Liquidacion() {
   const cargarPeriodos = () => get<Periodo[]>('periodos').then((ps) => {
     setPeriodos(ps);
     setMes((m) => m ?? (ps.find((p) => p.estado === 'abierto') ?? ps[0])?.mes);
+    if (!ps.length) setError('No hay meses cargados: importá el Excel de un mes (Herramientas) o traelo de Stays.');
   });
   useEffect(() => { cargarPeriodos().catch((e) => setError(String(e))); }, []);
 
@@ -169,7 +170,7 @@ export function Liquidacion() {
           {periodo && <Tag color={periodo.estado === 'abierto' ? 'blue' : 'green'}>{periodo.estado === 'abierto' ? 'abierto: los números todavía cambian' : 'cerrado'}</Tag>}
           <Space>
             <span>Dólar cripto al cierre</span>
-            <InputNumber min={1} value={cotizacion} onChange={setCotizacion} disabled={periodo?.estado !== 'abierto'} style={{ width: 120 }} />
+            <InputNumber min={1} decimalSeparator="," value={cotizacion} onChange={setCotizacion} disabled={periodo?.estado !== 'abierto'} style={{ width: 120 }} />
             {periodo?.estado === 'abierto' && <Button onClick={guardarCotizacion} disabled={!cotizacion || cotizacion === datos?.cotizacion}>Guardar</Button>}
             {periodo?.usd_cotizacion_fuente === 'manual' && <Tag>manual</Tag>}
             {periodo?.usd_cotizacion_fuente === 'api' && periodo.usd_cotizacion_fecha && (

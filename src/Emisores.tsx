@@ -1,7 +1,7 @@
 // Quién factura los honorarios en ARCA (Lautaro, Amancay) y su certificado (plan 031).
 import { useEffect, useState } from 'react';
 import { Alert, Button, Col, Form, Input, InputNumber, Modal, Popconfirm, Radio, Row, Select, Space, Switch, Table, Tag, Typography, Upload } from 'antd';
-import { enviar, get } from './api.ts';
+import { enviar, get, useUnaVez } from './api.ts';
 
 interface Emisor {
   id: number; nombre: string; razon_social: string; cuit: string; condicion_iva: string; punto_venta: number;
@@ -53,8 +53,9 @@ function FormEmisor({ e, abierto, alCerrar }: { e?: Emisor; abierto: boolean; al
       setError(err instanceof Error ? err.message : String(err));
     }
   };
+  const [guardarUnaVez, guardando] = useUnaVez(guardar);
   return (
-    <Modal open={abierto} title={e ? `Datos de ${e.nombre}` : 'Nuevo emisor'} okText="Guardar" cancelText="Cancelar" onOk={guardar} width={560}
+    <Modal open={abierto} title={e ? `Datos de ${e.nombre}` : 'Nuevo emisor'} okText="Guardar" cancelText="Cancelar" onOk={guardarUnaVez} confirmLoading={guardando} width={560}
       onCancel={() => alCerrar(false)} destroyOnHidden>
       {e && (
         <dl className="ficha">
@@ -127,8 +128,9 @@ function FormCertificado({ e, alCerrar }: { e?: Emisor; alCerrar: (guardado: boo
       setError(err instanceof Error ? err.message : String(err));
     }
   };
+  const [guardarUnaVez, guardando] = useUnaVez(guardar);
   return (
-    <Modal open={!!e} title={e && `Certificado de ARCA de ${e.nombre}`} okText="Guardar" cancelText="Cancelar" onOk={guardar} width={560}
+    <Modal open={!!e} title={e && `Certificado de ARCA de ${e.nombre}`} okText="Guardar" cancelText="Cancelar" onOk={guardarUnaVez} confirmLoading={guardando} width={560}
       okButtonProps={{ disabled: !archivos.crt || !archivos.key }} onCancel={() => alCerrar(false)} destroyOnHidden>
       {e && (
         <dl className="ficha">

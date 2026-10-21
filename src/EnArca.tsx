@@ -37,7 +37,8 @@ function FormImportar({ abierto, alCerrar }: { abierto: boolean; alCerrar: (camb
     setError(undefined);
     // Texto aparte del JSON: un año de comprobantes pasa su límite.
     const r = await fetch(`/api/emisores/${v.emisor_id}/mis-comprobantes?nombre=${encodeURIComponent(archivo.name)}`,
-      { method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: await archivo.text() });
+      { method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: await archivo.text() }).catch(() => null);
+    if (!r) return setError('No se pudo conectar con Hornera: revisá la conexión y probá de nuevo.');
     const cuerpo = await r.json().catch(() => null);
     if (!r.ok) return setError(cuerpo?.error ?? `${r.status} ${r.statusText}`);
     setHecho(`${cuerpo.leidos} comprobantes leídos, ${cuerpo.nuevos} nuevos.`);

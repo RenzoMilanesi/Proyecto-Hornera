@@ -132,6 +132,25 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
   // 11 → 12: fila de origen de los gastos varios importados, para no duplicarlos al reimportar (plan 038).
   `ALTER TABLE movimiento ADD COLUMN origen TEXT;
    CREATE UNIQUE INDEX uq_mov_origen ON movimiento(origen) WHERE origen IS NOT NULL;`,
+  // 12 → 13: la moneda de la liquidación queda en el snapshot; antes se leía la del dueño de hoy.
+  // Las que ya están: la moneda en la que quedó el saldo (la otra queda en 0 al convertir); si las dos dan 0, la del dueño.
+  `ALTER TABLE liquidacion ADD COLUMN moneda TEXT NOT NULL DEFAULT 'ARS' CHECK (moneda IN ('ARS','USD'));
+   UPDATE liquidacion SET moneda = CASE
+     WHEN saldo_final_ars = 0 AND saldo_final_usd <> 0 THEN 'USD'
+     WHEN saldo_final_usd = 0 AND saldo_final_ars <> 0 THEN 'ARS'
+     ELSE COALESCE((SELECT pr.moneda_liquidacion FROM propietario pr
+       WHERE pr.id = COALESCE(liquidacion.propietario_id, (SELECT d.propietario_id FROM depto d WHERE d.id = liquidacion.depto_id))), 'ARS') END;`,
+  // 13 → 14: si la cotización de la API es provisoria se guarda aparte. Antes salía de la fecha, y una tomada el mismo
+  // día del cierre (o después, si faltaba el histórico) pasaba por definitiva.
+  `ALTER TABLE periodo ADD COLUMN usd_cotizacion_provisoria INTEGER NOT NULL DEFAULT 0 CHECK (usd_cotizacion_provisoria IN (0,1));
+   UPDATE periodo SET usd_cotizacion_provisoria = 1
+     WHERE usd_cotizacion_fuente = 'api' AND usd_cotizacion_fecha IS NOT date(fecha_cierre_reservas, '-1 day');`,
+  // 14 → 15: la identidad de un gasto importado deja afuera el depto y el monto (corregirlos en el Excel lo duplicaba):
+  // "gastos:<mensaje>:<código>:<monto>:<n>" pasa a "gastos:<mensaje>:<n.º dentro del mensaje>" (en el orden en que entraron).
+  `UPDATE movimiento SET origen = n.nuevo FROM (
+     SELECT id, 'gastos:' || msg || ':' || row_number() OVER (PARTITION BY msg ORDER BY id) AS nuevo
+     FROM (SELECT id, substr(origen, 8, instr(substr(origen, 8), ':') - 1) AS msg FROM movimiento WHERE origen LIKE 'gastos:%:%:%:%')) n
+   WHERE movimiento.id = n.id;`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

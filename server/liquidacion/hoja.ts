@@ -53,7 +53,7 @@ export function hojaDepto(db: DatabaseSync, mes: string, codigo: string): Hoja {
 
   let cambio: number, comisionPct: number, ingresos: Importe, costos: number, comisiones: Importe, bruto: number;
   let honorarios: number, saldoAnterior: Importe, conversion: Importe, saldoAntesDePagar: Importe, gastosDirectos: number;
-  let noches: Omit<Hoja['noches'], 'total'>, reservas: LineaHoja[];
+  let noches: Omit<Hoja['noches'], 'total'>, reservas: LineaHoja[], moneda: 'ARS' | 'USD' = d.moneda_liquidacion;
   if (p.estado === 'abierto') {
     const calculo = liquidarPeriodo(db, mes);
     if (calculo.cambio === null) throw new Error(calculo.avisos[0]);
@@ -72,6 +72,7 @@ export function hojaDepto(db: DatabaseSync, mes: string, codigo: string): Hoja {
   } else {
     const s = db.prepare('SELECT * FROM liquidacion WHERE periodo_id = ? AND depto_id = ?').get(p.id, d.id) as any;
     if (!s) throw new Error(`${codigo} no tiene liquidación en ${mes}.`);
+    moneda = s.moneda;
     cambio = s.cambio; comisionPct = s.comision_pct; ingresos = { ars: s.ingresos_ars, usd: s.ingresos_usd }; costos = s.costos_operativos;
     comisiones = { ars: s.comisiones_ars, usd: s.comisiones_usd }; bruto = s.bruto; honorarios = s.honorarios;
     saldoAnterior = { ars: s.saldo_anterior_ars, usd: s.saldo_anterior_usd }; conversion = { ars: s.conversion_ars, usd: s.conversion_usd };
@@ -96,7 +97,7 @@ export function hojaDepto(db: DatabaseSync, mes: string, codigo: string): Hoja {
     depto: { codigo: d.codigo, nombre: d.nombre, direccion: d.direccion, comisionPct, tipoAdministracion: d.tipo_administracion },
     propietario: {
       nombre: d.propietario, cuit: d.cuit, categoria: d.categoria_fiscal, cbu: d.es_hornera ? 'Nosotros' : (d.cbu ?? 'No informado'),
-      mails: d.mails, moneda: d.moneda_liquidacion,
+      mails: d.mails, moneda,
     },
     facturas: facturasDeLiquidacion(db, p.id, d.id),
     resumen: { bruto, gastosDirectos, saldoParcial: bruto + gastosDirectos, honorarios, saldo: bruto + gastosDirectos + honorarios },

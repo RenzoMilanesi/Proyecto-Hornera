@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Col, Drawer, Form, Image, Input, InputNumber, Modal, Row, Segmented, Space, Table, Tag, Typography, theme } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { entradaPlata, enviar, get, pesos } from './api.ts';
+import { entradaPlata, enviar, get, pesos, useUnaVez } from './api.ts';
 import { Historial } from './Historial.tsx';
 
 interface Depto { id: number; codigo: string; nombre: string; direccion: string | null; estado: string; comision_pct: number; propietario: string; fotos: string[];
@@ -42,7 +42,7 @@ const columnas = (verHistorial: (d: Depto) => void, editar: (d: Depto) => void):
   { title: 'Nombre', dataIndex: 'nombre', width: 200, ellipsis: true, sorter: (a, b) => a.nombre.localeCompare(b.nombre) },
   { title: 'Dirección', dataIndex: 'direccion', ellipsis: { showTitle: false }, render: (v: string | null) => <span title={v ?? ''}>{sinCiudad(v)}</span> },
   { title: 'Propietario', dataIndex: 'propietario', ellipsis: true, sorter: (a, b) => a.propietario.localeCompare(b.propietario) },
-  { title: 'Comisión', dataIndex: 'comision_pct', width: 150, align: 'right', render: (v: number, d) => <>{`${Math.round(v * 100)} %`}{d.tarifa_base_override != null && <div><Typography.Text type="secondary" style={{ whiteSpace: "nowrap" }}>tarifa {pesos(d.tarifa_base_override)}</Typography.Text></div>}</> },
+  { title: 'Comisión', dataIndex: 'comision_pct', width: 150, align: 'right', render: (v: number, d) => <>{`${(v * 100).toLocaleString('es-AR', { maximumFractionDigits: 2 })} %`}{d.tarifa_base_override != null && <div><Typography.Text type="secondary" style={{ whiteSpace: "nowrap" }}>tarifa {pesos(d.tarifa_base_override)}</Typography.Text></div>}</> },
   { title: 'Estado', dataIndex: 'estado', width: 120, render: (v: string) => <Tag color={estados[v]?.color}>{estados[v]?.label ?? v}</Tag>,
     sorter: (a, b) => rango(a.estado) - rango(b.estado) },
   { title: '', key: 'acciones', width: 170, render: (_: unknown, d) => <Space size="small">
@@ -127,9 +127,10 @@ function VariablesDepto({ depto, alCerrar }: { depto?: Depto; alCerrar: (guardad
       <InputNumber {...entradaPlata} prefix={prefix} min={0} placeholder="La del mes" style={{ width: '100%' }} />
     </Form.Item>
   );
+  const [guardarUnaVez, guardando] = useUnaVez(guardar);
   return (
     <Modal open={!!depto} title={depto && `Variables de ${depto.codigo} · ${depto.nombre}`} width={560} okText="Guardar" cancelText="Cancelar"
-      onOk={guardar} onCancel={() => alCerrar(false)} destroyOnHidden>
+      onOk={guardarUnaVez} confirmLoading={guardando} onCancel={() => alCerrar(false)} destroyOnHidden>
       {depto && (
         <dl className="ficha">
           <dt>Depto</dt><dd><b>{depto.codigo}</b> · {depto.nombre} <Tag color={estados[depto.estado]?.color}>{estados[depto.estado]?.label ?? depto.estado}</Tag></dd>
@@ -143,7 +144,7 @@ function VariablesDepto({ depto, alCerrar }: { depto?: Depto; alCerrar: (guardad
         <Row gutter={12}>
           <Col span={12}>
             <Form.Item name="comision_pct" label="Comisión de Hornera" rules={[{ required: true, message: 'Falta la comisión' }]}>
-              <InputNumber min={0} max={100} suffix="%" style={{ width: '100%' }} />
+              <InputNumber min={0} max={100} precision={2} decimalSeparator="," suffix="%" style={{ width: '100%' }} />
             </Form.Item>
           </Col>
         </Row>

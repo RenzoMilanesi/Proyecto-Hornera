@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, AutoComplete, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Radio, Select, Space, Switch, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { entradaPlata, enviar, get, pesos, simbolo } from './api.ts';
+import { entradaPlata, enviar, get, pesos, simbolo, useUnaVez } from './api.ts';
 
 interface Periodo { mes: string; estado: string }
 interface Cuenta { id: number; nombre: string; moneda: 'ARS' | 'USD'; activo: number }
@@ -74,9 +74,10 @@ function FormMovimiento({ abierto, mes, editando, deptos, cuentas, conceptos, al
     }
   };
 
+  const [guardarUnaVez, guardando] = useUnaVez(guardar);
   return (
     <Modal open={abierto} title={editando ? 'Editar movimiento' : `Nuevo movimiento · ${mes}`} okText="Guardar" cancelText="Cancelar"
-      onOk={guardar} onCancel={() => alCerrar(false)} destroyOnHidden>
+      onOk={guardarUnaVez} confirmLoading={guardando} onCancel={() => alCerrar(false)} destroyOnHidden>
       <Form form={form} layout="vertical">
         <Space wrap>
           <Form.Item label="Fecha" name="fecha" rules={[{ required: true }]}><Input type="date" /></Form.Item>
@@ -137,9 +138,10 @@ function FormTransferencia({ abierto, mes, cuentas, alCerrar }: { abierto: boole
     }
   };
   const opciones = cuentas.filter((c) => c.activo).map((c) => ({ value: c.id, label: `${c.nombre} (${c.moneda})` }));
+  const [guardarUnaVez, guardando] = useUnaVez(guardar);
   return (
     <Modal open={abierto} title={`Transferencia entre cuentas · ${mes}`} okText="Guardar" cancelText="Cancelar"
-      onOk={guardar} onCancel={() => alCerrar(false)} destroyOnHidden>
+      onOk={guardarUnaVez} confirmLoading={guardando} onCancel={() => alCerrar(false)} destroyOnHidden>
       <Form form={form} layout="vertical">
         <Form.Item label="Fecha" name="fecha" rules={[{ required: true }]}><Input type="date" style={{ width: 180 }} /></Form.Item>
         <Space wrap align="start">
@@ -177,8 +179,12 @@ export function Movimientos() {
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
-    get<Periodo[]>('periodos').then((ps) => { setPeriodos(ps); setMes((ps.find((p) => p.estado === 'abierto') ?? ps[0])?.mes); });
-    get<{ codigo: string }[]>('deptos').then((ds) => setDeptos(ds.map((d) => d.codigo)));
+    get<Periodo[]>('periodos').then((ps) => {
+      setPeriodos(ps);
+      setMes((ps.find((p) => p.estado === 'abierto') ?? ps[0])?.mes);
+      if (!ps.length) setError('No hay meses cargados: importá el Excel de un mes (Herramientas) o traelo de Stays.');
+    }, (e) => setError(String(e)));
+    get<{ codigo: string }[]>('deptos').then((ds) => setDeptos(ds.map((d) => d.codigo)), (e) => setError(String(e)));
   }, []);
   useEffect(() => {
     get<Cuenta[]>('cuentas').then(setCuentas);
@@ -245,7 +251,7 @@ export function Movimientos() {
       </Card>
       {!abierto && mes && <Alert type="info" showIcon title={`El período ${mes} está cerrado: solo lectura.`} />}
       {error && <Alert type="error" showIcon closable title={error} onClose={() => setError(undefined)} />}
-      <Table<Movimiento> rowKey="id" size="small" pagination={false} sticky scroll={{ x: 'max-content' }} loading={!movimientos}
+      <Table<Movimiento> rowKey="id" size="small" pagination={false} sticky scroll={{ x: 'max-content' }} loading={!!mes && !movimientos && !error}
         dataSource={visibles} columns={columnas}
         rowClassName={(m) => (m.estado === 'vigente' ? '' : 'ant-typography-secondary')}
         summary={() => visibles.length ? (

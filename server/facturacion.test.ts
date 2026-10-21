@@ -32,7 +32,7 @@ const CERT = certificado('20111111112');
 
 // ARCA falso: `estado` decide qué contesta cada método; `pedidos` guarda los FECAESolicitar.
 function arcaFalso() {
-  const estado = { ultimo: 7, fechaUltimo: restarDias(20), cae: 'ok' as 'ok' | 'rechazo' | 'timeout' };
+  const estado = { ultimo: 7, fechaUltimo: restarDias(20), cae: 'ok' as 'ok' | 'rechazo' | 'timeout' | 'cortada', sinRedUltimo: false };
   const pedidos: string[] = [];
   const fetchArca = (async (url: string, init: RequestInit) => {
     if (url.includes('wsaa')) {
@@ -41,10 +41,13 @@ function arcaFalso() {
       return new Response(`<r><loginCmsReturn>${ta.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</loginCmsReturn></r>`);
     }
     const accion = String((init.headers as Record<string, string>).SOAPAction);
+    if (accion.endsWith('FECompUltimoAutorizado') && estado.sinRedUltimo) throw new TypeError('fetch failed');
     if (accion.endsWith('FECompUltimoAutorizado')) return new Response(`<r><CbteNro>${estado.ultimo}</CbteNro></r>`);
     if (accion.endsWith('FECompConsultar')) return new Response(`<r><CbteFch>${arca(estado.fechaUltimo)}</CbteFch></r>`);
     pedidos.push(String(init.body));
     if (estado.cae === 'timeout') throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+    // Llegaron los encabezados y se cortó el cuerpo: ARCA ya procesó el pedido.
+    if (estado.cae === 'cortada') return { ok: true, status: 200, text: () => Promise.reject(new TypeError('terminated')) } as unknown as Response;
     if (estado.cae === 'rechazo') return new Response('<r><Resultado>R</Resultado><Err><Code>600</Code><Msg>ValidacionDeToken: token vencido</Msg></Err></r>');
     const n = entre(String(init.body), 'CbteDesde');
     estado.ultimo = Number(n);
@@ -188,6 +191,50 @@ test('CAE perdido: timeout al pedir el CAE y la numeración avanzó → no se pi
   }, falso.fetchArca);
   const intentos = db.prepare('SELECT estado, response_json IS NULL AS sin_respuesta FROM comprobante ORDER BY id').all() as any[];
   assert.deepEqual(intentos.map((i) => [i.estado, i.sin_respuesta]), [['rechazado', 1], ['aprobado', 0]]);
+});
+
+test('CAE perdido: un reintento que falla antes de pedir el CAE no tapa el intento sin respuesta', async () => {
+  const falso = arcaFalso();
+  falso.estado.cae = 'timeout';
+  await conApi(async (llamar) => {
+    const p = await pagar(llamar, 1000000);
+    assert.equal((await llamar('POST', `pagos/${p}/factura`, { emisor_id: 1, importe: 100000 })).status, 502);
+    falso.estado.ultimo = 8;            // ARCA sí lo había autorizado
+    falso.estado.sinRedUltimo = true;   // el reintento se corta antes de pedir el CAE
+    assert.equal((await llamar('POST', `pagos/${p}/factura`, { emisor_id: 1, importe: 100000 })).status, 502);
+    falso.estado.sinRedUltimo = false;
+    falso.estado.cae = 'ok';
+    assert.equal((await llamar('POST', `pagos/${p}/factura`, { emisor_id: 1, importe: 100000 })).status, 409);
+    assert.equal(falso.pedidos.length, 1);
+  }, falso.fetchArca);
+});
+
+test('CAE perdido: reintentar con otro emisor también pide revisar', async () => {
+  const falso = arcaFalso();
+  falso.estado.cae = 'timeout';
+  await conApi(async (llamar) => {
+    const otro = certificado('20222222223');
+    await llamar('POST', 'emisores', { nombre: 'Emisor Dos', razon_social: 'PRUEBA DOS', cuit: '20222222223', condicion_iva: 'monotributista', punto_venta: 3, ambiente: 'homologacion' });
+    assert.equal((await llamar('POST', 'emisores/2/certificado', otro)).status, 200);
+    const p = await pagar(llamar, 1000000);
+    assert.equal((await llamar('POST', `pagos/${p}/factura`, { emisor_id: 1, importe: 100000 })).status, 502);
+    falso.estado.cae = 'ok';
+    const r = await llamar('POST', `pagos/${p}/factura`, { emisor_id: 2, importe: 100000 });
+    assert.equal(r.status, 409);
+    assert.match(r.body.error, /00003-00000008 de Emisor Uno/);
+    assert.equal((await llamar('POST', `pagos/${p}/factura`, { emisor_id: 2, importe: 100000, revisado: true })).status, 200);
+  }, falso.fetchArca);
+});
+
+test('CAE perdido: si se corta leyendo la respuesta queda el intento sin respuesta', async () => {
+  const falso = arcaFalso();
+  falso.estado.cae = 'cortada';
+  const db = await conApi(async (llamar) => {
+    const p = await pagar(llamar, 1000000);
+    assert.equal((await llamar('POST', `pagos/${p}/factura`, { emisor_id: 1, importe: 100000 })).status, 502);
+  }, falso.fetchArca);
+  const i = db.prepare('SELECT estado, response_json IS NULL AS sin_respuesta, json_valid(request_json) AS pedido FROM comprobante').get() as any;
+  assert.deepEqual([i.estado, i.sin_respuesta, i.pedido], ['rechazado', 1, 1]);
 });
 
 test('anulación: el pago facturado queda marcado hasta la NC, que lleva Concepto 2 y el período de la factura', async () => {

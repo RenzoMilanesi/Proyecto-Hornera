@@ -29,7 +29,7 @@ async function venta(url: string, fetchFn: Fetch): Promise<number | null> {
   return v;
 }
 
-// Del cierre si ya pasó y la API lo tiene; si no, la de ahora (provisoria).
+// Del cierre si ya pasó y la API lo tiene; si no, la de ahora (provisoria, aunque sea del mismo día del cierre).
 export async function cotizacionCripto(cierre: string, hoy: string, fetchFn: Fetch = fetch): Promise<Cotizacion> {
   if (hoy > cierre) {
     const v = await venta(`${URL_HISTORICO}/${cierre.replaceAll('-', '/')}`, fetchFn);
@@ -40,13 +40,13 @@ export async function cotizacionCripto(cierre: string, hoy: string, fetchFn: Fet
   return { cotizacion: v, fecha: hoy, provisoria: true };
 }
 
-interface Periodo { id: number; estado: string; fecha_cierre_reservas: string; usd_cotizacion: number | null; usd_cotizacion_fuente: string | null; usd_cotizacion_fecha: string | null }
+interface Periodo { id: number; estado: string; fecha_cierre_reservas: string; usd_cotizacion: number | null; usd_cotizacion_fuente: string | null; usd_cotizacion_fecha: string | null; usd_cotizacion_provisoria: number }
 
 // forzar: la pide aunque esté cargada a mano ("Pedir a la API"). Sin forzar ("traer mes"),
 // la manual manda y se devuelve un aviso. Errores de red: excepción; la cotización queda como estaba.
 export async function actualizarCotizacion(db: DatabaseSync, mes: string, forzar: boolean, fetchFn: Fetch = fetch, hoy = hoyLocal()):
   Promise<Partial<Cotizacion> & { aviso?: string }> {
-  const p = db.prepare('SELECT id, estado, fecha_cierre_reservas, usd_cotizacion, usd_cotizacion_fuente, usd_cotizacion_fecha FROM periodo WHERE mes = ?')
+  const p = db.prepare('SELECT id, estado, fecha_cierre_reservas, usd_cotizacion, usd_cotizacion_fuente, usd_cotizacion_fecha, usd_cotizacion_provisoria FROM periodo WHERE mes = ?')
     .get(mes) as Periodo | undefined;
   if (!p) throw new Error(`No existe el período ${mes}`);
   if (p.estado !== 'abierto') throw new Error('El período está cerrado');
@@ -54,20 +54,26 @@ export async function actualizarCotizacion(db: DatabaseSync, mes: string, forzar
   if (!forzar && p.usd_cotizacion_fuente === 'manual') {
     return { aviso: `La cotización del dólar de ${mes} está cargada a mano ($ ${p.usd_cotizacion}): no se pidió a la API.` };
   }
-  if (!forzar && p.usd_cotizacion_fuente === 'api' && p.usd_cotizacion_fecha === cierre) {
+  if (!forzar && p.usd_cotizacion_fuente === 'api' && !p.usd_cotizacion_provisoria && p.usd_cotizacion_fecha === cierre) {
     return { cotizacion: p.usd_cotizacion!, fecha: cierre, provisoria: false }; // ya es la del cierre
   }
   const c = await cotizacionCripto(cierre, hoy, fetchFn);
-  if (c.cotizacion !== p.usd_cotizacion || p.usd_cotizacion_fuente !== 'api' || c.fecha !== p.usd_cotizacion_fecha) {
+  if (c.cotizacion !== p.usd_cotizacion || p.usd_cotizacion_fuente !== 'api' || c.fecha !== p.usd_cotizacion_fecha || +c.provisoria !== p.usd_cotizacion_provisoria) {
     // Sin forzar, una manual guardada mientras se esperaba a la API manda.
-    const { changes } = db.prepare(`UPDATE periodo SET usd_cotizacion = ?, usd_cotizacion_fuente = 'api', usd_cotizacion_fecha = ?
-      WHERE id = ? AND (? OR usd_cotizacion_fuente IS NOT 'manual')`).run(c.cotizacion, c.fecha, p.id, forzar ? 1 : 0);
-    if (!changes) return { aviso: 'La cotización del dólar se cargó a mano mientras se pedía a la API: se dejó la manual.' };
+    // Solo si el período sigue abierto: mientras se esperaba a la API lo pudieron cerrar (es congelado).
+    const { changes } = db.prepare(`UPDATE periodo SET usd_cotizacion = ?, usd_cotizacion_fuente = 'api', usd_cotizacion_fecha = ?,
+        usd_cotizacion_provisoria = ? WHERE id = ? AND estado = 'abierto' AND (? OR usd_cotizacion_fuente IS NOT 'manual')`)
+      .run(c.cotizacion, c.fecha, c.provisoria ? 1 : 0, p.id, forzar ? 1 : 0);
+    if (!changes) {
+      const ahora = db.prepare('SELECT estado FROM periodo WHERE id = ?').get(p.id) as { estado: string };
+      return { aviso: ahora.estado !== 'abierto' ? `Se cerró ${mes} mientras se pedía la cotización a la API: no se cambió.`
+        : 'La cotización del dólar se cargó a mano mientras se pedía a la API: se dejó la manual.' };
+    }
     auditar(db, 'periodo', p.id, 'modificacion',
       { usd_cotizacion: p.usd_cotizacion, fuente: p.usd_cotizacion_fuente, fecha: p.usd_cotizacion_fecha },
       { usd_cotizacion: c.cotizacion, fuente: 'api', fecha: c.fecha });
   }
-  const aviso = c.provisoria && hoy > cierre
-    ? `Todavía no está la cotización del dólar del ${cierre}: se usó la de hoy como provisoria.` : undefined;
+  const aviso = c.provisoria && hoy >= cierre
+    ? `Todavía no está la cotización del dólar del ${cierre}${hoy === cierre ? ' (el día no terminó)' : ''}: se usó la de ahora como provisoria.` : undefined;
   return { ...c, aviso };
 }

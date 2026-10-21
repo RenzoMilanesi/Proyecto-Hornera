@@ -1,3 +1,5 @@
+import { useRef, useState } from 'react';
+
 // Cliente de la API. Rutas relativas: sirve igual en la PC servidor y en una terminal.
 async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api/${ruta}`, init);
@@ -35,10 +37,27 @@ export const entradaPlata = {
     const [entero, decimales] = String(v).split('.');
     return entero.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (decimales ? `,${decimales}` : '');
   },
-  parser: (s: string | undefined) => (s ? Number(s.replace(/\./g, '').replace(',', '.')) : (undefined as unknown as number)),
+  parser: (s: string | undefined) => (s ? Number(leerPlata(s)) : (undefined as unknown as number)),
 };
+// "1.612.004,50" → "1612004.50". Un último punto con 1 o 2 dígitos detrás (el del teclado numérico: "1500.5") es decimal.
+export const leerPlata = (s: string) =>
+  !s.includes(',') && /\.\d{1,2}$/.test(s) ? s.replace(/\.(?=.*\.)/g, '') : s.replace(/\./g, '').replace(',', '.');
 export const simbolo = (moneda?: 'ARS' | 'USD') => (moneda === 'USD' ? 'US$' : '$');
 
 // Centavos → "$ 1.234,56" / "US$ 12,30"
 export const pesos = (c: number, moneda: 'ARS' | 'USD' = 'ARS') =>
   `${moneda === 'USD' ? 'US$' : '$'} ${(c / 100).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+// Un "Guardar" que no se manda dos veces: el doble clic llega antes de que el botón se vea cargando.
+// Uso: const [guardarUnaVez, guardando] = useUnaVez(guardar); <Modal onOk={guardarUnaVez} confirmLoading={guardando}>
+export function useUnaVez(fn: () => Promise<void>) {
+  const enCurso = useRef(false);
+  const [ocupado, setOcupado] = useState(false);
+  const correr = async () => {
+    if (enCurso.current) return;
+    enCurso.current = true;
+    setOcupado(true);
+    try { await fn(); } finally { enCurso.current = false; setOcupado(false); }
+  };
+  return [correr, ocupado] as const;
+}

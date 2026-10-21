@@ -443,3 +443,15 @@ test('horario y desglose: se guardan del detalle; si el detalle falla, se trae i
   assert.ok(r.avisos.some((a) => a.startsWith('No se pudo traer el horario y el desglose de R1, R5: Stays respondió 500')), JSON.stringify(r.avisos));
   assert.deepEqual(r1(), { hora_llegada: '15:00', hora_salida: '10:00', cargo: 'Tasa de Limpieza' });
 }));
+
+test('si se cierra el mes mientras se trae de Stays no se escribe nada', () => conStays(async (url) => {
+  const db = baseConAbril();
+  const cliente = crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url);
+  await sincronizarMes(db, cliente, '2026-05');
+  const reservas = (db.prepare('SELECT count(*) n FROM reserva').get() as any).n;
+  db.exec(`DELETE FROM pago`);
+  const cierraAlBajar = { ...cliente, pagos: async (codigo: string) => { db.exec(`UPDATE periodo SET estado = 'cerrado' WHERE mes = '2026-05'`); return cliente.pagos(codigo); } };
+  await assert.rejects(sincronizarMes(db, cierraAlBajar, '2026-05'), /Se cerró 2026-05 mientras se traía de Stays/);
+  assert.equal((db.prepare('SELECT count(*) n FROM pago').get() as any).n, 0);
+  assert.equal((db.prepare('SELECT count(*) n FROM reserva').get() as any).n, reservas);
+}));

@@ -143,6 +143,10 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
     const reporte: ReporteSync = { mes, periodoCreado: !existente, reservas: 0, pagos: 0, medios: medios.length, eliminadas: 0, canceladas: 0, avisos };
     db.exec('BEGIN');
     try {
+      // La descarga tarda: mientras tanto otra pantalla u otra PC pudo cerrar el mes o crearlo (importando el Excel).
+      const ahoraEs = db.prepare('SELECT id, estado FROM periodo WHERE mes = ?').get(mes) as { id: number; estado: string } | undefined;
+      if (ahoraEs?.estado === 'cerrado') throw new Error(`Se cerró ${mes} mientras se traía de Stays: no se cambió nada.`);
+      if (ahoraEs?.id !== existente?.id) throw new Error(`${mes} cambió mientras se traía de Stays (se importó el Excel): volvé a traerlo.`);
       let periodoId = existente?.id;
       if (!periodoId) {
         const n = mesesEntre(base.mes, mes);

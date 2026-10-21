@@ -129,3 +129,28 @@ test('no se paga un mes cuyo saldo ya pasó al mes siguiente cerrado (se pagarí
   const [junio] = listarTransferencias(db, '2026-06');
   assert.equal(junio.saldo, mayo.saldo); // junio arrastra el saldo de mayo (sin reservas ni gastos propios)
 });
+
+test('no se anula un pago de un mes cuyo saldo ya pasó al mes siguiente cerrado (la plata quedaría sin deberse)', () => {
+  const db = base();
+  db.exec(`INSERT INTO periodo(mes, fecha_inicio, fecha_cierre_reservas, fecha_corte_gastos, fecha_pago, usd_cotizacion, costo_hora_limpieza,
+      servicio_limpieza, servicio_lavanderia, prestamo_blanqueria, gestion_operativa, mantenimiento, tarifa_base, adicional_huesped,
+      cargo_tramo_1, cargo_tramo_2, cm_fee_usd) VALUES
+      ('2026-06', '2026-06-01', '2026-07-01', '2026-06-28', '2026-07-10', 1000, 1, 1, 1, 1, 1, 1, 1000000, 100000, 100000, 100000, 0)`);
+  cerrarPeriodo(db, '2026-05');
+  const [mayo] = listarTransferencias(db, '2026-05');
+  const pago = pagarLiquidacion(db, mayo.liquidacionId, { cuenta_id: 1, fecha: '2026-06-10', importe: Math.round(mayo.saldo / 2) });
+  cerrarPeriodo(db, '2026-06');
+  assert.throws(() => anularMovimiento(db, pago), /ya pasó a 2026-06 \(cerrado\): reabrí 2026-06/);
+  reabrirPeriodo(db, '2026-06');
+  anularMovimiento(db, pago); // con junio abierto sí: su arrastre se recalcula
+});
+
+test('la moneda de un mes cerrado es la del cierre, aunque después el dueño pase a liquidar en otra', () => {
+  const db = base();
+  cerrarPeriodo(db, '2026-05');
+  const antes = listarTransferencias(db, '2026-05')[0];
+  db.exec(`UPDATE propietario SET moneda_liquidacion = 'USD'`);
+  const despues = listarTransferencias(db, '2026-05')[0];
+  assert.deepEqual([despues.moneda, despues.saldo, despues.pendiente], ['ARS', antes.saldo, antes.saldo]);
+  assert.equal(hojaDepto(db, '2026-05', 'AAA').propietario.moneda, 'ARS');
+});

@@ -84,7 +84,16 @@ async function soap(url: string, action: string, body: string, f: Fetch = fetch,
     console.error(`[arca] Sin conexión con ${url} (${action || 'loginCms'}): ${e.causa}`);
     throw e;
   }
-  const txt = await res.text();
+  let txt: string;
+  try {
+    txt = await res.text();
+  } catch (err) {
+    // Se cortó leyendo la respuesta: ARCA ya pudo haber procesado el pedido. Es "red" para que quede el intento (plan 033).
+    const e = new ErrorArca(SIN_RED, { tipo: 'red' });
+    e.causa = `leyendo la respuesta: ${(err as Error).message}`;
+    console.error(`[arca] Se cortó la respuesta de ${url} (${action || 'loginCms'}): ${e.causa}`);
+    throw e;
+  }
   const falla = entre(txt, 'faultstring');
   if (falla) throw new ErrorArca(desescapar(falla));
   if (!res.ok) {

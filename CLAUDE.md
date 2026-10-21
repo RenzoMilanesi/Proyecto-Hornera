@@ -10,7 +10,7 @@ propietarios de HORNERA (alquileres temporarios, Rosario). Contexto y decisiones
   Con datos de prueba: `npx electron . --user-data-dir=<carpeta temporal>`.
 - `npm test`: tests (`node --test "server/**/*.test.ts"`) y `node schema.check.mjs`.
 - `npm run typecheck`: `tsc` solo chequea tipos (no compila).
-- `npm run dist`: instalador de Windows en `release\` (electron-builder, NSIS). Guía de prueba: `GUIA-PRUEBAS.md`.
+- `npm run dist`: typecheck + tests y el instalador de Windows en `release\` (electron-builder, NSIS). Guía de prueba: `GUIA-PRUEBAS.md`.
 - Manual de usuario (`manual/`): `node manual/seed.ts <carpeta>` arma una base de demo ficticia; con
   `npx electron . --user-data-dir=<carpeta>` abierta, `npx electron manual/capturar.mjs manual/img` saca las
   capturas y `npx electron manual/pdf.mjs` genera el PDF desde `manual/manual.html`.
@@ -20,7 +20,11 @@ propietarios de HORNERA (alquileres temporarios, Rosario). Contexto y decisiones
   credenciales de Stays (safeStorage). `server/terminales.ts`: emparejamiento de terminales.
 - `server/app.ts`: rutas `/api/*`. `server/db.ts`: esquema y migraciones. `schema.sql`: esquema actual.
 - `server/liquidacion/motor.ts`: motor de liquidación (función pura).
-- `server/importador/excel.ts`: importa el Excel mensual. `server/stays/`: "traer mes" de Stays.
+- `server/importador/excel.ts`: importa el Excel mensual. `server/importador/gastos.ts`: el Excel de gastos varios.
+  `server/stays/`: "traer mes" de Stays.
+- Facturación ARCA: `server/arca.ts` (WSAA/WSFEv1), `server/facturacion.ts` (factura y NC de cada pago),
+  `server/emisores.ts` (emisores y certificados), `server/fiscal.ts` (tipos de comprobante, CUIT, QR),
+  `server/misComprobantes.ts` (lo facturado por fuera, importado de ARCA).
 - `server/resumen.ts`: KPIs, resultado de Hornera y evolución (pantalla Resumen).
 - `server/periodo.ts`: regla única de qué reserva pertenece a un período.
 - `src/`: interfaz (React + Ant Design).

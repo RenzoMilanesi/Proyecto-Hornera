@@ -162,7 +162,7 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
   // y sin la tabla terminal (3 → 4) ni las fotos del depto (4 → 5) ni el vínculo del propietario con Stays (5 → 6)
   // ni los datos nuevos de la reserva (6 → 7) ni el dueño de la liquidación (7 → 8)
   // ni la fecha de la cotización del período (8 → 9) ni la facturación ARCA (9 → 10)
-  // ni lo importado de Mis Comprobantes (10 → 11) ni el origen de los gastos importados (11 → 12).
+  // ni lo importado de Mis Comprobantes (10 → 11) ni el origen de los gastos importados (11 → 12) ni la moneda de la liquidación (12 → 13).
   const actual = readFileSync(new URL('../schema.sql', import.meta.url), 'utf8');
   const v1 = actual
     .replace(/^\s*(-- Datos para facturarle|-- que vienen del Excel en texto libre|fiscal_).*\r?\n/gm, '')
@@ -176,9 +176,10 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
     .replace(/^\s*propietario_id\s+INTEGER REFERENCES.*\r?\n/m, '')
     .replace(/CREATE INDEX ix_liq_propietario[^;]*;/, '')
     .replace(/^\s*(-- Cancelada en Stays|cancelada |-- Del detalle de la reserva|hora_llegada |hora_salida |desglose_json ).*\r?\n/gm, '')
-    .replace(/^\s*(-- Día del valor de la API|usd_cotizacion_fecha ).*\r?\n/gm, '')
+    .replace(/^\s*(-- Día del valor de la API|usd_cotizacion_fecha |usd_cotizacion_provisoria ).*\r?\n/gm, '')
     .replace(/^\s*origen\s+TEXT,.*\r?\n/m, '')
     .replace(/CREATE UNIQUE INDEX uq_mov_origen[^;]*;/, '')
+    .replace(/^\s*moneda .*-- en la que liquidaba el dueño al cerrar\r?\n/m, '')
     .replace(/saldo_final_ars\s+INTEGER NOT NULL,\s*\r?\n\s*saldo_final_usd\s+INTEGER NOT NULL,/, 'saldo_final INTEGER NOT NULL,');
   assert.notEqual(v1, actual);
   const ruta = join(temporal(t), 'v1.db');
@@ -201,9 +202,9 @@ test('una base del esquema 1 conserva sus datos al migrar', (t) => {
   const ruta = join(temporal(t), 'v1.db');
   const v1 = new DatabaseSync(ruta);
   v1.exec(`CREATE TABLE depto (id INTEGER PRIMARY KEY, propietario_id INTEGER) STRICT; -- lo tocan las migraciones 4 → 5 y 7 → 8
-           CREATE TABLE propietario (id INTEGER PRIMARY KEY) STRICT; -- y la 5 → 6
+           CREATE TABLE propietario (id INTEGER PRIMARY KEY, moneda_liquidacion TEXT) STRICT; -- y la 5 → 6 (y la 12 → 13 la lee)
            CREATE TABLE reserva (id INTEGER PRIMARY KEY) STRICT; -- y la 6 → 7
-           CREATE TABLE periodo (id INTEGER PRIMARY KEY) STRICT; -- y la 8 → 9
+           CREATE TABLE periodo (id INTEGER PRIMARY KEY, usd_cotizacion_fuente TEXT, fecha_cierre_reservas TEXT) STRICT; -- y la 8 → 9 (y la 13 → 14 las lee)
            CREATE TABLE movimiento (id INTEGER PRIMARY KEY) STRICT; -- y la 11 → 12
            CREATE TABLE liquidacion (id INTEGER PRIMARY KEY, depto_id INTEGER, conversion_ars INTEGER NOT NULL, saldo_final INTEGER NOT NULL) STRICT;
            INSERT INTO liquidacion VALUES (1, NULL, 0, 500); PRAGMA user_version = 1;`);

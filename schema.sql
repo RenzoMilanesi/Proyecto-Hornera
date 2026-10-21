@@ -154,6 +154,7 @@ CREATE TABLE periodo (
     usd_cotizacion_fuente    TEXT    CHECK (usd_cotizacion_fuente IN ('api','manual')),
     -- Día del valor de la API; antes del cierre del período = provisoria. NULL si es manual.
     usd_cotizacion_fecha     TEXT    CHECK (usd_cotizacion_fecha IS NULL OR date(usd_cotizacion_fecha) IS usd_cotizacion_fecha),
+    usd_cotizacion_provisoria INTEGER NOT NULL DEFAULT 0 CHECK (usd_cotizacion_provisoria IN (0,1)), -- 1 = la de un momento, no la del cierre
     usd_descuento_pct        REAL    NOT NULL DEFAULT 0.06,
     -- Parámetros de tarifa (centavos ARS). La UI los propone desde costo_hora_limpieza.
     costo_hora_limpieza      INTEGER NOT NULL,    -- B13 "Costo hora Vale"
@@ -396,6 +397,7 @@ CREATE TABLE liquidacion (
     movimiento_pago_id     INTEGER,              -- se completa al marcar "pagado"
     pdf_path               TEXT,
     calculada_en           TEXT    NOT NULL,
+    moneda                 TEXT    NOT NULL DEFAULT 'ARS' CHECK (moneda IN ('ARS','USD')), -- en la que liquidaba el dueño al cerrar
     CONSTRAINT uq_liq_periodo_depto UNIQUE (periodo_id, depto_id),
     CONSTRAINT fk_liq_periodo FOREIGN KEY (periodo_id) REFERENCES periodo(id) ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_liq_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE RESTRICT ON UPDATE CASCADE,

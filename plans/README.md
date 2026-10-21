@@ -46,6 +46,16 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 
 Los planes 001 a 030 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 
+Auditoría `improve deep` de todo el sistema, 2026-10-21 (sobre `1290f60`): el usuario pidió implementar los hallazgos en la misma sesión, sin planes aparte (A TESTEAR):
+ARCA no factura dos veces (un reintento que falla antes del CAE no tapa el intento sin respuesta, otro emisor también pide revisar, corte al leer la respuesta);
+modales de alta sin doble envío (`useUnaVez`); coma decimal en cotización y porcentajes; no se anula un pago cuyo saldo ya pasó a un mes cerrado;
+la moneda queda en el snapshot de la liquidación (migración 12 → 13); cotización provisoria guardada aparte (13 → 14) y sin escribir en un mes que se cerró
+mientras se esperaba a la API; "traer mes" no escribe si el mes se cerró durante la descarga; Historial ofrece la factura al pagar; errores de carga visibles
+y aviso sin meses; gastos varios con identidad sin depto ni monto (14 → 15) y avisos con el renglón real; recargar el mismo certificado conserva el ticket de ARCA;
+`npm run dist` corre typecheck y tests; CLAUDE.md y DECISIONES al día.
+Descartado por el usuario: `npm run dev` sirve archivos del repo a la LAN sin emparejar (solo en desarrollo).
+Para decidir con los dueños: saldo arrastrado cuando el depto cambia de dueño (hoy pasa al nuevo); "traer mes" que cambia pagos o fechas de una reserva ya liquidada en un mes cerrado (se puede perder la parte del mes anterior; confirmar si el Excel hacía lo mismo).
+Para más adelante (riesgos chicos): horas UTC en importación y sync; workers de Stays que siguen tras un error y 5xx sin reintento; token de terminal en claro y por 10 años; "Saldo inicial" con depto que reemplaza el arrastre sin aviso; Historial con dos meses abiertos; `v_saldo_cuenta` descuenta comisión de todo medio; filas de CORRIENTE con importe en texto se pierden sin aviso; fechas B3/B4 del Excel sin validar; paginación de owners/payment-providers de Stays sin verificar; error boundary; Electron 44.9.x.
 Plan 038: revisión `improve deep` del plan 037 (gastos varios), 2026-10-21. Descartado: una transacción por fila (reimportar completa sin duplicar); el corte de gastos del período no se aplica (nadie lo usa hoy); importar sin vista previa (cada gasto se anula desde Movimientos).
 Plan 035: feature pedida por el usuario, definida con `grill-me` el 2026-10-19 (hoy una NC emitida no se ve en ningún lado de la app). Implementado el 2026-10-20 (v0.25.0). Revisión `improve deep` del diff: sin plan nuevo; sumado en la misma tarea el test de la NC rechazada pendiente. Descartado: neto del mes que mezcla prueba y producción (solo con la app sin instalar); un rechazo con otro tipo de comprobante que el aprobado (cambio de condición IVA) sigue listado, como dice la definición del plan.
 Plan 031 etapa 7: revisión `improve deep` del diff (PDF de la factura), 2026-10-19: sin plan nuevo. Descartado: la alerta de `npm audit` de `node-forge` (GHSA-86w9-cpqp-85rv, verificación de firmas PKCS#1; Hornera solo firma el CMS y compara el módulo de la clave); decodificar el QR en los tests (lo arma `qrcode`, el test valida el SVG y `qrArca` ya tiene el suyo).

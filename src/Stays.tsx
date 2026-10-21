@@ -110,7 +110,7 @@ export function Stays() {
   const [verCanceladas, setVerCanceladas] = useState(true);
 
   useEffect(() => { get<{ usuario: string | null }>('stays').then((r) => setUsuario(r.usuario), () => {}); }, []);
-  useEffect(() => { get<Reserva[]>(`reservas?mes=${mes}`).then(setReservas, () => setReservas([])); }, [mes, reporte, version]);
+  useEffect(() => { get<Reserva[]>(`reservas?mes=${mes}`).then(setReservas, (e) => { setReservas([]); setError(String(e)); }); }, [mes, reporte, version]);
 
   const t = texto.trim().toLowerCase();
   const visibles = (reservas ?? []).filter((r) => (verCanceladas || !r.cancelada)

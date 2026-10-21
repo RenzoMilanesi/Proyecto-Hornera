@@ -1,7 +1,7 @@
 // Propietarios: buscador, filtro de los que no tienen CBU, sus deptos y los datos para facturarles.
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Col, Drawer, Form, Input, Modal, Radio, Row, Segmented, Select, Space, Table, Tag, Typography } from 'antd';
-import { enviar, get } from './api.ts';
+import { enviar, get, useUnaVez } from './api.ts';
 import { Historial } from './Historial.tsx';
 
 interface Propietario { id: number; nombre: string; moneda_liquidacion: string; tiene_cbu: number; deptos: string | null }
@@ -54,8 +54,9 @@ function FormFiscal({ p, alCerrar }: { p?: Propietario; alCerrar: () => void }) 
   };
 
   const x = datos?.excel;
+  const [guardarUnaVez, guardando] = useUnaVez(guardar);
   return (
-    <Modal open={!!p} title={p && `Datos fiscales de ${p.nombre}`} okText="Guardar" cancelText="Cancelar" onOk={guardar} width={560}
+    <Modal open={!!p} title={p && `Datos fiscales de ${p.nombre}`} okText="Guardar" cancelText="Cancelar" onOk={guardarUnaVez} confirmLoading={guardando} width={560}
       okButtonProps={{ disabled: !datos }} onCancel={alCerrar} destroyOnHidden>
       {p && (
         <dl className="ficha">

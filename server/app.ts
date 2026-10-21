@@ -265,9 +265,9 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
 
   // ---- Períodos y liquidación
   app.get('/api/periodos', (_req, res) => {
-    // provisoria: de la API pero de un día anterior al cierre (server/cotizacion.ts).
+    // provisoria: de la API pero de un momento, no la del cierre (server/cotizacion.ts).
     res.json(db.prepare(`SELECT mes, estado, usd_cotizacion, usd_cotizacion_fuente, usd_cotizacion_fecha, usd_descuento_pct, fecha_pago,
-        usd_cotizacion_fuente = 'api' AND usd_cotizacion_fecha < date(fecha_cierre_reservas, '-1 day') AS provisoria
+        usd_cotizacion_fuente = 'api' AND usd_cotizacion_provisoria = 1 AS provisoria
       FROM periodo ORDER BY mes DESC`).all());
   });
 
@@ -287,7 +287,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     if (!p) { res.status(404).json({ error: 'No existe el período' }); return; }
     if (p.estado !== 'abierto') { res.status(400).json({ error: 'El período está cerrado' }); return; }
     if (typeof cotizacion !== 'number' || !(cotizacion > 0)) { res.status(400).json({ error: 'Cotización inválida' }); return; }
-    db.prepare(`UPDATE periodo SET usd_cotizacion = ?, usd_cotizacion_fuente = 'manual', usd_cotizacion_fecha = NULL WHERE id = ?`).run(cotizacion, p.id);
+    db.prepare(`UPDATE periodo SET usd_cotizacion = ?, usd_cotizacion_fuente = 'manual', usd_cotizacion_fecha = NULL, usd_cotizacion_provisoria = 0 WHERE id = ?`).run(cotizacion, p.id);
     auditar(db, 'periodo', p.id, 'modificacion', { usd_cotizacion: p.usd_cotizacion }, { usd_cotizacion: cotizacion });
     res.json({ cotizacion });
   });
@@ -375,6 +375,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     const antes = db.prepare('SELECT nombre, activo FROM cuenta WHERE id = ?').get(id);
     if (!antes) throw new Error('No existe la cuenta.');
     if (typeof nombre !== 'string' || !nombre.trim() || ![0, 1].includes(activo)) throw new Error('Faltan el nombre o si está activa.');
+    if (db.prepare('SELECT 1 FROM cuenta WHERE lower(nombre) = lower(?) AND id <> ?').get(nombre.trim(), id)) throw new Error(`Ya existe la cuenta ${nombre.trim()}.`);
     db.prepare('UPDATE cuenta SET nombre = ?, activo = ? WHERE id = ?').run(nombre.trim(), activo, id);
     auditar(db, 'cuenta', id, 'modificacion', antes, { nombre: nombre.trim(), activo });
   }));

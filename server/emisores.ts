@@ -141,7 +141,8 @@ export function cargarCertificado(db: DatabaseSync, claves: AlmacenClaves | unde
 
   claves.guardar(emisor.cuit, forge.pki.privateKeyToPem(clave));
   db.prepare('UPDATE emisor SET cert_pem = ? WHERE id = ?').run(crt.trim(), id);
-  db.prepare(`DELETE FROM configuracion WHERE clave LIKE ?`).run(`arca.ta.%.${emisor.cuit}`);
+  // El ticket vigente se borra solo si cambió el certificado: con el mismo, ARCA no da otro hasta que vence (hasta 12 h).
+  if (emisor.cert_pem?.trim() !== crt.trim()) db.prepare(`DELETE FROM configuracion WHERE clave LIKE ?`).run(`arca.ta.%.${emisor.cuit}`);
   auditar(db, 'emisor', id, 'modificacion', null, { certificado: { alias: c.alias, vence: c.vence } });
   return { alias: c.alias, vence: c.vence };
 }
@@ -163,6 +164,13 @@ export function ticketAcceso(db: DatabaseSync, e: Emisor, keyPem: string, servic
       .then((ta) => {
         db.prepare('INSERT INTO configuracion(clave, valor) VALUES (?, ?) ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor').run(k, JSON.stringify(ta));
         return ta;
+      }, (err) => {
+        // ARCA ya entregó un ticket que Hornera no tiene (se cortó la respuesta o se borró): hasta que venza no da otro.
+        if (err instanceof ErrorArca && /ya posee un TA valido/i.test(err.message)) {
+          throw new ErrorArca(`ARCA ya le dio a ${e.nombre} un permiso de acceso que Hornera no recibió (se cortó la conexión o se `
+            + 'volvió a cargar el certificado) y no da otro hasta que venza: probá de nuevo en unas horas (como mucho 12).', { tipo: 'config' });
+        }
+        throw err;
       })
       .finally(() => enCurso.delete(k)));
   }

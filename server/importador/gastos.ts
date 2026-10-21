@@ -20,7 +20,9 @@ const clave = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().t
 export function importarGastos(db: DatabaseSync, archivo: Buffer): ReporteGastos {
   const wb = XLSX.read(archivo);
   const filas = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]], { defval: '' })
-    .map((f) => Object.fromEntries(Object.entries(f).map(([k, v]) => [clave(k), v])));
+    // __rowNum__ (no enumerable) es el renglón real: sheet_to_json saltea los vacíos y el índice no sirve para los avisos.
+    .map((f): Record<string, unknown> & { renglon: number } =>
+      ({ ...Object.fromEntries(Object.entries(f).map(([k, v]) => [clave(k), v])), renglon: (f as { __rowNum__: number }).__rowNum__ + 1 }));
   if (!filas.length || !['fecha', 'departamento', 'descripcion', 'monto'].every((c) => c in filas[0])) {
     throw new Error('No es el Excel de gastos: la primera hoja tiene que tener Fecha, Departamento, Descripción y Monto.');
   }
@@ -32,17 +34,24 @@ export function importarGastos(db: DatabaseSync, archivo: Buffer): ReporteGastos
   const yaEsta = db.prepare('SELECT 1 FROM movimiento WHERE origen = ?'); // vigente o anulado: un anulado no vuelve
 
   const r: ReporteGastos = { importados: 0, repetidos: 0, anteriores: 0, casa: 0, codigosDesconocidos: {}, avisos: [] };
-  const vistas = new Map<string, number>(); // filas iguales dentro del Excel: cada una con su número de aparición
-  filas.forEach((f, i) => {
-    const fila = i + 2;
+  const vistas = new Map<string, number>(); // filas de un mismo mensaje: cada una con su número de aparición
+  const texto = (v: unknown) => (v == null ? '' : String(v).trim());
+  filas.forEach((f) => {
+    const fila = f.renglon;
     if (typeof f.fecha !== 'number') {
       if (f.fecha !== '' || f.monto !== '') r.avisos.push(`Fila ${fila}: fecha inválida, no se importa.`);
       return;
     }
     const fecha = fechaSerial(f.fecha);
+    // Identidad de la fila, no su contenido: corregir el depto o el monto (en la app o en el Excel) no la vuelve a importar.
+    // Un mensaje puede traer varios gastos (las expensas de varios deptos): se distinguen por el orden dentro del mensaje.
+    const k = ['gastos', texto(f['mensaje original']) || `${fecha} ${texto(f.hora)}`].join(':');
+    const vez = (vistas.get(k) ?? 0) + 1;
+    vistas.set(k, vez);
+    const origen = `${k}:${vez}`;
     const mes = fecha.slice(0, 7); // ponytail: mes calendario; fecha_corte_gastos no se aplica (hoy no la usa nadie)
-    const codigo = String(f.departamento).trim().toUpperCase();
-    const descripcion = String(f.descripcion).trim();
+    const codigo = texto(f.departamento).toUpperCase();
+    const descripcion = texto(f.descripcion);
     if (codigo === 'CASA') { r.casa++; return; }
     if (mes < primero) { r.anteriores++; return; }
     if (!abiertos.has(mes)) { r.avisos.push(`Fila ${fila}: ${fecha} no es de un mes abierto, no se importa.`); return; }
@@ -53,18 +62,12 @@ export function importarGastos(db: DatabaseSync, archivo: Buffer): ReporteGastos
     if (!depto && codigo !== 'INT') r.codigosDesconocidos[codigo || '(vacío)'] = (r.codigosDesconocidos[codigo || '(vacío)'] ?? 0) + 1;
     const adelanto = depto !== null && /adelanto|pre.?liquidaci/i.test(clave(descripcion));
     const tipo = adelanto ? 'pre_liquidacion' : 'gasto';
-    const otro = String(f.otro).trim();
+    const otro = texto(f.otro);
     // "Otro" a veces trae el medio de pago (VISA, GAL CAY…) y a veces un id de mensaje: solo se suma lo corto.
     // Un código desconocido queda en el detalle para reasignarlo cuando se sepa qué es.
     const detalle = [depto || codigo === 'INT' ? '' : `[${codigo || 'sin depto'}]`, descripcion, otro.length <= 12 ? otro : '']
       .filter(Boolean).join(' · ') || null;
 
-    // Identidad de la fila, no su contenido: editar el movimiento a mano no hace que se vuelva a importar.
-    // Un mensaje puede traer varios gastos (las expensas de varios deptos), por eso suma código y monto.
-    const k = ['gastos', String(f['mensaje original']).trim() || fecha + ' ' + descripcion, codigo, monto].join(':');
-    const vez = (vistas.get(k) ?? 0) + 1;
-    vistas.set(k, vez);
-    const origen = k + ':' + vez;
     if (yaEsta.get(origen)) { r.repetidos++; return; }
     // ponytail: una transacción por fila (la de crearMovimiento); si algo corta a mitad, reimportar completa sin duplicar.
     crearMovimiento(db, {

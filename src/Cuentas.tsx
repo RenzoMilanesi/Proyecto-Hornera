@@ -104,6 +104,7 @@ export function Cuentas() {
           <Form.Item label="Nombre" name="nombre" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item label="Activa" name="activo" valuePropName="checked" extra="Una cuenta de baja no se ofrece para movimientos nuevos."><Switch /></Form.Item>
         </Form>
+        {error && <Alert type="error" showIcon title={error} />}
       </Modal>
     </Space>
   );

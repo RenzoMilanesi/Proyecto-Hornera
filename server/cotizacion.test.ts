@@ -97,3 +97,27 @@ test('API caída o período cerrado: error y la cotización queda como estaba', 
 
   await assert.rejects(actualizarCotizacion(base('cerrado'), '2026-05', true, fetchFn, '2026-06-02'), /cerrado/);
 });
+
+test('el mismo día del cierre la de ahora queda provisoria y al día siguiente se pide la del cierre', async () => {
+  const db = base();
+  const { fetchFn, pedidas } = apiFalsa({ [ACTUAL]: 1500, [HIST]: 1510 });
+  const r = await actualizarCotizacion(db, '2026-05', false, fetchFn, '2026-05-31');
+  assert.equal(r.provisoria, true);
+  assert.match(r.aviso!, /el día no terminó/);
+  assert.equal((db.prepare('SELECT usd_cotizacion_provisoria p FROM periodo').get() as { p: number }).p, 1);
+  await actualizarCotizacion(db, '2026-05', false, fetchFn, '2026-06-01');
+  assert.deepEqual(periodo(db), { c: 1510, f: 'api', d: '2026-05-31' });
+  assert.deepEqual(pedidas, [ACTUAL, HIST]);
+  assert.equal((db.prepare('SELECT usd_cotizacion_provisoria p FROM periodo').get() as { p: number }).p, 0);
+});
+
+test('si se cierra el mes mientras se espera a la API, la cotización no cambia', async () => {
+  const db = base();
+  const fetchFn = (async () => {
+    db.exec(`UPDATE periodo SET estado = 'cerrado'`);
+    return Response.json({ venta: 1500 });
+  }) as unknown as Fetch;
+  const r = await actualizarCotizacion(db, '2026-05', false, fetchFn, '2026-05-20');
+  assert.match(r.aviso!, /Se cerró 2026-05 mientras se pedía/);
+  assert.deepEqual(periodo(db), { c: null, f: null, d: null });
+});

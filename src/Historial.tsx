@@ -5,7 +5,7 @@ import { Alert, Button, Popconfirm, Select, Space, Switch, Table, Tag, Typograph
 import type { TableColumnsType } from 'antd';
 import type { FilaHistorial } from '../server/liquidacion/historial.ts';
 import { enviar, get, pesos } from './api.ts';
-import { EstadoFactura, FormNotaCredito, FormPago, type FacturaNC } from './Transferencias.tsx';
+import { EstadoFactura, FormFactura, FormNotaCredito, FormPago, type AFacturar, type FacturaNC } from './Transferencias.tsx';
 
 interface Cuenta { id: number; nombre: string; moneda: 'ARS' | 'USD'; activo: number }
 interface Periodo { mes: string; fecha_pago: string }
@@ -31,12 +31,13 @@ export function Historial({ deptoId, propietarioId }: { deptoId?: number; propie
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
   const [pagando, setPagando] = useState<FilaHistorial>();
   const [nc, setNc] = useState<{ factura: FacturaNC; codigo: string }>();
+  const [facturando, setFacturando] = useState<AFacturar>();
   const [error, setError] = useState<string>();
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
-    get<Cuenta[]>('cuentas').then(setCuentas);
-    get<Periodo[]>('periodos').then(setPeriodos);
+    get<Cuenta[]>('cuentas').then(setCuentas, (e) => setError(String(e)));
+    get<Periodo[]>('periodos').then(setPeriodos, (e) => setError(String(e)));
     if (fijo) return;
     Promise.all([get<{ id: number; codigo: string; nombre: string }[]>('deptos'), get<{ id: number; nombre: string }[]>('propietarios')]).then(([ds, ps]) => setOpciones([
       { label: 'Propietarios', options: ps.map((p) => ({ value: `p:${p.id}`, label: p.nombre })) },
@@ -132,7 +133,13 @@ export function Historial({ deptoId, propietarioId }: { deptoId?: number; propie
       )}
       <FormPago t={pagando && { ...pagando, liquidacionId: pagando.liquidacionId! }} cuentas={cuentas}
         fecha={periodos.find((p) => p.mes === pagando?.mes)?.fecha_pago ?? ''}
-        alCerrar={(guardado) => { setPagando(undefined); if (guardado) setVersion((v) => v + 1); }} />
+        alCerrar={(guardado, pagoId) => {
+          // Como en Transferencias: al marcar pagado se ofrece la factura del pago.
+          if (pagoId && pagando && !pagando.esHornera) setFacturando({ pagoId, codigo: pagando.codigo, moneda: pagando.moneda });
+          setPagando(undefined);
+          if (guardado) setVersion((v) => v + 1);
+        }} />
+      <FormFactura a={facturando} alCerrar={(cambio) => { setFacturando(undefined); if (cambio) setVersion((v) => v + 1); }} />
       <FormNotaCredito nc={nc} alCerrar={(cambio) => { setNc(undefined); if (cambio) setVersion((v) => v + 1); }} />
     </Space>
   );

@@ -352,9 +352,9 @@ export function importarExcel(db: DatabaseSync, contenido: Buffer, ahora = new D
         noches_ocupadas, noches_propietario, cant_reservas, ingresos_ars, ingresos_usd, costos_operativos,
         comisiones_ars, comisiones_usd, bruto, honorarios, saldo_anterior_ars, saldo_anterior_usd,
         movimientos_ars, movimientos_usd, conversion_ars, conversion_usd, saldo_final_ars, saldo_final_usd,
-        movimiento_pago_id, calculada_en, propietario_id)
+        movimiento_pago_id, calculada_en, propietario_id, moneda)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-        (SELECT propietario_id FROM depto WHERE id = ?2))`); // ?2 = depto_id: el dueño al importar
+        (SELECT propietario_id FROM depto WHERE id = ?2), (SELECT pr.moneda_liquidacion FROM depto d JOIN propietario pr ON pr.id = d.propietario_id WHERE d.id = ?2))`); // ?2 = depto_id: el dueño al importar
     for (const [codigo, h] of hojasDepto) {
       const deptoId = deptoIds.get(codigo);
       if (deptoId === undefined) continue;

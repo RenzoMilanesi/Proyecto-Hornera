@@ -5,7 +5,7 @@ import { Alert, Button, Card, Checkbox, Form, Input, InputNumber, Modal, Popconf
 import type { TableColumnsType } from 'antd';
 import type { FacturaDePago, FacturaExterna, Transferencia } from '../server/liquidacion/pagos.ts';
 import type { FacturaExterna as Externa } from '../server/misComprobantes.ts';
-import { descargarPdfComprobante, entradaPlata, enviar, get, pesos, simbolo } from './api.ts';
+import { descargarPdfComprobante, entradaPlata, enviar, get, pesos, simbolo, useUnaVez } from './api.ts';
 
 interface Periodo { mes: string; estado: string; fecha_pago: string }
 interface Cuenta { id: number; nombre: string; moneda: 'ARS' | 'USD'; activo: number }
@@ -26,8 +26,9 @@ export function FormPago({ t, fecha, cuentas, alCerrar }: { t?: Transferencia; f
       setError(e instanceof Error ? e.message : String(e));
     }
   };
+  const [guardarUnaVez, guardando] = useUnaVez(guardar);
   return (
-    <Modal open={!!t} title={t && `Pago de la liquidación de ${t.codigo}`} okText="Marcar pagado" cancelText="Cancelar" onOk={guardar} width={560}
+    <Modal open={!!t} title={t && `Pago de la liquidación de ${t.codigo}`} okText="Marcar pagado" cancelText="Cancelar" onOk={guardarUnaVez} confirmLoading={guardando} width={560}
       onCancel={() => alCerrar(false)} destroyOnHidden>
       {t && (
         <dl className="ficha">
@@ -248,8 +249,8 @@ export function Transferencias() {
       const cerrados = ps.filter((p) => p.estado === 'cerrado');
       setPeriodos(cerrados);
       setMes(cerrados[0]?.mes);
-    });
-    get<Cuenta[]>('cuentas').then(setCuentas);
+    }, (e) => setError(String(e)));
+    get<Cuenta[]>('cuentas').then(setCuentas, (e) => setError(String(e)));
   }, []);
   useEffect(() => { if (mes) get<Transferencia[]>(`transferencias?mes=${mes}`).then(setFilas, (e) => setError(String(e))); }, [mes, version]);
 
@@ -265,6 +266,7 @@ export function Transferencias() {
   const pdfFactura = async (id: number) => setError(await descargarPdfComprobante(id));
   const exportar = async () => {
     const r = await fetch(`/api/transferencias/excel?mes=${mes}`);
+    if (!r.ok) { setError((await r.json().catch(() => null))?.error ?? `No se pudo exportar (HTTP ${r.status}).`); return; }
     const enlace = Object.assign(document.createElement('a'), { href: URL.createObjectURL(await r.blob()), download: `transferencias-${mes}.xlsx` });
     enlace.click();
     URL.revokeObjectURL(enlace.href);
@@ -296,7 +298,7 @@ export function Transferencias() {
           {filas && <Typography.Text>Pendiente: <b>{pesos(totales('ARS'))}</b> · <b>{pesos(totales('USD'), 'USD')}</b> ({aPagar.length} deptos)</Typography.Text>}
         </Space>
       </Card>
-      {!periodos.length && <Alert type="info" showIcon title="No hay meses cerrados: las transferencias salen al cerrar el mes en Liquidación." />}
+      {!periodos.length && !error && <Alert type="info" showIcon title="No hay meses cerrados: las transferencias salen al cerrar el mes en Liquidación." />}
       {error && <Alert type="error" showIcon closable title={error} onClose={() => setError(undefined)} />}
       <Table<Transferencia> rowKey="liquidacionId" size="small" pagination={false} sticky scroll={{ x: 'max-content' }} loading={!!mes && !filas}
         dataSource={soloPendientes ? aPagar : filas} columns={columnas}

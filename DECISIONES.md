@@ -91,7 +91,7 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - Export en JSON (`POST /reservations-export`), evaluado y descartado por ahora: según la documentación, `fee`/`ownerFee` traen importes sin nombre y no figuran canal, código OTA, estado ni documento del huésped, que la sync sí usa del XLSX. Revisar con una respuesta real antes de reconsiderarlo.
 - Credenciales: las carga el usuario en la app y se guardan cifradas con `safeStorage` (DPAPI de Windows) en `stays.cred`, fuera de la base: no viajan en los backups. La clave nunca vuelve a la pantalla. `configuracion.stays.url` permite apuntar a otra URL, pero la clave solo se manda por https a `*.stays.net` o a un Stays de prueba en la misma PC, y sin seguir redirecciones.
 - Probado contra un Stays simulado con datos ficticios en el formato real (xlsx del export, JSON de pagos y medios). **Falta probar contra el Stays real** cuando se cambie la contraseña.
-- Pendiente para la fase 5: asociar cada medio de pago a una cuenta (pantalla), y calcular la liquidación del mes abierto con el motor a partir de reservas y pagos.
+- Cada medio de pago se asocia a su cuenta en la pantalla Cuentas; la liquidación del mes abierto la calcula el motor desde reservas y pagos (fase 5).
 
 ## Técnico
 - **Desktop** como Roble: Electron + React/Vite + Express + SQLite. Proyecto nuevo, se copia de Roble solo lo que sirva.
@@ -108,7 +108,7 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
   - **Sin mDNS ni WebSocket (a diferencia de Roble):** la terminal llama al servidor por el nombre del equipo, que Windows resuelve en la LAN y no cambia con DHCP; cada pantalla recarga sus datos al abrirse. mDNS si el nombre no resuelve en la red de la oficina; WS si hace falta ver en vivo lo que carga la otra PC.
 - **Login:** ninguno.
 - **Convenciones de Roble:** importes en centavos INTEGER, fechas ISO, bajas lógicas, saldos por vistas `v_*`. La "capa repos" de Roble no se adoptó: el SQL vive junto a cada módulo (`server/app.ts`, `server/importador/`, `server/stays/`).
-- **Instalador** (`npm run dist`): electron-builder con NSIS, como Roble. Lista explícita de archivos en `package.json` ("build.files"): solo `electron/`, `server/` sin tests, `dist/`, `schema.sql` y las dependencias de producción (express, xlsx); React y Ant Design van compilados en `dist/`. Nunca entra `Archivos Originales/`. Sin firma de código (Windows avisa "protegió su PC") ni ícono propio. Los datos quedan en `%APPDATA%\Hornera`, fuera de la carpeta de instalación: reinstalar o actualizar no los toca.
+- **Instalador** (`npm run dist`): electron-builder con NSIS, como Roble. Lista explícita de archivos en `package.json` ("build.files"): solo `electron/`, `server/` sin tests, `dist/`, `schema.sql` y las dependencias de producción (express, xlsx, node-forge, qrcode); React y Ant Design van compilados en `dist/`. Nunca entra `Archivos Originales/`. Sin firma de código (Windows avisa "protegió su PC") ni ícono propio. Los datos quedan en `%APPDATA%\Hornera`, fuera de la carpeta de instalación: reinstalar o actualizar no los toca.
 - **PDF:** `printToPDF` de Electron (patrón `HojaImpresion`).
 - **Backups:** como Roble pero al cerrar, al apagar Windows y cada 6 h con la app abierta; se conservan 60 copias (unas 2 semanas en el peor caso), con `VACUUM INTO`, con carpeta de destino configurable (Drive/OneDrive) en `configuracion.backup.carpeta`.
 

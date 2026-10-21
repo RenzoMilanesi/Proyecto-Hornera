@@ -2,7 +2,7 @@
 // "Traer mes" las copia al mes siguiente, así que alcanza con cambiarlas en el mes abierto.
 import { useEffect, useState, type ReactNode } from 'react';
 import { Alert, Col, Form, InputNumber, Modal, Row, Tag, Typography } from 'antd';
-import { entradaPlata, enviar, get } from './api.ts';
+import { entradaPlata, enviar, get, useUnaVez } from './api.ts';
 
 // Campos en pesos (centavos en la base).
 const PLATA = ['costo_hora_limpieza', 'servicio_limpieza', 'servicio_lavanderia', 'prestamo_blanqueria', 'gestion_operativa',
@@ -61,9 +61,10 @@ export function VariablesMes({ mes, abierto, alCerrar }: { mes: string; abierto:
     }
   };
 
+  const [guardarUnaVez, guardando] = useUnaVez(guardar);
   return (
     <Modal open={abierto} title={`Variables operativas de ${mes}`} width={560} okText="Guardar" cancelText="Cancelar"
-      onOk={guardar} onCancel={() => alCerrar(false)} okButtonProps={{ disabled: soloLectura }} destroyOnHidden>
+      onOk={guardarUnaVez} confirmLoading={guardando} onCancel={() => alCerrar(false)} okButtonProps={{ disabled: soloLectura }} destroyOnHidden>
       <dl className="ficha">
         <dt>Mes</dt><dd><b>{mes}</b> {soloLectura ? <Tag color="green">cerrado</Tag> : <Tag color="blue">abierto</Tag>}</dd>
         <dt>Se aplica</dt>
@@ -106,7 +107,7 @@ export function VariablesMes({ mes, abierto, alCerrar }: { mes: string; abierto:
         <Row gutter={12}>
           <Col span={12}>
             <Form.Item name="usd_descuento_pct" label="Descuento sobre el dólar cripto" rules={requerido}>
-              <InputNumber min={0} max={99.99} suffix="%" style={{ width: '100%' }} />
+              <InputNumber min={0} max={99.99} precision={2} decimalSeparator="," suffix="%" style={{ width: '100%' }} />
             </Form.Item>
           </Col>
           <Col span={12}><Plata name="cm_fee_usd" label="Channel manager por depto y mes" prefix="US$" /></Col>

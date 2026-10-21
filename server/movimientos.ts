@@ -126,6 +126,13 @@ export function anularMovimiento(db: DatabaseSync, id: number) {
     const m = leer(db, id);
     if (!m) throw new Error('No existe el movimiento.');
     if (m.estado !== 'vigente') throw new Error('El movimiento ya está anulado.');
+    // Con el mes siguiente cerrado, ese cierre ya arrastró el saldo descontando este pago: anularlo dejaría la plata
+    // sin deberse en ningún mes (y desde el mes viejo no se puede volver a pagar, plan 025).
+    if (m.tipo === 'liquidacion') {
+      const sig = db.prepare(`SELECT s.mes FROM periodo p JOIN periodo s ON s.mes > p.mes WHERE p.id = ? AND s.estado = 'cerrado' ORDER BY s.mes LIMIT 1`)
+        .get(m.periodo_id) as { mes: string } | undefined;
+      if (sig) throw new Error(`El saldo de este mes ya pasó a ${sig.mes} (cerrado): reabrí ${sig.mes} para anular el pago.`);
+    }
     const ids = m.transferencia_grupo
       ? (db.prepare(`SELECT id FROM movimiento WHERE transferencia_grupo = ? AND estado = 'vigente'`).all(m.transferencia_grupo) as { id: number }[]).map((x) => x.id)
       : [id];

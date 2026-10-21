@@ -1,7 +1,7 @@
 // Ajustes manuales de una reserva (las pestañas 🖊 del Excel). "Traer mes" no los pisa.
 import { useEffect, useState } from 'react';
 import { Alert, Col, Form, Input, InputNumber, Modal, Row, Switch, Typography } from 'antd';
-import { entradaPlata, enviar } from './api.ts';
+import { entradaPlata, enviar, useUnaVez } from './api.ts';
 
 export interface ReservaAjustable {
   id: number; codigo: string; depto: string;
@@ -39,9 +39,10 @@ export function AjustesReserva({ reserva, alCerrar }: { reserva?: ReservaAjustab
   };
 
   const numero = { ...entradaPlata, style: { width: '100%' }, step: 100 };
+  const [guardarUnaVez, guardando] = useUnaVez(guardar);
   return (
     <Modal open={!!reserva} title={reserva && `Ajustes de la reserva ${reserva.codigo} (${reserva.depto})`}
-      okText="Guardar" cancelText="Cancelar" onOk={guardar} onCancel={() => alCerrar(false)} destroyOnHidden>
+      okText="Guardar" cancelText="Cancelar" onOk={guardarUnaVez} confirmLoading={guardando} onCancel={() => alCerrar(false)} destroyOnHidden>
       <Form form={form} layout="vertical">
         <Typography.Text strong>Corrección de lo cobrado</Typography.Text>
         <Typography.Paragraph type="secondary" style={{ margin: '0 0 8px' }}>Se suma a lo cobrado en Stays (negativo para restar).</Typography.Paragraph>

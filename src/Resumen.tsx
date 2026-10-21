@@ -23,6 +23,7 @@ export function Resumen() {
     get<{ mes: string; estado: string }[]>('periodos').then((p) => {
       setMeses(p);
       setMes((p.find((x) => x.estado === 'cerrado') ?? p[0])?.mes); // el último cerrado: números firmes
+      if (!p.length) setError('No hay meses cargados: importá el Excel de un mes (Herramientas) o traelo de Stays.');
     }, (e) => setError(String(e)));
     get<Mes[]>('resumen/evolucion').then(setHistoria, (e) => setError(String(e)));
   }, []);

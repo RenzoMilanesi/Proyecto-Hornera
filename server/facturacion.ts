@@ -220,15 +220,18 @@ async function autorizar(db: DatabaseSync, e: Emisor, keyPem: string, c: {
   // Plan 033, regla 3: un intento anterior sin respuesta (timeout al pedir el CAE) pudo haber sido autorizado.
   // Si la numeración llegó a ese número, no se emite a ciegas: se revisa en ARCA y se confirma.
   // ponytail: aviso manual; el upgrade es FECompConsultar del número y guardar el CAE recuperado.
-  // Solo si es el último intento: uno posterior (ya revisado) responde por él.
-  const anterior = db.prepare(`SELECT estado, response_json IS NULL AND json_valid(request_json) AS sin_respuesta,
-      json_extract(CASE WHEN json_valid(request_json) THEN request_json END, '$.numero') AS numero FROM comprobante
-      WHERE movimiento_id = ? AND emisor_id = ? AND ambiente = ? AND cbte_tipo = ? ORDER BY id DESC LIMIT 1`)
-    .get(c.movimiento_id, e.id, e.ambiente, cbteTipo) as { estado: string; sin_respuesta: number; numero: number } | undefined;
-  const sinRespuesta = anterior?.estado === 'rechazado' && anterior.sin_respuesta ? anterior : undefined;
-  if (sinRespuesta && ultimo >= sinRespuesta.numero && !revisado) {
-    throw new ErrorRevisar(`ARCA puede haber autorizado el comprobante n.º ${numeroCbte(e.punto_venta, sinRespuesta.numero)}: `
-      + 'revisalo en Comprobantes en Línea antes de reintentar.', sinRespuesta.numero);
+  // Cuenta el último intento que llegó a pedir el CAE (con request_json), de cualquier emisor: los que fallaron antes
+  // (login, último autorizado) no lo tapan, y uno posterior que ARCA contestó (ya revisado) responde por él.
+  const anterior = db.prepare(`SELECT c.emisor_id, c.punto_venta, e.nombre AS emisor, c.response_json IS NULL AS sin_respuesta,
+      json_extract(c.request_json, '$.numero') AS numero FROM comprobante c JOIN emisor e ON e.id = c.emisor_id
+      WHERE c.movimiento_id = ? AND c.ambiente = ? AND c.cbte_tipo = ? AND json_valid(c.request_json) ORDER BY c.id DESC LIMIT 1`)
+    .get(c.movimiento_id, e.ambiente, cbteTipo) as { emisor_id: number; punto_venta: number; emisor: string; sin_respuesta: number; numero: number } | undefined;
+  const sinRespuesta = anterior?.sin_respuesta ? anterior : undefined;
+  // Con otro emisor o punto de venta la numeración de ahora no dice nada del intento colgado: siempre se revisa.
+  const mismaNumeracion = sinRespuesta?.emisor_id === e.id && sinRespuesta.punto_venta === e.punto_venta;
+  if (sinRespuesta && (!mismaNumeracion || ultimo >= sinRespuesta.numero) && !revisado) {
+    throw new ErrorRevisar(`ARCA puede haber autorizado el comprobante n.º ${numeroCbte(sinRespuesta.punto_venta, sinRespuesta.numero)}`
+      + `${mismaNumeracion ? '' : ` de ${sinRespuesta.emisor}`}: revisalo en Comprobantes en Línea antes de reintentar.`, sinRespuesta.numero);
   }
 
   // Plan 033, regla 1: FchVtoPago = CbteFch, que fechaComprobante puede subir hasta el último autorizado.
