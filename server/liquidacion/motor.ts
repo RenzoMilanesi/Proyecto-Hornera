@@ -189,4 +189,10 @@ export function cuentaLiquidacion(bruto: Centavos, gastosDirectos: Centavos, hon
   return { ingresosOperativos: bruto, costos: gastosDirectos, ingresoBruto, honorarios, valorInicial, excepcionales, valorFinal: valorInicial + excepcionales };
 }
 
-export const cambioDelPeriodo =(cotizacionUsd: number, descuentoPct: number) => cotizacionUsd * (1 - descuentoPct);
+// La cuenta parte de [F18] y [F19] redondeados, como el Excel, y el saldo [J55] de los valores sin
+// redondear: valor final + saldo anterior puede no dar el saldo por $ 1. Es el renglón "Redondeo" (plan 041).
+// Solo para el que liquida en pesos; el de dólares pasa por el cambio de cobro y no se compara.
+export const redondeoCuenta = (c: CuentaLiquidacion, saldoAnterior: Importe, saldoArs: Centavos, cambio: number): Centavos =>
+  redondearPesos(saldoArs - c.valorFinal - saldoAnterior.ars - saldoAnterior.usd * cambio);
+
+export const cambioDelPeriodo = (cotizacionUsd: number, descuentoPct: number) => cotizacionUsd * (1 - descuentoPct);

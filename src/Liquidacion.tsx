@@ -58,6 +58,8 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
     // La cuenta ya está en pesos: solo el que liquida en dólares tiene un paso más.
     ...(d.moneda === 'USD' ? [{ key: 'conv', concepto: 'Pasado a dólares', importe: '',
       detalle: 'Liquida en dólares: los pesos pasan a USD con el cambio menos la comisión de cobro.' }] : []),
+    ...(d.redondeo ? [{ key: 'red', concepto: 'Redondeo', importe: pesos(d.redondeo),
+      detalle: 'La cuenta usa los totales redondeados como el Excel; el saldo, los valores exactos.' }] : []),
     { key: 'sal', concepto: 'Saldo a liquidar', importe: <Typography.Text type={saldo < 0 ? 'danger' : undefined}>{pesos(saldo, d.moneda)}</Typography.Text>, total: true },
   ];
   return (

@@ -172,3 +172,10 @@ test('la pantalla de un mes cerrado muestra lo guardado: igual que al cerrar, au
   assert.deepEqual(guardada.deptos[0].cuenta, hojaDepto(db, '2026-05', 'AAA').resumen);
   assert.throws(() => liquidacionGuardada(db, '2026-06'), /No existe el período/);
 });
+
+test('con el mes abierto la cuenta de la pantalla es la del PDF, y con el redondeo cierra con el saldo', () => {
+  const db = base();
+  const [d] = liquidarPeriodo(db, '2026-05').deptos;
+  assert.deepEqual(d.cuenta, hojaDepto(db, '2026-05', 'AAA').resumen);
+  assert.equal(d.cuenta.valorFinal + d.saldoAnterior.ars + d.redondeo, d.resultado.saldo.ars);
+});

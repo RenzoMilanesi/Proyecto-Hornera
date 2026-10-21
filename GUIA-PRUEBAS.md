@@ -70,8 +70,12 @@ copia aparte que no toque los datos de verdad:
 
 ## 4. Liquidación del mes abierto (fase 5a)
 1. **Liquidación** → mes de mayo → cargar el **dólar cripto al cierre** y *Guardar*.
-2. Revisar la tabla: saldo de cada depto y, desplegando la fila, el detalle (reservas, costos,
-   honorarios, movimientos, saldo anterior).
+2. Revisar la tabla: saldo de cada depto y, desplegando la fila, la **cuenta de la liquidación**: ingresos
+   operativos − costos = ingreso bruto − honorarios = valor inicial − costos excepcionales = valor final. Valor final
+   + saldo anterior (+ "Redondeo" si aparece) tiene que dar el saldo a liquidar, en los que liquidan en pesos.
+   Desplegar no tiene que agrandar la tabla a lo ancho.
+   - **Ajustar** una reserva y **Agregar** un costo excepcional desde el detalle: la cuenta y el PDF del depto cambian.
+   - En un mes cerrado, la cuenta es la guardada al cerrar (la misma del PDF) y no hay botones para corregir.
 3. Cuando esté el Excel de mayo: **Comparar con el Excel del mes** → elegir el archivo. Cada depto
    dice "igual al Excel" o cuántas diferencias tiene. **Cada diferencia tiene que tener una
    explicación** (un gasto que falta cargar, una corrección hecha a mano en el Excel, etc.).

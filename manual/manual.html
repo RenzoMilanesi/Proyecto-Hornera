@@ -224,16 +224,25 @@ que haya cargado. Al cerrar el mes queda guardado.</p>
 debe). Arriba de la tabla están el buscador y los totales. Tocando el <span class="boton">+</span> de una fila se ve el detalle:</p>
 <figure>
   <img src="img/liquidacion-detalle.png">
-  <figcaption>Detalle de un depto: saldo anterior, costos, comisiones, gastos, saldo parcial, cambio de moneda y cada reserva.</figcaption>
+  <figcaption>Detalle de un depto: la cuenta de la liquidación renglón por renglón, sus reservas y sus costos excepcionales.</figcaption>
 </figure>
+<p>Arriba está la <b>cuenta de la liquidación</b>, en pesos (los dólares al cambio del mes). Al lado de cada renglón
+dice qué lo compone y, con el mes abierto, dónde se corrige:</p>
 <ul>
-  <li><b>Saldo anterior:</b> lo que quedó del mes pasado.</li>
-  <li><b>Costos operativos:</b> la tarifa por reserva (limpieza, lavandería, etc.), prorrateada a las noches del mes.</li>
-  <li><b>Comisiones:</b> las de plataformas y agentes.</li>
-  <li><b>Gastos directos:</b> los movimientos del depto en el mes.</li>
-  <li><b>Cambio de moneda:</b> la conversión a la moneda en que cobra el propietario.</li>
-  <li><b>Reservas:</b> código interno, noches del mes sobre noches totales, lo cobrado y la tarifa.</li>
+  <li><b>Ingresos operativos:</b> lo cobrado de las reservas del mes. Se corrige con <span class="boton">Ajustar</span> en la reserva.</li>
+  <li><b>− Costos:</b> los costos operativos (la tarifa por reserva, prorrateada a las noches del mes; se cambian en
+    <span class="boton">Variables del mes</span>) y las comisiones de plataformas y agentes (<span class="boton">Ajustar</span> en la reserva).</li>
+  <li><b>= Ingreso bruto.</b></li>
+  <li><b>− Honorarios:</b> la comisión de Hornera sobre el ingreso bruto (se cambia en Deptos → Variables).</li>
+  <li><b>= Valor liquidación inicial.</b></li>
+  <li><b>− Costos excepcionales:</b> los gastos del depto y los adelantos al propietario del mes. <span class="boton">Agregar</span>
+    y <span class="boton">Editar</span> abren el mismo formulario que Movimientos, con el depto ya elegido.</li>
+  <li><b>= Valor liquidación final.</b></li>
+  <li><b>Saldo mes anterior</b> y <b>Saldo a liquidar</b>. Si los redondeos del Excel no coinciden, aparece un renglón
+    <b>Redondeo</b> de $ 1 para que la cuenta cierre. El que liquida en dólares tiene además <b>Pasado a dólares</b>.</li>
 </ul>
+<p>Abajo, las <b>reservas</b> (código interno, noches del mes sobre noches totales, lo cobrado, la tarifa y la comisión) y
+los <b>costos excepcionales</b>. Con el mes cerrado se ve lo que quedó guardado al cerrar, sin botones para corregir.</p>
 <p>El botón <span class="boton">PDF</span> de cada fila genera la hoja de ese depto. Con el mes abierto es una vista previa.</p>
 
 <h2>Variables del mes</h2>
@@ -275,8 +284,8 @@ Excel. Cada diferencia tiene que tener una explicación: un gasto que falta carg
 el mes ya tiene pagos: primero hay que anularlos en Transferencias. Tampoco si el mes siguiente está cerrado.</div>
 
 <h2>El PDF de la liquidación</h2>
-<p>Es la hoja que se le manda a cada propietario: datos del depto y del propietario, período, resumen (bruto, gastos,
-honorarios, saldo), el detalle de ingresos y egresos y el detalle de reservas. Si los honorarios ya están facturados,
+<p>Es la hoja que se le manda a cada propietario: datos del depto y del propietario, período, resumen (la cuenta: ingresos operativos,
+costos, ingreso bruto, honorarios, valor de liquidación inicial, costos excepcionales y valor final), el detalle de ingresos y egresos y el detalle de reservas. Si los honorarios ya están facturados,
 el PDF suma una página por cada factura.</p>
 <figure class="media">
   <img src="img/pdf-liquidacion.png" style="max-height:215mm">
@@ -632,6 +641,10 @@ pueden estar abiertas a la vez.</div>
   <tr><th style="width:28%">Término</th><th>Significado</th></tr>
   <tr><td>Bruto</td><td>Ingresos del depto en el mes: lo cobrado en pesos más lo cobrado en dólares convertido al cambio.</td></tr>
   <tr><td>Honorarios</td><td>Lo que cobra Hornera: la comisión del depto sobre el bruto menos costos operativos y comisiones, redondeada a centenas.</td></tr>
+  <tr><td>Ingreso bruto</td><td>Ingresos operativos menos costos (costos operativos y comisiones de plataformas). Sobre esto se calculan los honorarios.</td></tr>
+  <tr><td>Valor liquidación inicial</td><td>Ingreso bruto menos honorarios.</td></tr>
+  <tr><td>Costos excepcionales</td><td>Gastos del depto y adelantos al propietario cargados en el mes (Movimientos), sin el saldo anterior ni los pagos.</td></tr>
+  <tr><td>Valor liquidación final</td><td>Valor liquidación inicial menos costos excepcionales. Sumado al saldo anterior da el saldo.</td></tr>
   <tr><td>Costos operativos</td><td>La tarifa por reserva (limpieza, lavandería, gestión, mantenimiento), prorrateada a las noches del mes.</td></tr>
   <tr><td>Saldo</td><td>Lo que le corresponde al propietario. Positivo: se le transfiere. Negativo (en rojo): debe.</td></tr>
   <tr><td>Cambio</td><td>Dólar cripto al cierre menos el descuento del mes; convierte entre pesos y dólares.</td></tr>

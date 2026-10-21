@@ -34,6 +34,7 @@ en la LAN (fase 5d), que sigue a testear.
    - Valor liquidación inicial − Costos excepcionales = Valor liquidación final
    - Costos excepcionales = los movimientos del mes del depto (gastos, adelantos, cobros directos); el saldo anterior va aparte.
    - Un mes cerrado se ve como se guardó al cerrar (o al importar el Excel), igual que el PDF ([plan 040](plans/040-liquidacion-cerrada-desde-snapshot.md), v0.30.1).
+   - Si los redondeos del Excel no coinciden, un renglón "Redondeo" de $ 1 cierra la cuenta con el saldo ([plan 041](plans/041-cuenta-cierra-al-peso.md), v0.30.3). Manual y guía de prueba al día ([plan 039](plans/039-manual-cuenta-liquidacion.md)).
 3. **Auditoría por usuario**: registrar los movimientos que hace cada usuario, sobre todo los de dinero.
 4. **Variables operativas** administrables — **Testeado**: Liquidación → "Variables del mes"
    (tarifas de limpieza, lavandería, tramos, channel manager, descuento del dólar) y Deptos → "Variables"

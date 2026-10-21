@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 const P = new URL('../server/', import.meta.url).href;
 const { abrirDb } = await import(P + 'db.ts');
-const { crearMovimiento, transferir } = await import(P + 'movimientos.ts');
+const { anularMovimiento, crearMovimiento, transferir } = await import(P + 'movimientos.ts');
 const { cerrarPeriodo } = await import(P + 'liquidacion/cierre.ts');
 const { listarTransferencias, pagarLiquidacion } = await import(P + 'liquidacion/pagos.ts');
 
@@ -34,7 +34,8 @@ INSERT INTO medio_pago(stays_id, nombre, tipo_stays, moneda, descuenta_comision,
   ('tr1', 'Transferencia bancaria', 'user', 'ARS', 0, 1),
   ('pp1', 'PayPal', 'paypal', 'USD', 1, NULL);
 INSERT INTO emisor(nombre, razon_social, cuit, condicion_iva, punto_venta, domicilio, ambiente) VALUES
-  ('Emisor Demo', 'Demo Emisor', '20123456786', 'monotributista', 3, 'Calle Ejemplo 1, Rosario', 'homologacion');
+  ('Emisor Demo', 'Demo Emisor', '20123456786', 'monotributista', 3, 'Calle Ejemplo 1, Rosario', 'homologacion'),
+  ('Emisora Prueba', 'Prueba Emisora', '27123456785', 'monotributista', 2, 'Calle Ejemplo 2, Rosario', 'homologacion');
 `);
 
 const periodo = db.prepare(`INSERT INTO periodo(mes, fecha_inicio, fecha_cierre_reservas, fecha_corte_gastos, fecha_pago, usd_cotizacion,
@@ -86,11 +87,15 @@ mov('2026-10', '2026-10-09', 'DUR', 'pre_liquidacion', 'Adelanto', 'Adelanto ped
 transferir(db, { mes: '2026-10', fecha: '2026-10-18', desde_cuenta_id: 1, hacia_cuenta_id: 3, importe_desde: 146000000, importe_hacia: 100000, detalle: 'Compra de dólares' });
 
 cerrarPeriodo(db, '2026-08');
-for (const t of listarTransferencias(db, '2026-08')) if (t.pendiente > 0) pagarLiquidacion(db, t.liquidacionId, { cuenta_id: t.moneda === 'USD' ? 3 : 1, fecha: '2026-09-10', importe: t.pendiente, detalle: 'Transferencia' });
+const pagos08: Record<string, number> = {};
+for (const t of listarTransferencias(db, '2026-08')) if (t.pendiente > 0) pagos08[t.codigo] = pagarLiquidacion(db, t.liquidacionId, { cuenta_id: t.moneda === 'USD' ? 3 : 1, fecha: '2026-09-10', importe: t.pendiente, detalle: 'Transferencia' });
+// Pagos de agosto anulados (sus facturas, más abajo) antes de cerrar septiembre: con septiembre cerrado ya no se puede.
+anularMovimiento(db, pagos08.ESC);
+anularMovimiento(db, pagos08.DUR);
 cerrarPeriodo(db, '2026-09');
 const [alm, bos, ced] = listarTransferencias(db, '2026-09');
 const pagoAlm = pagarLiquidacion(db, alm.liquidacionId, { cuenta_id: 1, fecha: '2026-10-10', importe: alm.pendiente, detalle: 'Transferencia' });
-pagarLiquidacion(db, ced.liquidacionId, { cuenta_id: 1, fecha: '2026-10-10', importe: Math.round(ced.pendiente / 2), detalle: 'Primera parte' });
+const pagoCed = pagarLiquidacion(db, ced.liquidacionId, { cuenta_id: 1, fecha: '2026-10-10', importe: Math.round(ced.pendiente / 2), detalle: 'Primera parte' });
 void bos;
 // Factura de prueba (homologación) del pago de ALM: datos inventados, sin pasar por ARCA.
 db.prepare(`INSERT INTO comprobante(periodo_id, depto_id, propietario_id, movimiento_id, emisor_id, cbte_tipo, punto_venta, numero, cae, cae_vencimiento,
@@ -98,6 +103,29 @@ db.prepare(`INSERT INTO comprobante(periodo_id, depto_id, propietario_id, movimi
   ((SELECT id FROM periodo WHERE mes = '2026-09'), 1, 1, ?, 1, 11, 3, 15, '76123456789012', '2026-10-20', '2026-10-10', '2026-09-01', '2026-09-30',
    ?, ?, 'aprobado', 'homologacion', '2026-10-10 12:00:00')`)
   .run(pagoAlm, 9500000, JSON.stringify({ razon_social: 'Pérez Ana', doc_tipo: 80, doc_nro: '27111111112', condicion_iva: 'consumidor_final', domicilio: 'Calle Falsa 123, Rosario' }));
+
+// Más ejemplos para la pantalla Comprobantes (octubre): un rechazo pendiente, una factura anulada por su NC y una
+// factura de un pago anulado esperando su NC. Fuera de ALM y BOS, que salen en las capturas.
+const comprobante = db.prepare(`INSERT INTO comprobante(periodo_id, depto_id, propietario_id, movimiento_id, emisor_id, cbte_tipo, punto_venta,
+  numero, cae, cae_vencimiento, fecha, serv_desde, serv_hasta, importe, receptor_json, estado, ambiente, motivo, request_json, response_json,
+  asociado_id, creado_en) VALUES ((SELECT id FROM periodo WHERE mes = ?), (SELECT id FROM depto WHERE codigo = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+  'homologacion', ?, ?, ?, ?, ?)`);
+const receptor = (razon_social: string, doc_nro: string) =>
+  JSON.stringify({ razon_social, doc_tipo: 80, doc_nro, condicion_iva: 'consumidor_final', domicilio: 'Calle Demo 789, Rosario' });
+const gomez = receptor('Gómez Luis', '20222222223');
+const ruiz = receptor('Ruiz Marcos', '20333333334');
+const sep = ['2026-09-01', '2026-09-30'], ago = ['2026-08-01', '2026-08-31'];
+comprobante.run('2026-09', 'CED', 2, pagoCed, 2, 11, 2, null, null, null, '2026-10-11', ...sep, 4000000, gomez, 'rechazado',
+  '10015: El número de documento del receptor no es válido', '{"cbteTipo":11,"numero":5}',
+  '<FECAESolicitarResult><FeCabResp><Resultado>R</Resultado></FeCabResp></FECAESolicitarResult>', null, '2026-10-11 09:30:00');
+const facEsc = comprobante.run('2026-08', 'ESC', 4, pagos08.ESC, 2, 11, 2, 4, '76123456789104', '2026-10-22', '2026-10-12', ...ago, 5200000, ruiz,
+  'aprobado', null, '{"cbteTipo":11,"numero":4}', '<FECAESolicitarResult><FeCabResp><Resultado>A</Resultado></FeCabResp></FECAESolicitarResult>',
+  null, '2026-10-12 10:00:00').lastInsertRowid;
+comprobante.run('2026-08', 'ESC', 4, pagos08.ESC, 2, 13, 2, 1, '76123456789201', '2026-10-25', '2026-10-15', ...ago, 5200000, ruiz,
+  'aprobado', null, '{"cbteTipo":13,"numero":1}', '<FECAESolicitarResult><FeCabResp><Resultado>A</Resultado></FeCabResp></FECAESolicitarResult>',
+  facEsc, '2026-10-15 11:00:00');
+comprobante.run('2026-08', 'DUR', 3, pagos08.DUR, 1, 11, 3, 16, '76123456789016', '2026-10-26', '2026-10-16', ...ago, 3000000,
+  receptor('Fernández Clara', '27444444449'), 'aprobado', null, '{"cbteTipo":11,"numero":16}', null, null, '2026-10-16 12:00:00');
 
 const hist = db.prepare('INSERT INTO historico_mensual(depto_id, mes, noches_ocupadas) VALUES (?, ?, ?)');
 for (let i = 1; i <= 7; i++) for (let d = 1; d <= 5; d++) hist.run(d, `2026-0${i}`, 12 + ((i * d * 5) % 15));

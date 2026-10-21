@@ -1,7 +1,7 @@
 // Correr: node --test server/liquidacion/motor.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { liquidar, cambioDelPeriodo, cuentaLiquidacion, type ParametrosPeriodo } from './motor.ts';
+import { liquidar, cambioDelPeriodo, cuentaLiquidacion, redondeoCuenta, type ParametrosPeriodo } from './motor.ts';
 
 const c = (pesos: number) => Math.round(pesos * 100); // pesos → centavos
 
@@ -56,6 +56,22 @@ test('una reserva fuera del período no suma noches ni ingresos', () => {
   assert.equal(r.nochesOcupadas, 0);
   assert.equal(r.ingresos.ars, 0);
   assert.equal(r.costosOperativos, 0);
+});
+
+test('el renglón Redondeo cierra la cuenta con el saldo cuando los redondeos del Excel no coinciden', () => {
+  // Bruto [F18] redondeado y gastos directos [F19] truncados; el saldo [J55] sale de los valores exactos.
+  const p = { ...abril, cambio: 1400.6, tarifaBase: c(70000), adicionalHuesped: 0, cargoTramo1: 0, cargoTramo2: 0 };
+  const r = liquidar({
+    periodo: p,
+    depto: { codigo: 'XXX', comisionPct: 0.2, monedaLiquidacion: 'ARS', comisionCobroUsdPct: 0, nochesNoDisponibles: 0 },
+    reservas: [{ llegada: '2026-04-05', salida: '2026-04-08', huespedes: 2, canal: 'A', ars: 0, ajusteArs: 0, usd: c(100.84), ajusteUsd: 0, pagoPlataformaUsd: 0 }],
+    comisiones: { ars: 0, usd: c(5.23) },
+    movimientos: [],
+  });
+  const cuenta = cuentaLiquidacion(r.bruto, r.gastosDirectos, r.honorarios, { ars: 0, usd: 0 }, p.cambio);
+  const redondeo = redondeoCuenta(cuenta, { ars: 0, usd: 0 }, r.saldo.ars, p.cambio);
+  assert.equal(redondeo, c(-1));
+  assert.equal(cuenta.valorFinal + redondeo, r.saldo.ars);
 });
 
 // La regresión contra las 24 hojas de abril está en regresion.test.ts (importador + motor).

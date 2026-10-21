@@ -3,7 +3,7 @@
 // No guarda nada: con el período abierto se recalcula cada vez (al cerrar se guardará
 // el snapshot en `liquidacion`).
 import type { DatabaseSync } from 'node:sqlite';
-import { cambioDelPeriodo, cuentaLiquidacion, liquidar, truncPesos, type CuentaLiquidacion, type Importe, type ResultadoLiquidacion } from './motor.ts';
+import { cambioDelPeriodo, cuentaLiquidacion, liquidar, redondeoCuenta, truncPesos, type CuentaLiquidacion, type Importe, type ResultadoLiquidacion } from './motor.ts';
 import { SQL_EN_PERIODO } from '../periodo.ts';
 
 export interface LiquidacionDepto {
@@ -25,6 +25,7 @@ export interface LiquidacionDepto {
   }[];
   resultado: ResultadoLiquidacion;
   cuenta: CuentaLiquidacion;
+  redondeo: number;                           // saldo − (valor final + saldo anterior), ±$ 1; 0 si liquida en USD
 }
 
 export interface LiquidacionPeriodo {
@@ -136,6 +137,7 @@ export function liquidarPeriodo(db: DatabaseSync, mes: string): LiquidacionPerio
       movimientos: iniciales.length ? movimientos : [saldoAnterior, ...movimientos],
     });
     const movimientosMes = movimientos.filter((m) => m.tipo !== 'saldo_inicial').reduce(sumar, CERO);
+    const cuenta = cuentaLiquidacion(r.bruto, r.gastosDirectos, r.honorarios, movimientosMes, cambio);
     resultado.push({
       deptoId: d.id, codigo: d.codigo, nombre: d.nombre, propietario: d.propietario, moneda: d.moneda_liquidacion,
       comisionPct: d.comision_pct, nochesNoDisponibles, saldoAnterior, comisiones,
@@ -145,7 +147,8 @@ export function liquidarPeriodo(db: DatabaseSync, mes: string): LiquidacionPerio
         ajuste_ars: x.ajuste_ars, ajuste_usd: x.ajuste_usd, ajuste_comision_ars: x.ajuste_comision_ars, ajuste_comision_usd: x.ajuste_comision_usd,
         observacion: x.observacion,
       })),
-      resultado: r, cuenta: cuentaLiquidacion(r.bruto, r.gastosDirectos, r.honorarios, movimientosMes, cambio),
+      resultado: r, cuenta,
+      redondeo: d.moneda_liquidacion === 'ARS' ? redondeoCuenta(cuenta, saldoAnterior, r.saldo.ars, cambio) : 0,
     });
   }
   return { ...base, cambio, avisos, deptos: resultado };
@@ -190,16 +193,19 @@ export function liquidacionGuardada(db: DatabaseSync, mes: string): LiquidacionP
       nochesDisponibles: l.noches_disponibles, nochesOcupadas: l.noches_ocupadas, nochesPropietario: l.noches_propietario,
       ocupacion: l.noches_disponibles === 0 ? 0 : l.noches_ocupadas / l.noches_disponibles,
     };
+    const cuenta = cuentaLiquidacion(l.bruto, gastosDirectos, l.honorarios, movimientos, l.cambio);
+    const saldoAnterior = { ars: l.saldo_anterior_ars, usd: l.saldo_anterior_usd };
     return {
       deptoId: l.depto_id, codigo: l.codigo, nombre: l.nombre, propietario: l.propietario, moneda: l.moneda,
       comisionPct: l.comision_pct, nochesNoDisponibles: l.noches_no_disponibles,
-      saldoAnterior: { ars: l.saldo_anterior_ars, usd: l.saldo_anterior_usd }, movimientos, comisiones,
+      saldoAnterior, movimientos, comisiones,
       reservas: reservas.map((x) => ({
         id: x.id, codigo: x.codigo, llegada: x.llegada, huespedes: x.huespedes, comision: { ars: x.comision_ars, usd: x.comision_usd },
         ajuste_ars: x.ajuste_ars, ajuste_usd: x.ajuste_usd, ajuste_comision_ars: x.ajuste_comision_ars, ajuste_comision_usd: x.ajuste_comision_usd,
         observacion: x.observacion,
       })),
-      resultado, cuenta: cuentaLiquidacion(l.bruto, gastosDirectos, l.honorarios, movimientos, l.cambio),
+      resultado, cuenta,
+      redondeo: l.moneda === 'ARS' ? redondeoCuenta(cuenta, saldoAnterior, l.saldo_final_ars, l.cambio) : 0,
     };
   });
   return { mes, estado: p.estado, cotizacion: p.usd_cotizacion, cambio, avisos: [], deptos };
