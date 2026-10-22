@@ -27,7 +27,7 @@ function Comparacion({ c }: { c?: ComparacionDepto }) {
   return <Tag color="red">{c.diferencias.length} diferencia{c.diferencias.length > 1 ? 's' : ''}</Tag>;
 }
 
-// ¿A dónde fue cada peso? La barra del reparto: grande en el detalle, `mini` en la fila de la tabla.
+// Distribución del importe: la barra del reparto, grande en el detalle, `mini` en la fila de la tabla.
 const TRAMOS = [
   { k: 'costos', nombre: 'Costos', color: '#B4B2A9' },
   { k: 'hornera', nombre: 'Hornera', color: '#F0997B' },
@@ -60,15 +60,19 @@ function BarraReparto({ c, moneda, mini }: { c: CuentaLiquidacion; moneda?: 'ARS
   return (
     <div>
       {barra}
-      <Space wrap size="large" style={{ marginTop: 8 }}>
-        {tramos.map((t) => (
-          <div key={t.k}>
+      {/* Cada rótulo ocupa lo mismo que su tramo, así arranca debajo de él. Si el tramo es más angosto que
+          el rótulo (max-content), el rótulo se estira y corre a los siguientes en vez de pisarlos. El último
+          ocupa lo que sobra: con un ancho fijo, lo estirado sumaba más del 100% y aparecía un scroll horizontal. */}
+      <div style={{ display: 'flex', marginTop: 6 }}>
+        {tramos.map((t, i) => (
+          <div key={t.k} style={{ flex: i === tramos.length - 1 ? '1 1 0' : `0 0 ${(r[t.k] / ancho) * 100}%`,
+            minWidth: 'max-content', paddingRight: 16, whiteSpace: 'nowrap' }}>
             <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: t.color, marginRight: 6 }} />
             <Typography.Text type="secondary">{t.nombre}{t.k === 'deuda' ? '' : ` ${pct(r[t.k])}`}</Typography.Text>
             <div><Typography.Text strong type={t.k === 'deuda' ? 'danger' : undefined}>{pesos(t.k === 'deuda' ? -r.deuda : r[t.k])}</Typography.Text></div>
           </div>
         ))}
-      </Space>
+      </div>
       <div><Typography.Text type="secondary">
         Sobre {pesos(r.entro)} que entraron{r.deuda > 0 ? ': los gastos superan lo que le tocaba al propietario (la línea punteada marca lo que entró)' : ''}
         {moneda === 'USD' ? ' · En pesos; el saldo pasa a dólares en la cuenta' : ''}.
@@ -123,7 +127,7 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
             <li key={i}>{x.campo}{x.unidad === 'noches' ? '' : ` ${x.unidad}`}: app {x.unidad === 'noches' ? x.app : pesos(x.app, x.unidad)} · Excel {x.unidad === 'noches' ? x.excel : pesos(x.excel, x.unidad)}</li>
           ))}</ul>} />
       )}
-      <Typography.Text strong>¿A dónde fue cada peso?</Typography.Text>
+      <Typography.Text strong>Distribución del importe</Typography.Text>
       <BarraReparto c={c} moneda={d.moneda} />
       <Typography.Text strong>Cuenta de la liquidación</Typography.Text>
       <Table<Renglon> size="small" pagination={false} showHeader={false} rowKey="key" dataSource={renglones}
