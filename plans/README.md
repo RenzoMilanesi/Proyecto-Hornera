@@ -52,6 +52,7 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 045 | [Anular los gastos ajenos (CAY, LAU, CASEST…) que ya se importaron como gasto de Hornera](045-gastos-ajenos-ya-importados.md) | P2 | S | — | HECHO |
 | 046 | [Saldado por fuera: el PDF del mes y el "hasta" sin validar](046-saldado-fuera-pulido.md) | P2 | S | — | HECHO |
 | 047 | [Guardar los gastos ajenos (CAY, LAU, CAY/LAU, CASEST, CASA) y verlos en "Gastos personales"](047-gastos-ajenos-guardados.md) | P2 | M | 045 | HECHO |
+| 048 | [Elegir desde la app la carpeta de las copias de seguridad](048-carpeta-de-copias.md) | P2 | M | — | A TESTEAR |
 
 Los planes 001 a 030 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 

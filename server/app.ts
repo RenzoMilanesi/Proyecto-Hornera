@@ -24,6 +24,7 @@ import { ErrorArca } from './arca.ts';
 import { desvincular, importarMisComprobantes, listarMisComprobantes, vincular } from './misComprobantes.ts';
 import { datosComprobante, detalleComprobante, emitir, ErrorRevisar, facturaVigente, listarComprobantes, notaCredito, propuesta } from './facturacion.ts';
 import { datosFiscales, guardarDatosFiscales, padronDePropietario } from './propietarios.ts';
+import { rutasBackup } from './backup.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
 
 // Dónde viven las credenciales de Stays. En Electron, cifradas con safeStorage
@@ -96,9 +97,9 @@ function hostPermitido(host: string) {
   return h === '127.0.0.1' || h === 'localhost' || nombresDeEstaPc().includes(h);
 }
 
-export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf; fetchDolar?: Fetch; claves?: AlmacenClaves; fetchArca?: Fetch; desarrollo?: boolean } = {}) {
+export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf; fetchDolar?: Fetch; claves?: AlmacenClaves; fetchArca?: Fetch; desarrollo?: boolean; carpetaBackups?: string } = {}) {
   const app = express();
-  const { credenciales, urlStays = URL_STAYS, pdf, fetchDolar = fetch, claves, fetchArca, desarrollo = false } = opciones;
+  const { credenciales, urlStays = URL_STAYS, pdf, fetchDolar = fetch, claves, fetchArca, desarrollo = false, carpetaBackups } = opciones;
   app.use((req, res, next) => {
     if (hostPermitido(req.headers.host ?? '')) return next();
     res.status(403).json({ error: 'Host no permitido' });
@@ -113,6 +114,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   app.use(express.json());
   app.use('/api', autorizar(db));
   rutasTerminales(app, db);
+  if (carpetaBackups) rutasBackup(app, db, carpetaBackups);
 
   // local: la ventana es la de la PC servidor (ahí se ve "Terminales").
   app.get('/api/estado', (req, res) => {

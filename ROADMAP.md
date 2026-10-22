@@ -71,6 +71,7 @@ Cómo probar cada punto, paso a paso: `GUIA-PRUEBAS.md`.
 **Fase 2 · App y backups**
 - [x] La app instalada abre; abrirla dos veces trae la ventana existente.
 - [x] Al cerrar queda un backup en `%APPDATA%\hornera\backups`; con la app abierta, uno cada 6 h.
+- [ ] v0.34.0 — Herramientas → Copias de seguridad (solo en la PC servidor): elegir una carpeta de Drive/OneDrive (se prueba con una copia antes de guardarla), volver a la de siempre, "Hacer una copia ahora" y las últimas 5 copias ([plan 048](plans/048-carpeta-de-copias.md)). En una terminal no aparece.
 
 **Fase 3 · Importar Excel**
 - [x] Importar `2026-04.xlsx`: 24 liquidaciones, avisos de JAI, SAR y el fondo de CNG.

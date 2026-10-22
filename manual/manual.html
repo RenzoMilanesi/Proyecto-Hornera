@@ -125,7 +125,7 @@ si los números no coinciden, se anota la diferencia (ver "Problemas frecuentes"
 <table>
   <tr><th style="width:38%">Qué</th><th>Dónde</th></tr>
   <tr><td>Base de datos y configuración</td><td><code>%APPDATA%\Hornera</code> (pegarlo en la barra del Explorador de archivos)</td></tr>
-  <tr><td>Copias de seguridad</td><td><code>%APPDATA%\Hornera\backups</code></td></tr>
+  <tr><td>Copias de seguridad</td><td><code>%APPDATA%\Hornera\backups</code> (por defecto; se cambia en <i>Herramientas → Copias de seguridad</i>)</td></tr>
   <tr><td>PDF de las liquidaciones</td><td><code>Documentos\Hornera\Liquidaciones\&lt;mes&gt;\</code></td></tr>
 </table>
 <div class="ojo"><b>Claves y certificados</b>La clave de Stays y las claves privadas de los certificados de ARCA se guardan cifradas
@@ -637,6 +637,17 @@ terminal queda en el servidor, con el nombre de la terminal en el registro de ca
     <code>%APPDATA%\Hornera\backups</code> (archivos <code>hornera-&lt;fecha&gt;.db</code>). Se guardan las últimas 60.</li>
   <li>Las copias no incluyen la clave de Stays ni las de los certificados.</li>
 </ul>
+<h2>Elegir dónde se guardan</h2>
+<p>Por defecto las copias quedan en el mismo disco que la base: si la PC se rompe, se pierden las dos. Conviene guardarlas en una carpeta
+de Google Drive u OneDrive, que se sincroniza sola. Se hace en la PC servidor (en una terminal esta pantalla no aparece):</p>
+<ol class="pasos">
+  <li>Ir a <i>Herramientas → Copias de seguridad</i>.</li>
+  <li>Pegar la ruta completa de la carpeta (por ejemplo <code>C:\Users\…\Google Drive\Hornera</code>) y tocar <b>Guardar</b>.
+    Hornera hace una copia de prueba ahí: si no puede, avisa por qué y la carpeta no cambia.</li>
+  <li>Las copias que ya existían quedan donde estaban. <b>Volver a la de siempre</b> deja de usar la carpeta elegida.</li>
+</ol>
+<p><b>Hacer una copia ahora</b> fuerza una copia en el momento; abajo se ven las últimas cinco, con fecha y tamaño.
+Si la carpeta elegida deja de andar (Drive desconectado), la copia igual se hace en la de siempre y la app avisa.</p>
 <h2>Recuperar una copia</h2>
 <ol class="pasos">
   <li>Cerrar Hornera.</li>

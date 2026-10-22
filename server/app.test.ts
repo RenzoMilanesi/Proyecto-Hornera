@@ -9,7 +9,7 @@ import type { AddressInfo } from 'node:net';
 import { DatabaseSync } from 'node:sqlite';
 import { abrirDb, VERSION_ESQUEMA } from './db.ts';
 import { crearApp } from './app.ts';
-import { hacerBackup, respaldar, MAX_BACKUPS } from './backup.ts';
+import { carpetaBackups, elegirCarpeta, hacerBackup, respaldar, ultimasCopias, MAX_BACKUPS } from './backup.ts';
 
 // Carpeta temporal que se borra al terminar el test.
 function temporal(t: TestContext) {
@@ -273,6 +273,59 @@ test('si la carpeta de backup configurada falla o es de otra PC, la copia queda 
 
   db.prepare(`DELETE FROM configuracion`).run();
   assert.match(respaldar(db, porDefecto), /hornera-.*\.db$/); // sin configurar: va directo a la por defecto
+});
+
+test('elegir la carpeta de las copias: se guarda solo si la copia de prueba anda', (t) => {
+  const db = abrirDb(':memory:');
+  const tmp = temporal(t);
+  const porDefecto = join(tmp, 'backups');
+  const drive = join(tmp, 'drive');
+
+  const r = elegirCarpeta(db, ` ${drive} `);
+  assert.equal(r.carpeta, drive);
+  assert.equal(readdirSync(drive).length, 1); // la copia de prueba
+  assert.deepEqual(carpetaBackups(db, porDefecto), { carpeta: drive, porDefecto, configurada: true });
+  assert.ok(respaldar(db, porDefecto).startsWith(drive));
+
+  const noEsCarpeta = join(tmp, 'archivo');
+  writeFileSync(noEsCarpeta, '');
+  for (const [ruta, error] of [['\\\\otra-pc\\copias', /otras PCs de la red/], ['copias', /ruta completa/], [noEsCarpeta, /No se pudo hacer una copia/]] as const) {
+    assert.throws(() => elegirCarpeta(db, ruta), error);
+    assert.equal(carpetaBackups(db, porDefecto).carpeta, drive); // la anterior sigue
+  }
+
+  assert.deepEqual(elegirCarpeta(db, ''), { carpeta: null });
+  assert.deepEqual(carpetaBackups(db, porDefecto), { carpeta: porDefecto, porDefecto, configurada: false });
+  assert.ok(respaldar(db, porDefecto).startsWith(porDefecto));
+});
+
+test('últimas copias: las 5 más nuevas primero; sin carpeta, ninguna', (t) => {
+  const db = abrirDb(':memory:');
+  const carpeta = temporal(t);
+  for (let i = 0; i < 7; i++) hacerBackup(db, carpeta, new Date(2026, 0, 1, 0, 0, i));
+  const copias = ultimasCopias(carpeta);
+  assert.equal(copias.length, 5);
+  assert.equal(copias[0].archivo, 'hornera-2026-01-01T00-00-06-000.db');
+  assert.ok(copias[0].bytes > 0);
+  assert.deepEqual(ultimasCopias(join(carpeta, 'no-existe')), []);
+});
+
+test('copias de seguridad por la API: carpeta en uso, elegir otra y hacer una copia', async (t) => {
+  const db = abrirDb(':memory:');
+  const tmp = temporal(t);
+  const porDefecto = join(tmp, 'backups');
+  await conApi(db, async (base) => {
+    const estado = async () => (await fetch(`${base}/api/backup`)).json();
+    assert.deepEqual(await estado(), { carpeta: porDefecto, porDefecto, configurada: false, copias: [] });
+    const poner = (carpeta: string) => fetch(`${base}/api/backup/carpeta`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ carpeta }) });
+    assert.equal((await poner('\\\\otra-pc\\copias')).status, 400);
+    assert.equal((await poner(join(tmp, 'drive'))).status, 200);
+    assert.equal((await fetch(`${base}/api/backup`, { method: 'POST' })).status, 200);
+    const e = await estado();
+    assert.equal(e.carpeta, join(tmp, 'drive'));
+    assert.equal(e.copias.length, 2); // la de prueba y la de "hacer una copia ahora"
+  }, { carpetaBackups: porDefecto });
+  await conApi(db, async (base) => assert.equal((await fetch(`${base}/api/backup`)).status, 404)); // sin carpeta, no hay rutas
 });
 
 test('ajustes de una reserva y cotización del período: validan y quedan en la auditoría', () => {

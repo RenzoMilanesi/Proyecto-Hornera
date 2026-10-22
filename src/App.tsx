@@ -9,6 +9,7 @@ import { GastosAjenos } from './GastosAjenos.tsx';
 import { Cuentas } from './Cuentas.tsx';
 import { Transferencias } from './Transferencias.tsx';
 import { Terminales } from './Terminales.tsx';
+import { Copias } from './Copias.tsx';
 import { Resumen } from './Resumen.tsx';
 import { Deptos } from './Deptos.tsx';
 import { Propietarios } from './Propietarios.tsx';
@@ -34,8 +35,10 @@ const secciones = {
   importar: { grupo: 'Herramientas', titulo: 'Importar Excel', ayuda: 'Carga un mes desde el Google Sheet de liquidaciones, o los gastos varios del mes abierto.', vista: <Importar /> },
   auditoria: { grupo: 'Herramientas', titulo: 'Auditoría', ayuda: 'Quién cambió qué en el mes: cada PC, con lo que cambió.', vista: <Auditoria /> },
   terminales: { grupo: 'Herramientas', titulo: 'Terminales', ayuda: 'Otras PCs de la oficina conectadas a esta.', vista: <Terminales /> }, // solo en la PC servidor
+  copias: { grupo: 'Herramientas', titulo: 'Copias de seguridad', ayuda: 'Dónde se guardan las copias de la base y las últimas que se hicieron.', vista: <Copias /> }, // solo en la PC servidor
 };
 type Seccion = keyof typeof secciones;
+const SOLO_SERVIDOR = ['terminales', 'copias'];
 
 export function App() {
   const [seccion, setSeccion] = useState<Seccion>('resumen');
@@ -53,7 +56,7 @@ export function App() {
   }, []);
   if (emparejar) return <Emparejar />;
 
-  const visibles = Object.entries(secciones).filter(([key]) => local || key !== 'terminales');
+  const visibles = Object.entries(secciones).filter(([key]) => local || !SOLO_SERVIDOR.includes(key));
   const grupos = [...new Set(visibles.map(([, s]) => s.grupo))];
   const items = grupos.flatMap((g): MenuProps['items'] & object => {
     const hijos = visibles.filter(([, s]) => s.grupo === g).map(([key, s]) => ({ key, label: s.titulo }));

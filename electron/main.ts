@@ -131,7 +131,8 @@ function generadorPdf(origen: string): GeneradorPdf {
 
 async function iniciarServidor() {
   const db = abrirDb(join(app.getPath('userData'), 'hornera.db'));
-  const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales(), claves: almacenClaves(), pdf: generadorPdf(ORIGEN_LOCAL), desarrollo: !app.isPackaged });
+  const carpetaBackups = join(app.getPath('userData'), 'backups');
+  const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales(), claves: almacenClaves(), pdf: generadorPdf(ORIGEN_LOCAL), desarrollo: !app.isPackaged, carpetaBackups });
   const http = createServer(api);
 
   if (app.isPackaged) {
@@ -146,7 +147,7 @@ async function iniciarServidor() {
 
   const backup = (avisar: boolean) => {
     try {
-      respaldar(db, join(app.getPath('userData'), 'backups'));
+      respaldar(db, carpetaBackups);
     } catch (e) {
       if (avisar) dialog.showErrorBox('Copia de seguridad', String(e instanceof Error ? e.message : e));
       else console.error(e);
