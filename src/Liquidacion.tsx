@@ -132,7 +132,8 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
     tarifa: ars(sumar((l) => l.tarifaPeriodo)), com: <>{ars(sumar(comisionArs))} {usd(sumar(comisionUsd))}</>,
   };
   const columnasReservas: TableColumnsType<Fila> = [
-    { title: 'Reserva', key: 'reserva', dataIndex: 'codigoInterno', render: (v: string) => <Typography.Text code>{v}</Typography.Text> },
+    { title: 'Código Stays', key: 'reserva', render: (_: unknown, l) => <Typography.Text code>{l.reserva.codigo}</Typography.Text> },
+    { title: 'Código plataforma', key: 'ota', render: (_: unknown, l) => l.reserva.codigo_ota && <Typography.Text code>{l.reserva.codigo_ota}</Typography.Text> },
     { title: 'Noches (período / total)', key: 'noches', render: (_: unknown, l) => `${l.nochesPeriodo} / ${l.nochesTotales}` },
     ...(hay((l) => l.importePeriodoArs) ? [{ title: 'Cobrado ARS', key: 'ars', dataIndex: 'importePeriodoArs', ...derecha, render: ars }] : []),
     ...(hay((l) => l.importePeriodoUsd) ? [{ title: 'Cobrado USD', key: 'usd', dataIndex: 'importePeriodoUsd', ...derecha, render: usd }] : []),
@@ -165,7 +166,7 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
           { dataIndex: 'detalle', render: (v?: ReactNode) => <Typography.Text type="secondary">{v}</Typography.Text> },
         ]} />
       <Titulo>Reservas · ingresos y costos</Titulo>
-      <Table<Fila> size="small" pagination={false} rowKey="codigoInterno" dataSource={filas} columns={columnasReservas}
+      <Table<Fila> size="small" pagination={false} rowKey={(l) => l.reserva.id} dataSource={filas} columns={columnasReservas}
         summary={() => filas.length > 1 && (
           <Table.Summary.Row className="subtotal">
             {columnasReservas.map((col, i) => (

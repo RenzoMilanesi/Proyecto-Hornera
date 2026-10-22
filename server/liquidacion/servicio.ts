@@ -20,7 +20,7 @@ export interface LiquidacionDepto {
   // Mismo orden que resultado.reservas. `comision`: la que esta reserva suma en este período.
   // Los ajustes y la observación, para abrir "Ajustes de la reserva" desde el detalle.
   reservas: {
-    id: number; codigo: string; llegada: string; huespedes: number; comision: Importe;
+    id: number; codigo: string; codigo_ota: string | null; llegada: string; huespedes: number; comision: Importe;
     ajuste_ars: number; ajuste_usd: number; ajuste_comision_ars: number; ajuste_comision_usd: number; observacion: string | null;
   }[];
   resultado: ResultadoLiquidacion;
@@ -85,7 +85,7 @@ export function liquidarPeriodo(db: DatabaseSync, mes: string): LiquidacionPerio
            d.cm_fee_usd_override, pr.nombre AS propietario, pr.moneda_liquidacion, pr.comision_cobro_usd_pct
     FROM depto d JOIN propietario pr ON pr.id = d.propietario_id ORDER BY d.codigo`).all() as any[];
   const reservasDe = db.prepare(`
-    SELECT r.id, r.codigo, r.llegada, r.salida, r.huespedes, r.moneda, r.precio_compra,
+    SELECT r.id, r.codigo, r.codigo_ota, r.llegada, r.salida, r.huespedes, r.moneda, r.precio_compra,
            r.ajuste_ars, r.ajuste_usd, r.ajuste_comision_ars, r.ajuste_comision_usd, r.observacion, pl.codigo AS canal,
            EXISTS (SELECT 1 FROM depto_pago_directo dp WHERE dp.depto_id = r.depto_id AND dp.plataforma_id = r.plataforma_id) AS pago_directo,
            COALESCE((SELECT SUM(v.importe_neto) FROM v_pago_liquidable v WHERE v.reserva_id = r.id AND v.moneda = 'ARS'), 0) AS cobrado_ars,
@@ -143,7 +143,7 @@ export function liquidarPeriodo(db: DatabaseSync, mes: string): LiquidacionPerio
       comisionPct: d.comision_pct, nochesNoDisponibles, saldoAnterior, comisiones,
       movimientos: movimientosMes,
       reservas: reservas.map((x) => ({
-        id: x.id, codigo: x.codigo, llegada: x.llegada, huespedes: x.huespedes, comision: comisionDe(x),
+        id: x.id, codigo: x.codigo, codigo_ota: x.codigo_ota, llegada: x.llegada, huespedes: x.huespedes, comision: comisionDe(x),
         ajuste_ars: x.ajuste_ars, ajuste_usd: x.ajuste_usd, ajuste_comision_ars: x.ajuste_comision_ars, ajuste_comision_usd: x.ajuste_comision_usd,
         observacion: x.observacion,
       })),
@@ -170,7 +170,7 @@ export function liquidacionGuardada(db: DatabaseSync, mes: string): LiquidacionP
     JOIN propietario pr ON pr.id = COALESCE(l.propietario_id, d.propietario_id)
     WHERE l.periodo_id = ? ORDER BY d.codigo`).all(p.id) as any[];
   const reservasDe = db.prepare(`
-    SELECT r.id, r.codigo, r.llegada, r.huespedes, r.ajuste_ars, r.ajuste_usd, r.ajuste_comision_ars, r.ajuste_comision_usd,
+    SELECT r.id, r.codigo, r.codigo_ota, r.llegada, r.huespedes, r.ajuste_ars, r.ajuste_usd, r.ajuste_comision_ars, r.ajuste_comision_usd,
            r.observacion, lr.*
     FROM liquidacion_reserva lr JOIN reserva r ON r.id = lr.reserva_id
     WHERE lr.liquidacion_id = ? ORDER BY r.llegada, r.codigo`);
@@ -200,7 +200,7 @@ export function liquidacionGuardada(db: DatabaseSync, mes: string): LiquidacionP
       comisionPct: l.comision_pct, nochesNoDisponibles: l.noches_no_disponibles,
       saldoAnterior, movimientos, comisiones,
       reservas: reservas.map((x) => ({
-        id: x.id, codigo: x.codigo, llegada: x.llegada, huespedes: x.huespedes, comision: { ars: x.comision_ars, usd: x.comision_usd },
+        id: x.id, codigo: x.codigo, codigo_ota: x.codigo_ota, llegada: x.llegada, huespedes: x.huespedes, comision: { ars: x.comision_ars, usd: x.comision_usd },
         ajuste_ars: x.ajuste_ars, ajuste_usd: x.ajuste_usd, ajuste_comision_ars: x.ajuste_comision_ars, ajuste_comision_usd: x.ajuste_comision_usd,
         observacion: x.observacion,
       })),

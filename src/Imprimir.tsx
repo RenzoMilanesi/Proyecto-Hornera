@@ -230,14 +230,14 @@ function ImprimirHoja({ parametros }: { parametros: URLSearchParams }) {
           <h2>Detalle reservas · {h.depto.codigo} · {mesTexto(h.mes)}</h2>
           <table>
             <thead><tr>
-              <th>Llegada</th><th>Cod. int. reserva</th><th className="n">Huésp.</th><th className="n">Noches período</th>
+              <th>Llegada</th><th>Reserva</th><th className="n">Huésp.</th><th className="n">Noches período</th>
               <th className="n">Recibido AR$</th><th className="n">Período AR$</th><th className="n">Recibido US$</th><th className="n">Período US$</th>
               <th className="n">Tarifa reserva</th><th className="n">Tarifa período</th><th className="n">Pago x plataforma</th>
             </tr></thead>
             <tbody>
               {h.reservas.map((x, i) => (
                 <tr key={i}>
-                  <td>{fecha(x.llegada)}</td><td>{x.codigoInterno}</td><td className="n">{x.huespedes}</td><td className="n">{x.nochesPeriodo}</td>
+                  <td>{fecha(x.llegada)}</td><td>{x.codigo}</td><td className="n">{x.huespedes}</td><td className="n">{x.nochesPeriodo}</td>
                   <td className="n">{ars(x.importeArs)}</td><td className="n">{ars(x.importePeriodoArs)}</td>
                   <td className="n">{usd(x.importeUsd)}</td><td className="n">{usd(x.importePeriodoUsd)}</td>
                   <td className="n">{ars(x.tarifa)}</td><td className="n">{ars(x.tarifaPeriodo)}</td><td className="n">{usd(x.pagoPlataformaUsd)}</td>

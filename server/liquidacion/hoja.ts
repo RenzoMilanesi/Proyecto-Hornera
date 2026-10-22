@@ -8,7 +8,7 @@ import { liquidarPeriodo } from './servicio.ts';
 import { facturasDeLiquidacion, type DatosComprobante } from '../facturacion.ts';
 
 export interface LineaHoja {
-  llegada: string; codigoInterno: string; huespedes: number; nochesPeriodo: number;
+  llegada: string; codigo: string; huespedes: number; nochesPeriodo: number; // codigo: el de la plataforma, o el de Stays si no hay
   importeArs: number; importePeriodoArs: number; importeUsd: number; importePeriodoUsd: number;
   tarifa: number; tarifaPeriodo: number; pagoPlataformaUsd: number;
 }
@@ -67,7 +67,7 @@ export function hojaDepto(db: DatabaseSync, mes: string, codigo: string): Hoja {
     conversion = r.conversion; saldoAntesDePagar = r.saldo; gastosDirectos = r.gastosDirectos;
     noches = { disponibles: r.nochesDisponibles, noDisponibles: l.nochesNoDisponibles, propietario: r.nochesPropietario, ocupadas: r.nochesOcupadas, reservas: r.reservas.length };
     reservas = r.reservas.map((x, i) => ({
-      llegada: l.reservas[i].llegada, codigoInterno: x.codigoInterno, huespedes: l.reservas[i].huespedes, nochesPeriodo: x.nochesPeriodo,
+      llegada: l.reservas[i].llegada, codigo: l.reservas[i].codigo_ota ?? l.reservas[i].codigo, huespedes: l.reservas[i].huespedes, nochesPeriodo: x.nochesPeriodo,
       importeArs: x.importeArs, importePeriodoArs: x.importePeriodoArs, importeUsd: x.importeUsd, importePeriodoUsd: x.importePeriodoUsd,
       tarifa: x.tarifa, tarifaPeriodo: x.tarifaPeriodo, pagoPlataformaUsd: x.pagoPlataformaUsd,
     }));
@@ -83,7 +83,7 @@ export function hojaDepto(db: DatabaseSync, mes: string, codigo: string): Hoja {
     gastosDirectos = truncPesos(-costos - comisiones.ars - comisiones.usd * cambio); // [F19], no se guarda
     noches = { disponibles: s.noches_disponibles, noDisponibles: s.noches_no_disponibles, propietario: s.noches_propietario, ocupadas: s.noches_ocupadas, reservas: s.cant_reservas };
     reservas = (db.prepare(`
-      SELECT r.llegada, lr.codigo_interno AS codigoInterno, r.huespedes, lr.noches_periodo AS nochesPeriodo, lr.importe_ars AS importeArs,
+      SELECT r.llegada, COALESCE(r.codigo_ota, r.codigo) AS codigo, r.huespedes, lr.noches_periodo AS nochesPeriodo, lr.importe_ars AS importeArs,
              lr.importe_periodo_ars AS importePeriodoArs, lr.importe_usd AS importeUsd, lr.importe_periodo_usd AS importePeriodoUsd,
              lr.tarifa, lr.tarifa_periodo AS tarifaPeriodo, lr.pago_plataforma_usd AS pagoPlataformaUsd
       FROM liquidacion_reserva lr JOIN reserva r ON r.id = lr.reserva_id
