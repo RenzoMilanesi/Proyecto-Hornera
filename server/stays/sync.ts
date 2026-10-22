@@ -12,10 +12,13 @@
 // - alojamientos: avisa deptos activos en uno y no en el otro; completa direcciones vacías
 //   y reemplaza las fotos de cada depto.
 // - propietarios: vincula cada uno con su par de Stays y avisa si un depto cambió de dueño.
+// - deptos nuevos: los activos en Stays que no están en la app se informan en `deptosNuevos`;
+//   los que el usuario confirma (`crear`) se dan de alta con los datos de Stays antes de las reservas.
 // Si el período no existe se crea con los parámetros del último cargado.
 import type { DatabaseSync } from 'node:sqlite';
 import type { ClienteStays, DetalleStays, FilaReserva, MedioStays, PagoStays } from './cliente.ts';
 import { enPeriodo, SQL_EN_PERIODO } from '../periodo.ts';
+import { auditar } from '../auditoria.ts';
 
 export interface ReporteSync {
   mes: string;
@@ -25,6 +28,7 @@ export interface ReporteSync {
   medios: number;
   eliminadas: number;
   canceladas: number;
+  deptosNuevos: string[];   // activos en Stays y no en la app: se ofrece crearlos
   avisos: string[];
 }
 
@@ -73,7 +77,7 @@ async function enParalelo<T, R>(items: T[], n: number, fn: (item: T) => Promise<
   return res;
 }
 
-export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, mes: string, ahora = new Date()): Promise<ReporteSync> {
+export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, mes: string, crear: string[] = [], ahora = new Date()): Promise<ReporteSync> {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) throw new Error(`Mes inválido: "${mes}" (se espera AAAA-MM).`);
   const existente = db.prepare('SELECT * FROM periodo WHERE mes = ?').get(mes) as Periodo | undefined;
   if (existente?.estado === 'cerrado') throw new Error(`El período ${mes} está cerrado: reabrilo para volver a traerlo.`);
@@ -140,7 +144,7 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
     if (sinDetalle.length) avisos.push(`No se pudo traer el horario y el desglose de ${sinDetalle.sort().join(', ')}: ${errorDetalle}`);
 
     // ---- 2. Escribir
-    const reporte: ReporteSync = { mes, periodoCreado: !existente, reservas: 0, pagos: 0, medios: medios.length, eliminadas: 0, canceladas: 0, avisos };
+    const reporte: ReporteSync = { mes, periodoCreado: !existente, reservas: 0, pagos: 0, medios: medios.length, eliminadas: 0, canceladas: 0, deptosNuevos: [], avisos };
     db.exec('BEGIN');
     try {
       // La descarga tarda: mientras tanto otra pantalla u otra PC pudo cerrar el mes o crearlo (importando el Excel).
@@ -179,6 +183,29 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
         INSERT INTO medio_pago(stays_id, nombre, tipo_stays, moneda) VALUES (?, '(medio desconocido)', 'desconocido', ?) RETURNING id`);
       const altaMedioSinMedio = db.prepare(`
         INSERT INTO medio_pago(stays_id, nombre, tipo_stays, moneda) VALUES (?, '(sin medio)', 'sin-medio', ?) RETURNING id`);
+
+      // Deptos nuevos confirmados: comisión e integral por defecto (se ajustan en Deptos → Variables).
+      // El dueño es el de Stays: el propietario ya vinculado, el que tiene sus otros deptos o uno nuevo con su nombre.
+      // La dirección y las fotos las completa el repaso de alojamientos de más abajo.
+      for (const codigo of new Set(crear)) {
+        if (db.prepare('SELECT 1 FROM depto WHERE codigo = ?').get(codigo)) continue;
+        const a = alojamientos?.find((x) => texto(x.internalName) === codigo);
+        const o = duenios?.find((x) => (x.listings ?? []).some((l) => texto(l.internalName) === codigo));
+        if (!a || !o) {
+          avisos.push(`No se creó el depto ${codigo}: ${a ? 'no tiene dueño en Stays' : 'no está entre los alojamientos de Stays'}.`);
+          continue;
+        }
+        const otros = (o.listings ?? []).map((l) => texto(l.internalName)).filter((c) => c !== null && c !== codigo);
+        const delMismo = db.prepare(`SELECT DISTINCT propietario_id id FROM depto WHERE codigo IN (SELECT value FROM json_each(?))`)
+          .all(JSON.stringify(otros)) as { id: number }[];
+        const propietarioId = (db.prepare('SELECT id FROM propietario WHERE stays_owner_id = ?').get(o._id) as { id: number } | undefined)?.id
+          ?? (delMismo.length === 1 ? delMismo[0].id : undefined)
+          ?? Number(db.prepare('INSERT INTO propietario(nombre, stays_owner_id) VALUES (?, ?)').run(texto(o.name) ?? o._id, o._id).lastInsertRowid);
+        const deptoId = Number(db.prepare(`INSERT INTO depto(codigo, nombre, propietario_id, stays_listing_id) VALUES (?, ?, ?, ?)`)
+          .run(codigo, codigo, propietarioId, a._id).lastInsertRowid);
+        auditar(db, 'depto', deptoId, 'alta', null, { codigo, propietario_id: propietarioId, desde: 'Stays' });
+        avisos.push(`Se creó el depto ${codigo} con 20% de comisión: revisala en Deptos → Variables.`);
+      }
 
       const deptos = new Map((db.prepare('SELECT codigo, id FROM depto').all() as { codigo: string; id: number }[]).map((d) => [d.codigo, d.id]));
       const plataformas = new Map((db.prepare('SELECT nombre_stays, id FROM plataforma').all() as { nombre_stays: string; id: number }[]).map((p) => [p.nombre_stays, p.id]));
@@ -310,7 +337,10 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
         const enApp = db.prepare('SELECT id, codigo, estado, direccion FROM depto').all() as { id: number; codigo: string; estado: string; direccion: string | null }[];
         const codigosApp = new Set(enApp.map((d) => d.codigo));
         for (const [codigo, a] of enStays) {
-          if (a.status === 'active' && !codigosApp.has(codigo)) avisos.push(`El alojamiento "${codigo}" está activo en Stays pero no es un depto cargado en la app.`);
+          if (a.status === 'active' && !codigosApp.has(codigo)) {
+            avisos.push(`El alojamiento "${codigo}" está activo en Stays pero no es un depto cargado en la app.`);
+            reporte.deptosNuevos.push(codigo);
+          }
         }
         const ponerDireccion = db.prepare('UPDATE depto SET direccion = ? WHERE id = ?');
         const ponerFotos = db.prepare('UPDATE depto SET fotos = ? WHERE id = ?');

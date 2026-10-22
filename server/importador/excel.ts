@@ -197,6 +197,11 @@ export function importarExcel(db: DatabaseSync, contenido: Buffer, ahora = new D
     // La moneda de liquidación sale solo de las hojas de depto (fila "Cambio moneda"): un depto
     // sin hoja (finalizado, pausado) no sabe en qué moneda liquida su propietario.
     const cambiarMoneda = db.prepare('UPDATE propietario SET moneda_liquidacion = ?, comision_cobro_usd_pct = ? WHERE id = ?');
+    // CBU, mails y moneda también se editan en la app; el Excel gana, pero se avisa lo que cambió.
+    const deCobro = db.prepare('SELECT cbu, mails, moneda_liquidacion FROM propietario WHERE id = ?');
+    const igual = (a: string | null, b: string | null) => (a ?? '').replace(/[\s-]/g, '').toLowerCase() === (b ?? '').replace(/[\s-]/g, '').toLowerCase();
+    const avisarCambio = (nombre: string, que: string) =>
+      avisos.push(`Propietario ${nombre}: el Excel cambió ${que}; si lo habías corregido en la app, quedó el del Excel.`);
     const altaDepto = db.prepare(`
       INSERT INTO depto(codigo, nombre, direccion, tipologia, estado, propietario_id, comision_pct, tipo_administracion,
         horas_limpieza_prom, id_alquiler_argentina, id_booking, id_alohar)
@@ -230,7 +235,12 @@ export function importarExcel(db: DatabaseSync, contenido: Buffer, ahora = new D
       let prop = propietariosVistos.get(nombre);
       if (!prop) {
         const existente = buscarPropietario.get(nombre) as { id: number } | undefined;
-        if (existente && actualizar) cambiarPropietario.run(...datos, existente.id);
+        if (existente && actualizar) {
+          const antes = deCobro.get(existente.id) as { cbu: string | null; mails: string | null };
+          const cambios = [!igual(antes.cbu, datos[3]) && 'el CBU', !igual(antes.mails, datos[5]) && 'los mails'].filter(Boolean);
+          if (cambios.length) avisarCambio(nombre, cambios.join(' y '));
+          cambiarPropietario.run(...datos, existente.id);
+        }
         prop = existente
           ? { id: existente.id, nuevo: false }
           : { id: Number(altaPropietario.run(nombre, ...datos, 'ARS', 0).lastInsertRowid), nuevo: true };
@@ -242,6 +252,9 @@ export function importarExcel(db: DatabaseSync, contenido: Buffer, ahora = new D
         if (!prop.moneda) {
           prop.moneda = moneda;
           prop.depto = codigo;
+          if (actualizar && !prop.nuevo && (deCobro.get(prop.id) as { moneda_liquidacion: string }).moneda_liquidacion !== moneda) {
+            avisarCambio(nombre, `la moneda a ${moneda}`);
+          }
           if (actualizar || prop.nuevo) cambiarMoneda.run(moneda, recargo, prop.id);
         } else if (prop.moneda !== moneda) {
           avisos.push(`Depto ${codigo}: liquida en ${moneda} pero ${prop.depto}, del mismo propietario, en ${prop.moneda}. Queda ${prop.moneda}.`);

@@ -4,7 +4,7 @@ import type { TableColumnsType } from 'antd';
 import { enviar, get, pesos } from './api.ts';
 import { AjustesReserva, type ReservaAjustable } from './AjustesReserva.tsx';
 
-interface Reporte { mes: string; periodoCreado: boolean; reservas: number; pagos: number; medios: number; eliminadas: number; canceladas: number; avisos: string[] }
+interface Reporte { mes: string; periodoCreado: boolean; reservas: number; pagos: number; medios: number; eliminadas: number; canceladas: number; deptosNuevos: string[]; avisos: string[] }
 interface Reserva extends ReservaAjustable {
   llegada: string; salida: string; huespedes: number; plataforma: string | null; estado_stays: string | null;
   cobrado_ars: number; cobrado_usd: number; falta_comision: number | null;
@@ -116,12 +116,12 @@ export function Stays() {
   const visibles = (reservas ?? []).filter((r) => (verCanceladas || !r.cancelada)
     && (!t || [r.depto, r.codigo, r.plataforma].some((c) => c?.toLowerCase().includes(t))));
 
-  const traer = async () => {
+  const traer = async (crear: string[] = []) => {
     setTrayendo(true);
     setError(undefined);
     setReporte(undefined);
     try {
-      setReporte(await enviar<Reporte>('stays/sincronizar', 'POST', { mes }));
+      setReporte(await enviar<Reporte>('stays/sincronizar', 'POST', { mes, crear }));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -138,7 +138,7 @@ export function Stays() {
       <Card size="small" title="Traer mes">
         <Space>
           <Input type="month" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)} style={{ width: 170 }} />
-          <Button type="primary" onClick={traer} loading={trayendo} disabled={!usuario}>Traer mes de Stays</Button>
+          <Button type="primary" onClick={() => traer()} loading={trayendo} disabled={!usuario}>Traer mes de Stays</Button>
         </Space>
         <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
           Trae reservas (también las canceladas, que no se liquidan), pagos y medios de pago. Se puede repetir: los ajustes manuales se conservan.
@@ -153,6 +153,12 @@ export function Stays() {
               { label: 'Borradas', children: reporte.eliminadas },
               { label: 'Canceladas', children: reporte.canceladas },
             ]} />
+            {reporte.deptosNuevos.length > 0 && (
+              <Alert style={{ marginTop: 12 }} type="info" showIcon
+                title={`En Stays hay ${reporte.deptosNuevos.length > 1 ? 'deptos' : 'un depto'} que no ${reporte.deptosNuevos.length > 1 ? 'están' : 'está'} en la app: ${reporte.deptosNuevos.join(', ')}`}
+                description="¿Crearlos con los datos de Stays (dueño, dirección y fotos; 20% de comisión) y traer sus reservas?"
+                action={<Button type="primary" size="small" loading={trayendo} onClick={() => traer(reporte.deptosNuevos)}>Crear y traer</Button>} />
+            )}
             {reporte.avisos.length > 0 && (
               <Alert style={{ marginTop: 12 }} type="warning" showIcon title={`Avisos (${reporte.avisos.length})`}
                 description={<ul style={{ margin: 0, paddingLeft: 20 }}>{reporte.avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>} />

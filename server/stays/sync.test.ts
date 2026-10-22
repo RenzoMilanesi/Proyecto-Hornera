@@ -455,3 +455,34 @@ test('si se cierra el mes mientras se trae de Stays no se escribe nada', () => c
   assert.equal((db.prepare('SELECT count(*) n FROM pago').get() as any).n, 0);
   assert.equal((db.prepare('SELECT count(*) n FROM reserva').get() as any).n, reservas);
 }));
+
+test('deptos nuevos: se ofrecen y, confirmados, se crean con el dueño de Stays y traen sus reservas', () => conStays(async (url, datos) => {
+  const db = baseConAbril();
+  const cliente = crearClienteStays({ usuario: 'usuario', clave: 'clave' }, url);
+  datos.alojamientos.push({ _id: 'ln', internalName: 'NUE', status: 'active', address: { street: 'Calle Nueva', streetNumber: '9' } });
+  datos.duenios.push({ _id: 's2', name: 'Dueña Nueva', listings: [{ internalName: 'NUE' }] });
+  datos.reservas.push(reserva('R6', 'NUE', '15 may. 2026', '18 may. 2026', 'API airbnb'));
+
+  const sinConfirmar = await sincronizarMes(db, cliente, '2026-05');
+  assert.deepEqual(sinConfirmar.deptosNuevos, ['ZZZ', 'NUE']);
+  assert.equal((db.prepare(`SELECT count(*) n FROM depto`).get() as any).n, 2);
+
+  const r = await sincronizarMes(db, cliente, '2026-05', ['ZZZ', 'NUE', 'AAA']);
+  assert.deepEqual(r.deptosNuevos, []);
+  const deptos = db.prepare(`
+    SELECT d.codigo, d.direccion, d.comision_pct, d.stays_listing_id, p.nombre propietario, p.stays_owner_id
+    FROM depto d JOIN propietario p ON p.id = d.propietario_id WHERE d.codigo IN ('ZZZ', 'NUE') ORDER BY d.codigo`).all().map((x) => ({ ...x }));
+  assert.deepEqual(deptos, [
+    { codigo: 'NUE', direccion: 'Calle Nueva 9', comision_pct: 0.2, stays_listing_id: 'ln', propietario: 'Dueña Nueva', stays_owner_id: 's2' },
+    { codigo: 'ZZZ', direccion: null, comision_pct: 0.2, stays_listing_id: 'lz', propietario: 'Propietario Uno', stays_owner_id: 's1' },  // el dueño de AAA y BBB
+  ]);
+  const traidas = db.prepare(`SELECT r.codigo FROM reserva r JOIN depto d ON d.id = r.depto_id WHERE d.codigo IN ('ZZZ', 'NUE') ORDER BY r.codigo`).all().map((x: any) => x.codigo);
+  assert.deepEqual(traidas, ['R3', 'R6']);
+  assert.equal((db.prepare(`SELECT count(*) n FROM auditoria WHERE tabla = 'depto' AND accion = 'alta'`).get() as any).n, 2);
+
+  // Un alojamiento sin dueño en Stays no se crea.
+  datos.alojamientos.push({ _id: 'lx', internalName: 'SIN', status: 'active' });
+  const sinDuenio = await sincronizarMes(db, cliente, '2026-05', ['SIN']);
+  assert.ok(sinDuenio.avisos.includes('No se creó el depto SIN: no tiene dueño en Stays.'));
+  assert.deepEqual(sinDuenio.deptosNuevos, ['SIN']);
+}));

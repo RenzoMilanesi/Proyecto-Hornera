@@ -38,8 +38,8 @@ export function auditar(db: DatabaseSync, tabla: string, id: number | null, acci
 // ---- Pantalla Herramientas → Auditoría: los cambios de un mes, legibles.
 
 const TIPOS: Record<string, string> = {
-  movimiento: 'Movimiento', reserva: 'Reserva', periodo: 'Mes', depto: 'Variables del depto', cuenta: 'Cuenta',
-  medio_pago: 'Medio de pago', emisor: 'Emisor', propietario: 'Datos fiscales', comprobante: 'Factura',
+  movimiento: 'Movimiento', reserva: 'Reserva', periodo: 'Mes', depto: 'Depto', cuenta: 'Cuenta',
+  medio_pago: 'Medio de pago', emisor: 'Emisor', propietario: 'Propietario', comprobante: 'Factura',
   comprobante_arca: 'Comprobante de ARCA', stays: 'Traer mes de Stays', excel: 'Excel mensual', gastos: 'Gastos varios',
   gasto_ajeno: 'Gasto personal',
 };

@@ -69,8 +69,13 @@ test('un mes anterior al último importado no pisa los maestros; uno posterior s
   assert.equal(estadoOvl(), 'activo');
   assert.ok(marzo.avisos.some((a) => a.includes('anterior al último mes importado (2026-04)')));
 
-  importarExcel(db, comoMes('2026-06-01', '2026-07-01'));
+  // El CBU corregido en la app lo pisa el Excel más nuevo, con aviso solo para ese propietario.
+  db.exec(`UPDATE propietario SET cbu = 'alias.de.prueba' WHERE id = (SELECT propietario_id FROM depto WHERE codigo = 'OVL')`);
+  const junio = importarExcel(db, comoMes('2026-06-01', '2026-07-01'));
   assert.equal(estadoOvl(), 'pausado');
+  assert.equal(junio.avisos.filter((a) => a.includes('el Excel cambió')).length, 1);
+  assert.ok(junio.avisos.some((a) => a.includes('el Excel cambió el CBU;')));
+  assert.notEqual((db.prepare(`SELECT p.cbu FROM propietario p JOIN depto d ON d.propietario_id = p.id WHERE d.codigo = 'OVL'`).get() as any).cbu, 'alias.de.prueba');
 });
 
 // Período abierto como el que crea "traer mes" de Stays (parámetros cualquiera).

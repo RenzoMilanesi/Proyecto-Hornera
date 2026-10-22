@@ -44,6 +44,12 @@ en la LAN (fase 5d), que sigue a testear.
 7. **Saldado por fuera** — **A testear** (v0.32.0): las deudas de antes de la app que ya se resolvieron se marcan en Transferencias
    o en el Historial (una por una, o "Saldar por fuera hasta" un mes para la carga inicial). No quedan pendientes ni pasan al mes
    siguiente, sin registrar un pago (no mueven cuentas ni se facturan); se desmarcan y quedan en la auditoría.
+8. **Deptos nuevos desde Stays** — **A testear** (v0.35.0; definido con grill-me el 2026-10-22): si "Traer mes" encuentra un
+   alojamiento activo en Stays que la app no tiene (p. ej. AMA), ofrece "Crear y traer": lo da de alta con el dueño de Stays
+   (el propietario vinculado, el de sus otros deptos o uno nuevo con su nombre), dirección y fotos, 20% de comisión, y trae sus reservas.
+   - Propietarios → "Datos": CBU/CVU (22 dígitos con verificador) o alias, mails, moneda y comisión de cobro en USD.
+     Un Excel más nuevo los vuelve a pisar (gana el Excel) y la importación avisa a quién le cambió el CBU, los mails o la moneda.
+   - Liquidación y PDF muestran los códigos reales de la reserva (Stays y plataforma) en vez del generado (v0.34.1).
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.
    - Terminales → "Nombre de esta PC" en el servidor (se guarda en `configuracion`); reemplaza al nombre de Windows en la auditoría.

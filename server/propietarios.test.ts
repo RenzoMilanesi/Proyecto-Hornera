@@ -42,6 +42,29 @@ test('datos fiscales: propone lo del Excel, valida el CUIT y guarda', async () =
   });
 });
 
+test('datos para pagarle: CBU o alias válidos, mails, moneda y comisión de cobro; Hornera no lleva CBU', async () => {
+  const db = abrirDb(':memory:');
+  db.exec(`INSERT INTO propietario(nombre, cbu, es_hornera) VALUES ('Pérez, Ana', NULL, 0), ('Nosotros', NULL, 1)`);
+  await conApi(db, async (base) => {
+    const datos = { cbu: '0110 1238 1234567890123-3', mails: 'ana@ejemplo.com,  otro@ejemplo.com', moneda_liquidacion: 'USD', comision_cobro_usd_pct: 0.04 };
+    assert.match((await llamar(base, 'PUT', 'propietarios/1/pago', { ...datos, cbu: '0110123812345678901234' })).body.error, /dígito verificador/);
+    assert.match((await llamar(base, 'PUT', 'propietarios/1/pago', { ...datos, mails: 'ana@ejemplo' })).body.error, /"ana@ejemplo" no es un mail/);
+    assert.match((await llamar(base, 'PUT', 'propietarios/1/pago', { ...datos, moneda_liquidacion: 'EUR' })).body.error, /ARS o USD/);
+    assert.equal((await llamar(base, 'PUT', 'propietarios/1/pago', datos)).status, 200);
+    assert.deepEqual((await llamar(base, 'GET', 'propietarios/1/pago')).body,
+      { cbu: '0110123812345678901233', es_hornera: 0, mails: 'ana@ejemplo.com; otro@ejemplo.com', moneda_liquidacion: 'USD', comision_cobro_usd_pct: 0.04 });
+
+    // Alias; con pesos la comisión de cobro queda en 0.
+    assert.equal((await llamar(base, 'PUT', 'propietarios/1/pago', { cbu: 'ana.perez.banco', mails: '', moneda_liquidacion: 'ARS', comision_cobro_usd_pct: 0.04 })).status, 200);
+    assert.deepEqual({ ...(db.prepare('SELECT cbu, mails, comision_cobro_usd_pct FROM propietario WHERE id = 1').get() as object) },
+      { cbu: 'ana.perez.banco', mails: null, comision_cobro_usd_pct: 0 });
+
+    assert.equal((await llamar(base, 'PUT', 'propietarios/2/pago', { ...datos, cbu: '0110123812345678901233' })).status, 200);
+    assert.equal((db.prepare('SELECT cbu FROM propietario WHERE id = 2').get() as { cbu: string | null }).cbu, null);
+    assert.equal((db.prepare(`SELECT count(*) n FROM auditoria WHERE tabla = 'propietario'`).get() as { n: number }).n, 3);
+  });
+});
+
 // Certificado autofirmado como los de ARCA: el CUIT va en el serialNumber del sujeto.
 function certificado(cuit: string) {
   const par = forge.pki.rsa.generateKeyPair(1024);

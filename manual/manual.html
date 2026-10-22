@@ -479,6 +479,13 @@ que hacen falta para facturarles los honorarios.</p>
   <img src="img/propietarios.png">
   <figcaption>Lista de propietarios con sus deptos y la moneda en que cobran.</figcaption>
 </figure>
+<h2>Datos para pagarle</h2>
+<ol class="pasos">
+  <li><span class="boton">Datos</span> en la fila del propietario: <b>CBU/CVU o alias</b>, <b>mails</b> (separados por punto y coma) y la
+    <b>moneda</b> en que liquida; si es en dólares, también la <b>comisión de cobro</b>. Un CBU con el dígito verificador mal no se guarda.</li>
+  <li>Estos datos también los trae el Excel mensual: si se importa un Excel más nuevo, <b>gana el Excel</b> y la importación avisa
+    a qué propietarios les cambió el CBU, los mails o la moneda.</li>
+</ol>
 <h2>Datos fiscales</h2>
 <figure class="chica">
   <img src="img/datos-fiscales.png">
@@ -574,6 +581,8 @@ La clave queda cifrada en esa PC y no se vuelve a mostrar; después se ve <i>"Co
     También trae la cotización del dólar.</li>
   <li>Leer los <b>avisos</b>: comisiones de Mercado Pago o PayPal que faltan cargar en Stays, medios de pago sin cuenta, canales o deptos
     que la app no reconoce, deptos con otro dueño en Stays.</li>
+  <li>Si en Stays hay un <b>depto nuevo</b> que la app no tiene, aparece un aviso con <span class="boton">Crear y traer</span>: lo da de alta
+    con el dueño, la dirección y las fotos de Stays (20% de comisión, se cambia en Deptos → Variables) y trae sus reservas.</li>
   <li>Revisar la lista de reservas: depto, fechas y horarios, huéspedes, plataforma y lo cobrado en pesos y dólares.
     <b>Ver canceladas</b> muestra también las canceladas, que no se liquidan.</li>
 </ol>

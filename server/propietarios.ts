@@ -108,3 +108,39 @@ export async function padronDePropietario(db: DatabaseSync, claves: AlmacenClave
     dni: p.tipoPersona === 'FISICA' ? dniDeCuit(cuit) : null,
   };
 }
+
+// ---- Datos para pagarle: CBU, mails y moneda en que liquida. El Excel mensual los vuelve a cargar
+// (gana el Excel) y la importación avisa lo que cambió.
+
+// Dígito verificador de cada bloque del CBU/CVU (banco+sucursal: 8 dígitos; cuenta: 14).
+const bloqueCbu = (b: string, pesos: number[]) =>
+  (10 - (pesos.reduce((s, p, i) => s + p * Number(b[i]), 0) % 10)) % 10 === Number(b[b.length - 1]);
+export const esCbu = (v: string) => /^\d{22}$/.test(v)
+  && bloqueCbu(v.slice(0, 8), [7, 1, 3, 9, 7, 1, 3]) && bloqueCbu(v.slice(8), [3, 9, 7, 1, 3, 9, 7, 1, 3, 9, 7, 1, 3]);
+const esAlias = (v: string) => /^[a-z0-9.-]{6,20}$/i.test(v) && !/^\d+$/.test(v);
+const esMail = (v: string) => /^[^\s@;]+@[^\s@;]+\.[^\s@;]+$/.test(v);
+
+export function datosDePago(db: DatabaseSync, id: number) {
+  const p = db.prepare('SELECT cbu, es_hornera, mails, moneda_liquidacion, comision_cobro_usd_pct FROM propietario WHERE id = ?').get(id);
+  if (!p) throw new Error('No existe el propietario.');
+  return p;
+}
+
+export function guardarDatosDePago(db: DatabaseSync, id: number, cuerpo: unknown) {
+  const antes = datosDePago(db, id) as { cbu: string | null; es_hornera: number; mails: string | null; moneda_liquidacion: string; comision_cobro_usd_pct: number };
+  const b = (cuerpo ?? {}) as Record<string, unknown>;
+  const cbu = antes.es_hornera ? null : texto(b.cbu)?.replace(/[\s-]/g, '') ?? null;
+  if (cbu && !esCbu(cbu) && !esAlias(cbu)) throw new Error('El CBU/CVU son 22 dígitos (y el dígito verificador no cierra) o un alias de 6 a 20 letras, números, puntos o guiones.');
+  const lista = (texto(b.mails) ?? '').split(/[;,\s]+/).filter(Boolean);
+  const mal = lista.find((m) => !esMail(m));
+  if (mal) throw new Error(`"${mal}" no es un mail válido.`);
+  const moneda = b.moneda_liquidacion;
+  if (moneda !== 'ARS' && moneda !== 'USD') throw new Error('Elegí la moneda en que liquida: ARS o USD.');
+  const pct = moneda === 'USD' ? Number(b.comision_cobro_usd_pct ?? 0) : 0;
+  if (!(pct >= 0 && pct < 1)) throw new Error('La comisión de cobro va de 0% a menos de 100%.');
+  const f = { cbu: antes.es_hornera ? antes.cbu : cbu, mails: lista.join('; ') || null, moneda_liquidacion: moneda, comision_cobro_usd_pct: pct };
+  db.prepare(`UPDATE propietario SET cbu = :cbu, mails = :mails, moneda_liquidacion = :moneda_liquidacion,
+      comision_cobro_usd_pct = :comision_cobro_usd_pct WHERE id = :id`).run({ ...f, id });
+  const { es_hornera: _, ...previo } = antes;
+  auditar(db, 'propietario', id, 'modificacion', previo, f);
+}

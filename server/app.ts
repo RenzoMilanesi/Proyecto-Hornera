@@ -23,7 +23,7 @@ import { borrarEmisor, cargarCertificado, crearEmisor, editarEmisor, listarEmiso
 import { ErrorArca } from './arca.ts';
 import { desvincular, importarMisComprobantes, listarMisComprobantes, vincular } from './misComprobantes.ts';
 import { datosComprobante, detalleComprobante, emitir, ErrorRevisar, facturaVigente, listarComprobantes, notaCredito, propuesta } from './facturacion.ts';
-import { datosFiscales, guardarDatosFiscales, padronDePropietario } from './propietarios.ts';
+import { datosDePago, datosFiscales, guardarDatosDePago, guardarDatosFiscales, padronDePropietario } from './propietarios.ts';
 import { rutasBackup } from './backup.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
 
@@ -202,7 +202,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
       // configuracion.stays.url permite apuntar a otra cuenta de Stays (o a un Stays de prueba).
       const url = (db.prepare(`SELECT valor FROM configuracion WHERE clave = 'stays.url'`).get() as { valor: string } | undefined)?.valor ?? urlStays;
       if (!urlStaysPermitida(url)) throw new Error(`URL de Stays no permitida: ${url} (tiene que ser https://….stays.net).`);
-      const reporte = await sincronizarMes(db, crearClienteStays(creds, url), String(req.body?.mes ?? ''));
+      const reporte = await sincronizarMes(db, crearClienteStays(creds, url), String(req.body?.mes ?? ''), Array.isArray(req.body?.crear) ? req.body.crear.map(String) : []);
       // El dólar viene con "traer mes"; si falla, Stays queda traído igual y se avisa.
       try {
         const { aviso } = await actualizarCotizacion(db, reporte.mes, false, fetchDolar);
@@ -485,6 +485,8 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   });
 
   // ---- Datos fiscales del propietario (receptor de las facturas, plan 031)
+  app.get('/api/propietarios/:id/pago', (req, res) => intentar(res, () => datosDePago(db, Number(req.params.id))));
+  app.put('/api/propietarios/:id/pago', (req, res) => intentar(res, () => guardarDatosDePago(db, Number(req.params.id), req.body)));
   app.get('/api/propietarios/:id/fiscal', (req, res) => intentar(res, () => datosFiscales(db, Number(req.params.id))));
   app.put('/api/propietarios/:id/fiscal', (req, res) => intentar(res, () => guardarDatosFiscales(db, Number(req.params.id), req.body)));
   app.post('/api/propietarios/:id/padron', async (req, res) => {
