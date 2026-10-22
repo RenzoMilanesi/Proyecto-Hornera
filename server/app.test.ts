@@ -207,11 +207,15 @@ test('una base del esquema 1 conserva sus datos al migrar', (t) => {
            CREATE TABLE periodo (id INTEGER PRIMARY KEY, usd_cotizacion_fuente TEXT, fecha_cierre_reservas TEXT) STRICT; -- y la 8 → 9 (y la 13 → 14 las lee)
            CREATE TABLE movimiento (id INTEGER PRIMARY KEY) STRICT; -- y la 11 → 12
            CREATE TABLE liquidacion (id INTEGER PRIMARY KEY, depto_id INTEGER, conversion_ars INTEGER NOT NULL, saldo_final INTEGER NOT NULL) STRICT;
+           CREATE TABLE auditoria (id INTEGER PRIMARY KEY, fecha TEXT NOT NULL, pc TEXT NOT NULL, tabla TEXT NOT NULL, registro_id INTEGER,
+             accion TEXT NOT NULL, antes_json TEXT, despues_json TEXT) STRICT; -- y la 15 → 16 la rehace
+           INSERT INTO auditoria VALUES (1, '2026-04-02 10:00:00', 'PC-1', 'movimiento', 1, 'alta', NULL, '{}');
            INSERT INTO liquidacion VALUES (1, NULL, 0, 500); PRAGMA user_version = 1;`);
   v1.close();
   const db = abrirDb(ruta);
   assert.deepEqual({ ...(db.prepare('SELECT saldo_final_ars, saldo_final_usd, conversion_usd FROM liquidacion').get() as any) },
     { saldo_final_ars: 500, saldo_final_usd: 0, conversion_usd: 0 });
+  assert.equal((db.prepare('SELECT pc FROM auditoria').get() as any).pc, 'PC-1');
   db.close();
 });
 

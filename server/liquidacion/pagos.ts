@@ -103,7 +103,7 @@ export function pagarLiquidacion(db: DatabaseSync, liquidacionId: number, d: Dat
       new Date().toLocaleString('sv-SE').slice(0, 19),
     ).lastInsertRowid);
     if (!l.movimiento_pago_id) db.prepare('UPDATE liquidacion SET movimiento_pago_id = ? WHERE id = ?').run(id, l.id);
-    auditar(db, 'movimiento', id, 'alta', null, { pago_liquidacion: l.id, depto: l.codigo, mes: l.mes, ...d });
+    auditar(db, 'movimiento', id, 'alta', null, { pago_liquidacion: l.id, depto: l.codigo, mes: l.mes, moneda: t.moneda, ...d });
     db.exec('COMMIT');
     return id;
   } catch (e) {

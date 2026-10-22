@@ -15,6 +15,7 @@ import { Historial } from './Historial.tsx';
 import { Comprobantes } from './Comprobantes.tsx';
 import { Emparejar } from './Emparejar.tsx';
 import { Emisores } from './Emisores.tsx';
+import { Auditoria } from './Auditoria.tsx';
 
 const secciones = {
   resumen: { grupo: '', titulo: 'Resumen', ayuda: 'Cómo viene el mes: ocupación, plata y resultado de Hornera.', vista: <Resumen /> },
@@ -29,6 +30,7 @@ const secciones = {
   emisores: { grupo: 'Datos', titulo: 'Emisores', ayuda: 'Quién factura los honorarios en ARCA y su certificado.', vista: <Emisores /> },
   stays: { grupo: 'Herramientas', titulo: 'Stays', ayuda: 'Trae reservas y pagos del mes desde Stays.', vista: <Stays /> },
   importar: { grupo: 'Herramientas', titulo: 'Importar Excel', ayuda: 'Carga un mes desde el Google Sheet de liquidaciones, o los gastos varios del mes abierto.', vista: <Importar /> },
+  auditoria: { grupo: 'Herramientas', titulo: 'Auditoría', ayuda: 'Quién cambió qué en el mes: cada PC, con lo que cambió.', vista: <Auditoria /> },
   terminales: { grupo: 'Herramientas', titulo: 'Terminales', ayuda: 'Otras PCs de la oficina conectadas a esta.', vista: <Terminales /> }, // solo en la PC servidor
 };
 type Seccion = keyof typeof secciones;

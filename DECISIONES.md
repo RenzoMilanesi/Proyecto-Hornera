@@ -106,7 +106,7 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
   - **Solo en el servidor:** administrar terminales y cargar la clave de Stays (no viaja por la LAN en HTTP sin cifrar). Los PDF se generan en el servidor y no se abren si los pidió una terminal (se avisa la carpeta).
   - La auditoría registra el nombre de la terminal que hizo el cambio.
   - **Sin mDNS ni WebSocket (a diferencia de Roble):** la terminal llama al servidor por el nombre del equipo, que Windows resuelve en la LAN y no cambia con DHCP; cada pantalla recarga sus datos al abrirse. mDNS si el nombre no resuelve en la red de la oficina; WS si hace falta ver en vivo lo que carga la otra PC.
-- **Login:** ninguno.
+- **Login:** ninguno. El usuario de la auditoría es la PC: Lautaro y Amancay usan una PC cada uno, el servidor con el nombre que se le pone en Terminales y la terminal con el de su emparejamiento (2026-10-21).
 - **Convenciones de Roble:** importes en centavos INTEGER, fechas ISO, bajas lógicas, saldos por vistas `v_*`. La "capa repos" de Roble no se adoptó: el SQL vive junto a cada módulo (`server/app.ts`, `server/importador/`, `server/stays/`).
 - **Instalador** (`npm run dist`): electron-builder con NSIS, como Roble. Lista explícita de archivos en `package.json` ("build.files"): solo `electron/`, `server/` sin tests, `dist/`, `schema.sql` y las dependencias de producción (express, xlsx, node-forge, qrcode); React y Ant Design van compilados en `dist/`. Nunca entra `Archivos Originales/`. Sin firma de código (Windows avisa "protegió su PC") ni ícono propio. Los datos quedan en `%APPDATA%\Hornera`, fuera de la carpeta de instalación: reinstalar o actualizar no los toca.
 - **PDF:** `printToPDF` de Electron (patrón `HojaImpresion`).

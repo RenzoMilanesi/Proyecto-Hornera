@@ -10,7 +10,7 @@ import { sincronizarMes } from './stays/sync.ts';
 import { SQL_EN_PERIODO } from './periodo.ts';
 import { liquidacionGuardada, liquidarPeriodo } from './liquidacion/servicio.ts';
 import { compararConExcel } from './liquidacion/comparar.ts';
-import { auditar } from './auditoria.ts';
+import { auditar, listarAuditoria } from './auditoria.ts';
 import { actualizarCotizacion, type Fetch } from './cotizacion.ts';
 import { anularMovimiento, crearMovimiento, editarMovimiento, listarMovimientos, transferir } from './movimientos.ts';
 import { cerrarPeriodo, reabrirPeriodo } from './liquidacion/cierre.ts';
@@ -142,7 +142,10 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
       return;
     }
     try {
-      res.json(importarExcel(db, req.body));
+      const r = importarExcel(db, req.body);
+      const { avisos, ...resumen } = r;
+      auditar(db, 'excel', null, 'importacion', null, { ...resumen, avisos: avisos.length });
+      res.json(r);
     } catch (e) {
       res.status(400).json({ error: mensaje(e) });
     }
@@ -153,7 +156,11 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
       res.status(400).json({ error: 'Falta el archivo .xlsx' });
       return;
     }
-    intentar(res, () => importarGastos(db, req.body));
+    intentar(res, () => {
+      const r = importarGastos(db, req.body);
+      auditar(db, 'gastos', null, 'importacion', null, { importados: r.importados, repetidos: r.repetidos, anteriores: r.anteriores, avisos: r.avisos.length });
+      return r;
+    });
   });
 
   // ---- Stays. La clave nunca vuelve al cliente.
@@ -200,6 +207,9 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
       } catch (e) {
         reporte.avisos.push(`${mensaje(e)} Cargala a mano en Liquidación.`);
       }
+      const { avisos, ...resumen } = reporte;
+      // Un renglón por cada vez que se trae el mes, con el resumen; no uno por reserva (decisión 2026-10-21).
+      auditar(db, 'stays', null, 'importacion', null, { ...resumen, avisos: avisos.length });
       res.json(reporte);
     } catch (e) {
       res.status(400).json({ error: mensaje(e) });
@@ -321,6 +331,8 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
       res.status(400).json({ error: mensaje(e) });
     }
   });
+
+  app.get('/api/auditoria', (req, res) => intentar(res, () => listarAuditoria(db, String(req.query.mes ?? ''))));
 
   app.get('/api/resumen', (req, res) => intentar(res, () => resumenDelMes(db, String(req.query.mes ?? ''))));
   app.get('/api/resumen/evolucion', (_req, res) => { res.json(evolucion(db)); });

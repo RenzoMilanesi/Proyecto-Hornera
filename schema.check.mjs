@@ -119,4 +119,8 @@ falla(arca('2026-10-16'), 'UNIQUE');
 run(mov('tipo, importe_ars, origen', "'gasto', -100, 'gastos:x'"));
 falla(mov('tipo, importe_ars, origen', "'gasto', -100, 'gastos:x'"), 'UNIQUE');
 
+// Auditoría: "traer mes" e importaciones van con la acción importacion; otra acción no entra
+run(`INSERT INTO auditoria(fecha, pc, tabla, accion) VALUES ('x', 'Lautaro', 'stays', 'importacion')`);
+falla(`INSERT INTO auditoria(fecha, pc, tabla, accion) VALUES ('x', 'Lautaro', 'stays', 'borrado')`, 'CHECK');
+
 console.log('schema OK');

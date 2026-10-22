@@ -545,10 +545,10 @@ CREATE TABLE historico_mensual (
 CREATE TABLE auditoria (
     id          INTEGER PRIMARY KEY,
     fecha       TEXT    NOT NULL,
-    pc          TEXT    NOT NULL,                -- sin login: nombre del equipo (servidor/terminal)
+    pc          TEXT    NOT NULL,                -- sin login: la PC es el usuario (nombre de Terminales o de la terminal)
     tabla       TEXT    NOT NULL,
     registro_id INTEGER,
-    accion      TEXT    NOT NULL CHECK (accion IN ('alta','modificacion','anulacion','cierre','reapertura')),
+    accion      TEXT    NOT NULL CHECK (accion IN ('alta','modificacion','anulacion','cierre','reapertura','importacion')),
     antes_json  TEXT,
     despues_json TEXT
 ) STRICT;

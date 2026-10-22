@@ -7,7 +7,7 @@ import { createHash, randomBytes, randomInt } from 'node:crypto';
 import { hostname, networkInterfaces } from 'node:os';
 import type { DatabaseSync } from 'node:sqlite';
 import type { Express, NextFunction, Request, Response } from 'express';
-import { pcActual } from './auditoria.ts';
+import { nombrarPc, nombrePc, pcActual } from './auditoria.ts';
 
 const COOKIE = 'hornera_terminal';
 const CODIGO_VALIDO_MS = 10 * 60 * 1000;
@@ -57,10 +57,20 @@ export function rutasTerminales(app: Express, db: DatabaseSync) {
 
   app.get('/api/terminales', soloLocal, (req, res) => {
     res.json({
+      nombre: nombrePc(db),
       direcciones: nombresDeEstaPc().filter((n) => !n.endsWith('.local')).map((n) => `${n}:${req.socket.localPort}`),
       codigo: codigo && codigo.vence > Date.now() ? { valor: codigo.valor, vence: new Date(codigo.vence).toISOString() } : null,
       terminales: db.prepare('SELECT id, nombre, creada_en FROM terminal WHERE revocada_en IS NULL ORDER BY id').all(),
     });
+  });
+
+  // El nombre con el que esta PC queda en la auditoría.
+  app.put('/api/terminales/nombre', soloLocal, (req, res) => {
+    try {
+      res.json(nombrarPc(db, req.body?.nombre));
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    }
   });
 
   app.post('/api/terminales/codigo', soloLocal, (_req, res) => {

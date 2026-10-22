@@ -151,6 +151,23 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
      SELECT id, 'gastos:' || msg || ':' || row_number() OVER (PARTITION BY msg ORDER BY id) AS nuevo
      FROM (SELECT id, substr(origen, 8, instr(substr(origen, 8), ':') - 1) AS msg FROM movimiento WHERE origen LIKE 'gastos:%:%:%:%')) n
    WHERE movimiento.id = n.id;`,
+  // 15 → 16: "traer mes" e importaciones quedan en la auditoría con la acción importacion (un CHECK no se altera: se rehace la tabla;
+  // sin RENAME, que revalida las vistas).
+  `CREATE TEMP TABLE auditoria_vieja AS SELECT * FROM auditoria;
+   DROP TABLE auditoria;
+   CREATE TABLE auditoria (
+       id          INTEGER PRIMARY KEY,
+       fecha       TEXT    NOT NULL,
+       pc          TEXT    NOT NULL,
+       tabla       TEXT    NOT NULL,
+       registro_id INTEGER,
+       accion      TEXT    NOT NULL CHECK (accion IN ('alta','modificacion','anulacion','cierre','reapertura','importacion')),
+       antes_json  TEXT,
+       despues_json TEXT
+   ) STRICT;
+   INSERT INTO auditoria SELECT * FROM auditoria_vieja;
+   DROP TABLE auditoria_vieja;
+   CREATE INDEX ix_auditoria_registro ON auditoria(tabla, registro_id);`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

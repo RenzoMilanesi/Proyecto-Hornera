@@ -1,10 +1,10 @@
 // Solo en la PC servidor: dirección para las terminales, código de emparejamiento y terminales emparejadas.
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Popconfirm, Space, Table, Typography } from 'antd';
+import { Alert, Button, Card, Input, Popconfirm, Space, Table, Typography } from 'antd';
 import { enviar, get } from './api.ts';
 
 interface Terminal { id: number; nombre: string; creada_en: string }
-interface Estado { direcciones: string[]; codigo: { valor: string; vence: string } | null; terminales: Terminal[] }
+interface Estado { nombre: string; direcciones: string[]; codigo: { valor: string; vence: string } | null; terminales: Terminal[] }
 
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
 
@@ -12,13 +12,25 @@ export function Terminales() {
   const [estado, setEstado] = useState<Estado>();
   const [error, setError] = useState<string>();
   const [version, setVersion] = useState(0);
-  useEffect(() => { get<Estado>('terminales').then(setEstado, (e) => setError(String(e))); }, [version]);
+  const [nombre, setNombre] = useState('');
+  useEffect(() => { get<Estado>('terminales').then((e) => { setEstado(e); setNombre(e.nombre); }, (e) => setError(String(e))); }, [version]);
 
   const accion = (fn: () => Promise<unknown>) => fn().then(() => setVersion((v) => v + 1), (e) => setError(String(e)));
 
   return (
     <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       {error && <Alert type="error" showIcon closable title={error} onClose={() => setError(undefined)} />}
+      <Card size="small" title="Nombre de esta PC">
+        <Typography.Paragraph type="secondary">
+          Con este nombre quedan en la Auditoría los cambios hechos en esta PC (por ejemplo, el de quien la usa).
+          Las terminales quedan con el nombre que se les puso al emparejarlas.
+        </Typography.Paragraph>
+        <Space.Compact>
+          <Input value={nombre} maxLength={60} onChange={(e) => setNombre(e.target.value)} style={{ width: 240 }} />
+          <Button type="primary" disabled={!nombre.trim() || nombre.trim() === estado?.nombre}
+            onClick={() => accion(() => enviar('terminales/nombre', 'PUT', { nombre }))}>Guardar</Button>
+        </Space.Compact>
+      </Card>
       <Card size="small" title="Conectar otra PC">
         <Typography.Paragraph>
           En la otra PC instalá Hornera, elegí <b>Terminal</b> y escribí la dirección de esta PC:
