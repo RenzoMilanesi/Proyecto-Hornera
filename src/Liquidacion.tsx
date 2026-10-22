@@ -103,12 +103,12 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
       detalle: editar
         ? <>Costos operativos {pesos(-r.costosOperativos)} (tarifas: {enlace('Variables del mes', editar.variables)}) y comisiones OTA/CM {ars(-d.comisiones.ars)} {usd(-d.comisiones.usd)} (en cada reserva: Ajustar).</>
         : <>Costos operativos {pesos(-r.costosOperativos)} y comisiones OTA/CM {ars(-d.comisiones.ars)} {usd(-d.comisiones.usd)}.</> },
-    { key: 'bru', concepto: '= Ingreso bruto', importe: pesos(c.ingresoBruto), total: true },
+    { key: 'bru', concepto: 'Ingreso bruto', importe: pesos(c.ingresoBruto), total: true },
     { key: 'hon', concepto: `− Honorarios (${pct})`, importe: pesos(c.honorarios), detalle: editar ? 'Comisión del depto: Deptos → Variables.' : undefined },
-    { key: 'ini', concepto: '= Valor liquidación inicial', importe: pesos(c.valorInicial), total: true },
+    { key: 'ini', concepto: 'Valor liquidación inicial', importe: pesos(c.valorInicial), total: true },
     { key: 'exc', concepto: '− Costos excepcionales', importe: pesos(c.excepcionales),
       detalle: <>Gastos del depto y adelantos al propietario del mes ({movimientos.length}, abajo){editar && <> · {enlace('Agregar', () => editar.movimiento())}</>}.</> },
-    { key: 'fin', concepto: '= Valor liquidación final', importe: pesos(c.valorFinal), total: true },
+    { key: 'fin', concepto: 'Valor liquidación final', importe: pesos(c.valorFinal), total: true },
     { key: 'ant', concepto: 'Saldo mes anterior', importe: <>{ars(d.saldoAnterior.ars)} {usd(d.saldoAnterior.usd)}</> },
     // La cuenta ya está en pesos: solo el que liquida en dólares tiene un paso más.
     ...(d.moneda === 'USD' ? [{ key: 'conv', concepto: 'Pasado a dólares', importe: '',
