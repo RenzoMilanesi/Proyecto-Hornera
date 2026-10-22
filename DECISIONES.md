@@ -95,6 +95,14 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - Probado contra un Stays simulado con datos ficticios en el formato real (xlsx del export, JSON de pagos y medios). **Falta probar contra el Stays real** cuando se cambie la contraseña.
 - Cada medio de pago se asocia a su cuenta en la pantalla Cuentas; la liquidación del mes abierto la calcula el motor desde reservas y pagos (fase 5).
 
+## Ficha del depto y vencimientos (`server/ficha.ts`, Deptos → Ficha y pantalla "Vencimientos")
+- **Ficha del depto (2026-10-22, con Lautaro):** servicios e impuestos con su vencimiento (día + cada cuántos meses +
+  un mes en que vence), claves, contactos y notas. Un vencimiento se da por pagado solo, con un gasto vigente del depto
+  y el mismo concepto en el mes: no hay tilde manual. Solo avisan los que paga Hornera.
+- **Claves de los deptos en texto en la base:** viajan en los backups (y a Drive si la carpeta de copias está ahí); a
+  cambio, si la PC se rompe se recuperan. Todas las PCs las ven y editan. La auditoría no guarda el valor. Sin adjuntos
+  por ahora (engordarían las 60 copias).
+
 ## Técnico
 - **Desktop** como Roble: Electron + React/Vite + Express + SQLite. Proyecto nuevo, se copia de Roble solo lo que sirva.
 - **SQLite con `node:sqlite`** (incluido en Node/Electron) en vez de `better-sqlite3`: sin módulo nativo ni `electron-rebuild`. Electron corre los `.ts` directo (type stripping); solo Vite compila la interfaz. `tsc` se usa únicamente para chequear tipos.

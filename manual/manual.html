@@ -70,7 +70,7 @@
   <li>Transferencias</li>
   <li>Historial</li>
   <li>Movimientos</li>
-  <li>Deptos</li>
+  <li>Deptos (ficha y vencimientos)</li>
   <li>Propietarios</li>
   <li>Cuentas</li>
   <li>Emisores (facturación ARCA)</li>
@@ -143,7 +143,7 @@ es el dato a anotar si se reporta un problema.</p>
 <table>
   <tr><th style="width:22%">Grupo</th><th style="width:30%">Pantallas</th><th>Para qué</th></tr>
   <tr><td>—</td><td>Resumen</td><td>La primera pantalla: cómo viene el mes.</td></tr>
-  <tr><td><b>MES</b></td><td>Liquidación, Transferencias, Historial, Movimientos, Gastos personales</td><td>El trabajo de todos los meses.</td></tr>
+  <tr><td><b>MES</b></td><td>Liquidación, Transferencias, Historial, Comprobantes, Movimientos, Gastos personales, Vencimientos</td><td>El trabajo de todos los meses.</td></tr>
   <tr><td><b>DATOS</b></td><td>Deptos, Propietarios, Cuentas, Emisores</td><td>Los datos fijos: se cargan una vez y se corrigen cuando cambian.</td></tr>
   <tr><td><b>HERRAMIENTAS</b></td><td>Stays, Importar Excel, Terminales</td><td>Traer datos de afuera y conectar otras PC.</td></tr>
 </table>
@@ -470,6 +470,32 @@ completan con lo que trae Stays (dirección y fotos).</p>
     (<span class="menu">Liquidación → Variables del mes</span>).</li>
   <li>Se aplican a los meses abiertos; los cerrados quedan como se liquidaron.</li>
 </ul>
+<h2>Ficha de un depto</h2>
+<p>El botón <span class="boton">Ficha</span> abre todo lo que hay que saber del depto, en cuatro pestañas. Cada renglón se agrega
+con el botón de arriba y se corrige con <span class="boton">Editar</span> o se quita con <span class="boton">Borrar</span>.</p>
+<ul>
+  <li><b>Servicios e impuestos:</b> EPE, API, TGI, Aguas, Gas, expensas… con su N° de cuenta o partida, el titular, quién lo paga
+    (Hornera o el propietario) y cuándo vence: el día, cada cuántos meses (mensual, bimestral…) y un mes en que vence (para saber
+    si un bimestral toca en los meses pares o en los impares). El <b>concepto</b> es el mismo que se usa al cargar el gasto en
+    <span class="menu">Movimientos</span>: así la app sabe solo cuándo está pagado.</li>
+  <li><b>Claves:</b> wifi, alarma, caja de llaves, Smart TV… con usuario o red y la clave. La clave se ve oculta: el ojo la muestra
+    y el ícono de al lado la copia.</li>
+  <li><b>Contactos:</b> portero, administración del consorcio, plomero… con su teléfono.</li>
+  <li><b>Notas:</b> texto libre: cómo entrar, dónde están los medidores, mañas del depto.</li>
+</ul>
+<div class="ojo"><b>Las claves no van cifradas</b>Quedan en la base como cualquier otro dato: las ven todas las PCs conectadas y viajan en
+las copias de seguridad. La <span class="menu">Auditoría</span> registra quién agregó, cambió o borró una clave, pero nunca guarda la clave.</div>
+<h2>Vencimientos</h2>
+<p>En <span class="menu">Mes → Vencimientos</span> está lo que vence en el mes de los servicios e impuestos que <b>paga Hornera</b>
+(los que paga el propietario quedan solo como dato en la ficha). Se elige el mes arriba; <span class="boton">Por pagar</span> muestra lo
+que falta y <span class="boton">Todos</span>, también lo ya pagado.</p>
+<table>
+  <tr><th style="width:24%">Estado</th><th>Qué significa</th></tr>
+  <tr><td>Pagado</td><td>Ya hay un gasto del depto con ese concepto y fecha en el mes, cargado en Movimientos (no se tilda a mano).</td></tr>
+  <tr><td>Pendiente</td><td>Todavía no venció y no hay gasto cargado.</td></tr>
+  <tr><td>Vencido</td><td>Pasó el día de vencimiento y no hay gasto cargado.</td></tr>
+</table>
+<p>Si un servicio vence el 31 y el mes tiene menos días, vence el último día del mes. Los deptos finalizados no aparecen.</p>
 
 <!-- ============================================================ -->
 <h1>11. Propietarios</h1>

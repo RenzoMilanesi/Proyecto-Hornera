@@ -25,6 +25,7 @@ import { desvincular, importarMisComprobantes, listarMisComprobantes, vincular }
 import { datosComprobante, detalleComprobante, emitir, ErrorRevisar, facturaVigente, listarComprobantes, notaCredito, propuesta } from './facturacion.ts';
 import { datosDePago, datosFiscales, guardarDatosDePago, guardarDatosFiscales, padronDePropietario } from './propietarios.ts';
 import { rutasBackup } from './backup.ts';
+import { agregar, borrar, editar, ficha, guardarNotas, vencimientos } from './ficha.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
 
 // Dónde viven las credenciales de Stays. En Electron, cifradas con safeStorage
@@ -323,6 +324,14 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     if (!d) throw new Error('No existe el depto');
     return actualizar(db, 'depto', d, validar(VARIABLES_DEPTO, req.body));
   }));
+
+  // ---- Ficha del depto y vencimientos (plan 049)
+  app.get('/api/deptos/:id/ficha', (req, res) => intentar(res, () => ficha(db, Number(req.params.id))));
+  app.put('/api/deptos/:id/notas', (req, res) => intentar(res, () => { guardarNotas(db, Number(req.params.id), req.body); return { ok: true }; }));
+  app.post('/api/deptos/:id/ficha/:lista', (req, res) => intentar(res, () => ({ id: agregar(db, req.params.lista, Number(req.params.id), req.body) })));
+  app.put('/api/ficha/:lista/:id', (req, res) => intentar(res, () => { editar(db, req.params.lista, Number(req.params.id), req.body); return { ok: true }; }));
+  app.delete('/api/ficha/:lista/:id', (req, res) => intentar(res, () => { borrar(db, req.params.lista, Number(req.params.id)); return { ok: true }; }));
+  app.get('/api/vencimientos', (req, res) => intentar(res, () => vencimientos(db, String(req.query.mes ?? ''))));
 
   app.get('/api/liquidacion', (req, res) => {
     try {

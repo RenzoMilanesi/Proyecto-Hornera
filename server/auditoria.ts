@@ -41,7 +41,7 @@ const TIPOS: Record<string, string> = {
   movimiento: 'Movimiento', reserva: 'Reserva', periodo: 'Mes', depto: 'Depto', cuenta: 'Cuenta',
   medio_pago: 'Medio de pago', emisor: 'Emisor', propietario: 'Propietario', comprobante: 'Factura',
   comprobante_arca: 'Comprobante de ARCA', stays: 'Traer mes de Stays', excel: 'Excel mensual', gastos: 'Gastos varios',
-  gasto_ajeno: 'Gasto personal', liquidacion: 'Saldado por fuera', terminal: 'Terminal',
+  gasto_ajeno: 'Gasto personal', liquidacion: 'Saldado por fuera', terminal: 'Terminal', depto_clave: 'Clave del depto',
 };
 const ACCIONES: Record<Accion, string> = {
   alta: 'Alta', modificacion: 'Modificación', anulacion: 'Anulación', cierre: 'Cierre', reapertura: 'Reapertura', importacion: 'Importación',
@@ -121,6 +121,7 @@ export function listarAuditoria(db: DatabaseSync, mes: string): FilaAuditoria[] 
       WHEN 'emisor' THEN (SELECT nombre FROM emisor WHERE id = a.registro_id)
       WHEN 'liquidacion' THEN (SELECT d.codigo || ' · ' || p.mes FROM liquidacion l JOIN depto d ON d.id = l.depto_id
         JOIN periodo p ON p.id = l.periodo_id WHERE l.id = a.registro_id)
+      WHEN 'depto_clave' THEN (SELECT d.codigo || ' · ' || k.nombre FROM depto_clave k JOIN depto d ON d.id = k.depto_id WHERE k.id = a.registro_id)
       WHEN 'terminal' THEN (SELECT nombre FROM terminal WHERE id = a.registro_id)
     END AS referencia
     FROM auditoria a WHERE a.fecha >= ? AND a.fecha < date(?, '+1 month') ORDER BY a.id DESC`)

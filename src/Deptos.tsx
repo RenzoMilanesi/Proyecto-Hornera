@@ -4,6 +4,7 @@ import { Alert, Button, Col, Drawer, Form, Image, Input, InputNumber, Modal, Row
 import type { TableColumnsType } from 'antd';
 import { entradaPlata, enviar, get, pesos, useUnaVez } from './api.ts';
 import { Historial } from './Historial.tsx';
+import { Ficha } from './Ficha.tsx';
 
 interface Depto { id: number; codigo: string; nombre: string; direccion: string | null; estado: string; comision_pct: number; propietario: string; fotos: string[];
   tarifa_base_override: number | null; adicional_huesped_override: number | null; cm_fee_usd_override: number | null }
@@ -32,7 +33,7 @@ function SinFoto() {
   );
 }
 
-const columnas = (verHistorial: (d: Depto) => void, editar: (d: Depto) => void): TableColumnsType<Depto> => [
+const columnas = (verHistorial: (d: Depto) => void, editar: (d: Depto) => void, verFicha: (d: Depto) => void): TableColumnsType<Depto> => [
   { title: 'Fotos', dataIndex: 'fotos', width: 88, render: (fotos: string[]) => fotos.length > 0 ? (
     <Image.PreviewGroup items={fotos}>
       <Image src={fotos[0]} width={64} height={48} style={{ objectFit: 'cover', borderRadius: 4 }} alt="" />
@@ -45,7 +46,8 @@ const columnas = (verHistorial: (d: Depto) => void, editar: (d: Depto) => void):
   { title: 'Comisión', dataIndex: 'comision_pct', width: 150, align: 'right', render: (v: number, d) => <>{`${(v * 100).toLocaleString('es-AR', { maximumFractionDigits: 2 })} %`}{d.tarifa_base_override != null && <div><Typography.Text type="secondary" style={{ whiteSpace: "nowrap" }}>tarifa {pesos(d.tarifa_base_override)}</Typography.Text></div>}</> },
   { title: 'Estado', dataIndex: 'estado', width: 120, render: (v: string) => <Tag color={estados[v]?.color}>{estados[v]?.label ?? v}</Tag>,
     sorter: (a, b) => rango(a.estado) - rango(b.estado) },
-  { title: '', key: 'acciones', width: 170, render: (_: unknown, d) => <Space size="small">
+  { title: '', key: 'acciones', width: 230, render: (_: unknown, d) => <Space size="small">
+    <Button size="small" onClick={() => verFicha(d)}>Ficha</Button>
     <Button size="small" onClick={() => editar(d)}>Variables</Button>
     <Button size="small" onClick={() => verHistorial(d)}>Historial</Button>
   </Space> },
@@ -58,6 +60,7 @@ export function Deptos() {
   const [estado, setEstado] = useState('todos');
   const [historial, setHistorial] = useState<Depto>();
   const [editando, setEditando] = useState<Depto>();
+  const [ficha, setFicha] = useState<Depto>();
   const cargar = () => get<Depto[]>('deptos').then(setDeptos, (e) => setError(String(e)));
   useEffect(() => { cargar(); }, []);
 
@@ -84,11 +87,15 @@ export function Deptos() {
         <Segmented value={estado} onChange={setEstado} options={opciones} />
         <Typography.Text type="secondary">{visibles.length} {visibles.length === 1 ? 'depto' : 'deptos'}</Typography.Text>
       </Space>
-      <Table<Depto> rowKey="id" size="small" pagination={false} sticky loading={!deptos} dataSource={visibles} columns={columnas(setHistorial, setEditando)} />
+      <Table<Depto> rowKey="id" size="small" pagination={false} sticky loading={!deptos} dataSource={visibles} columns={columnas(setHistorial, setEditando, setFicha)} />
       <VariablesDepto depto={editando} alCerrar={(guardado) => { setEditando(undefined); if (guardado) cargar(); }} />
       <Drawer open={!!historial} onClose={() => setHistorial(undefined)} size={900} destroyOnHidden
         title={historial && `Historial de ${historial.codigo} · ${historial.nombre}`}>
         {historial && <Historial deptoId={historial.id} />}
+      </Drawer>
+      <Drawer open={!!ficha} onClose={() => setFicha(undefined)} size={900} destroyOnHidden
+        title={ficha && `Ficha de ${ficha.codigo} · ${ficha.nombre}`}>
+        {ficha && <Ficha depto={ficha} />}
       </Drawer>
     </Space>
   );

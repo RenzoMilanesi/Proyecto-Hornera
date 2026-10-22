@@ -50,6 +50,10 @@ en la LAN (fase 5d), que sigue a testear.
    - Propietarios → "Datos": CBU/CVU (22 dígitos con verificador) o alias, mails, moneda y comisión de cobro en USD.
      Un Excel más nuevo los vuelve a pisar (gana el Excel) y la importación avisa a quién le cambió el CBU, los mails o la moneda.
    - Liquidación y PDF muestran los códigos reales de la reserva (Stays y plataforma) en vez del generado (v0.34.1).
+9. **Ficha del depto y vencimientos** — **A testear** (v0.36.0; definido con grill-me y Lautaro el 2026-10-22; [plan 049](plans/049-ficha-del-depto.md)):
+   Deptos → "Ficha" con servicios e impuestos (N° de cuenta, titular, quién paga, vencimiento), claves (ocultas, se copian),
+   contactos y notas. Mes → "Vencimientos": lo que vence en el mes de lo que paga Hornera; pagado solo al cargar el gasto
+   del depto con ese concepto. Las claves quedan en la auditoría sin el valor. Fuera por ahora: adjuntos, cifrado, aviso en Resumen.
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.
    - Terminales → "Nombre de esta PC" en el servidor (se guarda en `configuracion`); reemplaza al nombre de Windows en la auditoría.

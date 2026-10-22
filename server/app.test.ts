@@ -163,7 +163,7 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
   // ni los datos nuevos de la reserva (6 → 7) ni el dueño de la liquidación (7 → 8)
   // ni la fecha de la cotización del período (8 → 9) ni la facturación ARCA (9 → 10)
   // ni lo importado de Mis Comprobantes (10 → 11) ni el origen de los gastos importados (11 → 12) ni la moneda de la liquidación (12 → 13)
-  // ni la marca de saldado por fuera (16 → 17) ni los gastos ajenos (17 → 18).
+  // ni la marca de saldado por fuera (16 → 17) ni los gastos ajenos (17 → 18) ni la ficha del depto (18 → 19).
   const actual = readFileSync(new URL('../schema.sql', import.meta.url), 'utf8');
   const v1 = actual
     .replace(/^\s*(-- Datos para facturarle|-- que vienen del Excel en texto libre|fiscal_).*\r?\n/gm, '')
@@ -172,6 +172,8 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
     .replace(/CREATE TABLE terminal \([^;]*;/, '')
     .replace(/^\s*conversion_usd .*\r?\n/m, '')
     .replace(/^\s*fotos .*\r?\n/m, '')
+    .replace(/^\s*notas .*-- ficha:.*\r?\n/m, '')
+    .replace(/CREATE TABLE depto_(servicio|clave|contacto) \([^;]*;|CREATE INDEX ix_(servicio|clave|contacto)_[^;]*;/g, '')
     .replace(/,\s*\r?\n\s*stays_owner_id .*\r?\n/, '\n')
     .replace(/CREATE UNIQUE INDEX uq_propietario_stays[^;]*;/, '')
     .replace(/^\s*propietario_id\s+INTEGER REFERENCES.*\r?\n/m, '')
@@ -441,5 +443,28 @@ test('cuentas, medios de pago y movimientos por la API', () => {
     assert.deepEqual(lista.map((m: any) => [m.tipo, m.cuenta, m.importe_ars]), [['saldo_inicial', 'Banco Prueba', 100000]]);
     const cuentas = await (await fetch(`${base}/api/cuentas`)).json();
     assert.deepEqual(cuentas.map((c: any) => [c.nombre, c.saldo]), [['Banco Prueba', 100000], ['Dólares Prueba', 0]]);
+  });
+});
+
+test('ficha del depto y vencimientos por la API', () => {
+  const db = abrirDb(':memory:');
+  db.exec(`INSERT INTO propietario(nombre) VALUES ('Propietario Uno');
+    INSERT INTO depto(codigo, nombre, propietario_id) VALUES ('OVL', 'Hornera Lagos', 1);`);
+  return conApi(db, async (base) => {
+    const pedir = (metodo: string, ruta: string, cuerpo?: unknown) => fetch(`${base}/api/${ruta}`,
+      { method: metodo, headers: { 'Content-Type': 'application/json' }, body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo) });
+
+    const { id } = await (await pedir('POST', 'deptos/1/ficha/claves', { nombre: 'Wifi', clave: 'demo-1' })).json();
+    assert.equal((await pedir('PUT', `ficha/claves/${id}`, { nombre: 'Wifi', clave: 'demo-2' })).status, 200);
+    assert.deepEqual((await (await pedir('GET', 'deptos/1/ficha')).json()).claves.map((c: any) => c.clave), ['demo-2']);
+    assert.equal((await pedir('DELETE', `ficha/claves/${id}`, {})).status, 200);
+    assert.deepEqual((await (await pedir('GET', 'deptos/1/ficha')).json()).claves, []);
+
+    const mal = await pedir('GET', 'vencimientos?mes=2026-13');
+    assert.equal(mal.status, 400);
+    assert.match((await mal.json()).error, /Mes inválido/);
+    const lista = await pedir('POST', 'deptos/1/ficha/propietario', {});
+    assert.equal(lista.status, 400);
+    assert.match((await lista.json()).error, /No existe la lista/);
   });
 });

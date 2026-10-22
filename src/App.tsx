@@ -18,6 +18,7 @@ import { Comprobantes } from './Comprobantes.tsx';
 import { Emparejar } from './Emparejar.tsx';
 import { Emisores } from './Emisores.tsx';
 import { Auditoria } from './Auditoria.tsx';
+import { Vencimientos } from './Vencimientos.tsx';
 
 const secciones = {
   resumen: { grupo: '', titulo: 'Resumen', ayuda: 'Cómo viene el mes: ocupación, plata y resultado de Hornera.', vista: <Resumen /> },
@@ -27,7 +28,8 @@ const secciones = {
   comprobantes: { grupo: 'Mes', titulo: 'Comprobantes', ayuda: 'Facturas y notas de crédito emitidas en ARCA, por mes de emisión.', vista: <Comprobantes /> },
   movimientos: { grupo: 'Mes', titulo: 'Movimientos', ayuda: 'Gastos, ingresos, adelantos y transferencias entre cuentas. No se borran: se anulan.', vista: <Movimientos /> },
   gastosAjenos: { grupo: 'Mes', titulo: 'Gastos personales', ayuda: 'Gastos de Amancay, Lautaro, la Casa del Estudiante y la casa. No son de Hornera: no entran en liquidaciones ni en el resultado.', vista: <GastosAjenos /> },
-  deptos: { grupo: 'Datos', titulo: 'Deptos', ayuda: 'Los deptos que administra Hornera, con su dueño y estado.', vista: <Deptos /> },
+  vencimientos: { grupo: 'Mes', titulo: 'Vencimientos', ayuda: 'Impuestos y servicios que paga Hornera y vencen en el mes: qué falta pagar.', vista: <Vencimientos /> },
+  deptos: { grupo: 'Datos', titulo: 'Deptos', ayuda: 'Los deptos que administra Hornera, con su dueño y estado. En Ficha: servicios, claves, contactos y notas.', vista: <Deptos /> },
   propietarios: { grupo: 'Datos', titulo: 'Propietarios', ayuda: 'Dueños de los deptos y en qué moneda se les liquida.', vista: <Propietarios /> },
   cuentas: { grupo: 'Datos', titulo: 'Cuentas', ayuda: 'Cuentas de la empresa con su saldo y a qué cuenta entra cada medio de pago.', vista: <Cuentas /> },
   emisores: { grupo: 'Datos', titulo: 'Emisores', ayuda: 'Quién factura los honorarios en ARCA y su certificado.', vista: <Emisores /> },

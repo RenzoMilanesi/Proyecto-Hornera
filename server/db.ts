@@ -191,6 +191,45 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
    BEGIN
        SELECT RAISE(ABORT, 'periodo cerrado: reabrirlo para modificar gastos ajenos');
    END;`,
+  // 18 → 19: ficha del depto (plan 049): notas, servicios con vencimiento, claves y contactos.
+  `ALTER TABLE depto ADD COLUMN notas TEXT;
+   CREATE TABLE depto_servicio (
+       id           INTEGER PRIMARY KEY,
+       depto_id     INTEGER NOT NULL,
+       concepto_id  INTEGER NOT NULL,                -- EPE, API, TGI, Expensas...
+       cuenta       TEXT,                            -- N° de cuenta, partida o cliente
+       titular      TEXT,
+       paga         TEXT    NOT NULL DEFAULT 'hornera' CHECK (paga IN ('hornera','propietario')),
+       dia          INTEGER CHECK (dia BETWEEN 1 AND 31),
+       cada_meses   INTEGER CHECK (cada_meses IN (1,2,3,4,6,12)),
+       mes_desde    INTEGER CHECK (mes_desde BETWEEN 1 AND 12),
+       nota         TEXT,
+       CONSTRAINT ck_servicio_vence CHECK ((dia IS NULL) = (cada_meses IS NULL) AND (dia IS NULL) = (mes_desde IS NULL)),
+       CONSTRAINT fk_servicio_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE CASCADE ON UPDATE CASCADE,
+       CONSTRAINT fk_servicio_concepto FOREIGN KEY (concepto_id) REFERENCES concepto(id) ON DELETE RESTRICT ON UPDATE CASCADE
+   ) STRICT;
+   CREATE INDEX ix_servicio_depto ON depto_servicio(depto_id);
+   CREATE INDEX ix_servicio_concepto ON depto_servicio(concepto_id);
+   CREATE TABLE depto_clave (
+       id        INTEGER PRIMARY KEY,
+       depto_id  INTEGER NOT NULL,
+       nombre    TEXT    NOT NULL,                   -- "Wifi 5G"
+       usuario   TEXT,                               -- usuario o nombre de la red
+       clave     TEXT,
+       nota      TEXT,
+       CONSTRAINT fk_clave_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE CASCADE ON UPDATE CASCADE
+   ) STRICT;
+   CREATE INDEX ix_clave_depto ON depto_clave(depto_id);
+   CREATE TABLE depto_contacto (
+       id        INTEGER PRIMARY KEY,
+       depto_id  INTEGER NOT NULL,
+       nombre    TEXT    NOT NULL,
+       rol       TEXT,                               -- portero, administración, plomero...
+       telefono  TEXT,
+       nota      TEXT,
+       CONSTRAINT fk_contacto_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE CASCADE ON UPDATE CASCADE
+   ) STRICT;
+   CREATE INDEX ix_contacto_depto ON depto_contacto(depto_id);`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

@@ -76,11 +76,57 @@ CREATE TABLE depto (
     id_booking                TEXT,
     id_alohar                 TEXT,
     fotos                     TEXT    CHECK (fotos IS NULL OR json_valid(fotos)),  -- JSON: URLs de Stays, la principal primero
+    notas                     TEXT,               -- ficha: cómo entrar, medidores, mañas del depto
     CONSTRAINT uq_depto_codigo UNIQUE (codigo),
     CONSTRAINT fk_depto_propietario FOREIGN KEY (propietario_id)
         REFERENCES propietario(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) STRICT;
 CREATE INDEX ix_depto_propietario ON depto(propietario_id);
+
+-- Ficha del depto (plan 049): servicios e impuestos con su vencimiento, claves y contactos.
+-- Un vencimiento de un servicio que paga Hornera se da por pagado con un gasto vigente del
+-- depto con ese concepto y fecha en el mes (server/ficha.ts).
+CREATE TABLE depto_servicio (
+    id           INTEGER PRIMARY KEY,
+    depto_id     INTEGER NOT NULL,
+    concepto_id  INTEGER NOT NULL,                -- EPE, API, TGI, Expensas...
+    cuenta       TEXT,                            -- N° de cuenta, partida o cliente
+    titular      TEXT,
+    paga         TEXT    NOT NULL DEFAULT 'hornera' CHECK (paga IN ('hornera','propietario')),
+    -- Vence el día `dia` cada `cada_meses` meses, contando desde el mes `mes_desde` (1-12). NULL = sin vencimiento.
+    dia          INTEGER CHECK (dia BETWEEN 1 AND 31),
+    cada_meses   INTEGER CHECK (cada_meses IN (1,2,3,4,6,12)),
+    mes_desde    INTEGER CHECK (mes_desde BETWEEN 1 AND 12),
+    nota         TEXT,
+    CONSTRAINT ck_servicio_vence CHECK ((dia IS NULL) = (cada_meses IS NULL) AND (dia IS NULL) = (mes_desde IS NULL)),
+    CONSTRAINT fk_servicio_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_servicio_concepto FOREIGN KEY (concepto_id) REFERENCES concepto(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) STRICT;
+CREATE INDEX ix_servicio_depto ON depto_servicio(depto_id);
+CREATE INDEX ix_servicio_concepto ON depto_servicio(concepto_id);
+
+-- Wifi, alarma, caja de llaves... En claro (decisión 2026-10-22): viajan en los backups; la auditoría no guarda la clave.
+CREATE TABLE depto_clave (
+    id        INTEGER PRIMARY KEY,
+    depto_id  INTEGER NOT NULL,
+    nombre    TEXT    NOT NULL,                   -- "Wifi 5G"
+    usuario   TEXT,                               -- usuario o nombre de la red
+    clave     TEXT,
+    nota      TEXT,
+    CONSTRAINT fk_clave_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE CASCADE ON UPDATE CASCADE
+) STRICT;
+CREATE INDEX ix_clave_depto ON depto_clave(depto_id);
+
+CREATE TABLE depto_contacto (
+    id        INTEGER PRIMARY KEY,
+    depto_id  INTEGER NOT NULL,
+    nombre    TEXT    NOT NULL,
+    rol       TEXT,                               -- portero, administración, plomero...
+    telefono  TEXT,
+    nota      TEXT,
+    CONSTRAINT fk_contacto_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE CASCADE ON UPDATE CASCADE
+) STRICT;
+CREATE INDEX ix_contacto_depto ON depto_contacto(depto_id);
 
 -- Hoja Plataformas. `nombre_stays` es el texto de la columna "Canal" de Stays.
 CREATE TABLE plataforma (

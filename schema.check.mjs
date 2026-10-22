@@ -141,4 +141,13 @@ falla(`UPDATE gasto_ajeno SET importe = 200`, 'periodo cerrado');
 run(`INSERT INTO auditoria(fecha, pc, tabla, accion) VALUES ('x', 'Lautaro', 'stays', 'importacion')`);
 falla(`INSERT INTO auditoria(fecha, pc, tabla, accion) VALUES ('x', 'Lautaro', 'stays', 'borrado')`, 'CHECK');
 
+// Ficha del depto: el vencimiento va completo (día, cada cuántos meses y desde qué mes) o no va
+run(`INSERT INTO concepto(nombre) VALUES ('EPE')`);
+run(`INSERT INTO depto_servicio(depto_id, concepto_id, dia, cada_meses, mes_desde) VALUES (1, 1, 15, 2, 1)`);
+run(`INSERT INTO depto_servicio(depto_id, concepto_id, paga) VALUES (1, 1, 'propietario')`);
+falla(`INSERT INTO depto_servicio(depto_id, concepto_id, dia) VALUES (1, 1, 15)`, 'ck_servicio_vence');
+falla(`INSERT INTO depto_servicio(depto_id, concepto_id, dia, cada_meses, mes_desde) VALUES (1, 1, 15, 5, 1)`, 'CHECK');
+falla(`INSERT INTO depto_servicio(depto_id, concepto_id, paga) VALUES (1, 1, 'inquilino')`, 'CHECK');
+falla(`INSERT INTO depto_clave(depto_id) VALUES (1)`, 'NOT NULL');
+
 console.log('schema OK');
