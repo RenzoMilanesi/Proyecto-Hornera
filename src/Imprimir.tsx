@@ -13,31 +13,31 @@ const fecha = (iso: string) => iso.split('-').reverse().join('/');
 const mesTexto = (mes: string) => new Date(`${mes}-15T12:00:00`).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
 
 const estilos = `
-  @page { size: A4; margin: 12mm; }
-  body { margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 10.5px; color: #111; }
-  .hoja { width: 186mm; margin: 0 auto; }
-  h1 { font-size: 15px; margin: 10px 0 6px; letter-spacing: .5px; }
-  h2 { font-size: 12px; margin: 14px 0 4px; border-bottom: 1.5px solid #333; padding-bottom: 2px; }
-  .encabezado { border-bottom: 2px solid #333; padding-bottom: 6px; display: flex; justify-content: space-between; gap: 12px; }
-  .encabezado b { font-size: 12px; }
-  .grilla { display: grid; grid-template-columns: 1.25fr 1fr; gap: 14px; margin-top: 6px; }
-  .caja { border: 1px solid #bbb; padding: 6px 8px; border-radius: 3px; }
-  .fila { display: flex; justify-content: space-between; gap: 8px; padding: 1px 0; }
+  @page { size: A4; margin: 10mm; }
+  body { margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #111; }
+  h1 { font-size: 19px; margin: 12px 0 8px; letter-spacing: .5px; }
+  h2 { font-size: 15px; margin: 18px 0 6px; border-bottom: 1.5px solid #333; padding-bottom: 3px; }
+  .encabezado { border-bottom: 2px solid #333; padding-bottom: 8px; display: flex; justify-content: space-between; gap: 12px; }
+  .encabezado b { font-size: 15px; }
+  .grilla { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 8px; }
+  .caja { border: 1px solid #bbb; padding: 8px 10px; border-radius: 3px; }
+  .fila { display: flex; justify-content: space-between; gap: 8px; padding: 1.5px 0; }
+  .fila > span:last-child { white-space: nowrap; }
   .etiqueta { color: #555; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { padding: 3px 4px; border-bottom: 1px solid #ddd; text-align: left; vertical-align: top; }
+  th, td { padding: 4px 5px; border-bottom: 1px solid #ddd; text-align: left; vertical-align: top; }
   th { background: #eee; font-weight: bold; }
   td.n, th.n { text-align: right; white-space: nowrap; }
   tr.total td { font-weight: bold; border-top: 1.5px solid #333; border-bottom: none; }
-  .nota { margin-top: 10px; font-size: 9.5px; color: #444; }
+  .nota { margin-top: 12px; font-size: 11.5px; color: #444; }
   .salto { break-before: page; }
   tr { break-inside: avoid; }
   h2 { break-after: avoid; }
-  .reservas table { font-size: 9px; }
+  .reservas table { font-size: 11.5px; }
   .reservas th { white-space: normal; vertical-align: bottom; } /* encabezados en dos líneas: entran las 11 columnas */
   .resumen td { border: none; padding: 2px 4px; }
   .cbte { border: 1.5px solid #333; }
-  .cbte table { font-size: 10.5px; }
+  .cbte table { font-size: 13px; }
   .cbte-cab { display: grid; grid-template-columns: 1fr 64px 1fr; border-bottom: 1.5px solid #333; }
   .cbte-cab > div { padding: 8px 10px; }
   .cbte-letra { border-left: 1.5px solid #333; border-right: 1.5px solid #333; text-align: center; padding: 4px 0 !important; }
