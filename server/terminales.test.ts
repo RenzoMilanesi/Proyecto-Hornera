@@ -54,6 +54,10 @@ test('una terminal necesita emparejarse; el código sirve una vez y se revoca', 
     assert.deepEqual(terminales.map((t: { nombre: string }) => t.nombre), ['PC Dos']);
     await fetch(`${local}/terminales/${terminales[0].id}/revocar`, { method: 'POST' });
     assert.equal((await conCookie('deptos')).status, 401);
+    // Emparejar y revocar quedan en la auditoría.
+    const terminal = db.prepare(`SELECT pc, accion, despues_json FROM auditoria WHERE tabla = 'terminal' ORDER BY id`).all() as { pc: string; accion: string; despues_json: string | null }[];
+    assert.deepEqual(terminal.map((x) => [x.pc, x.accion]), [['PC Dos', 'alta'], [terminal[1]?.pc, 'anulacion']]);
+    assert.equal(JSON.parse(terminal[0].despues_json!).direccion, ip);
   } finally {
     server.close();
   }

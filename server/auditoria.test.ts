@@ -6,7 +6,7 @@ import type { AddressInfo } from 'node:net';
 import * as XLSX from 'xlsx';
 import { crearApp } from './app.ts';
 import { abrirDb } from './db.ts';
-import { listarAuditoria, nombrarPc, pcActual } from './auditoria.ts';
+import { auditar, listarAuditoria, nombrarPc, pcActual } from './auditoria.ts';
 import { crearMovimiento, editarMovimiento, anularMovimiento } from './movimientos.ts';
 
 const hoy = () => new Date().toLocaleDateString('sv').slice(0, 7);
@@ -68,5 +68,27 @@ test('importar los gastos varios deja un renglón con el resumen', async () => {
   }
   const importacion = listarAuditoria(db, hoy()).find((f) => f.accion === 'Importación');
   assert.equal(importacion?.tipo, 'Gastos varios');
-  assert.equal(importacion?.cambios, 'Importados: 1 · Repetidos: 0 · Anteriores: 0 · Avisos: 0');
+  assert.equal(importacion?.cambios, 'Importados: 1');  // los ceros no se muestran
+});
+
+test('altas e importaciones: sin ceros, vacíos ni el mes, y con el nombre del propietario', () => {
+  const db = base();
+  auditar(db, 'depto', 1, 'alta', null, { codigo: 'AAA', propietario_id: 1, desde: 'Stays' });
+  auditar(db, 'stays', null, 'importacion', null,
+    { mes: '2026-05', periodoCreado: false, reservas: 83, pagos: 221, eliminadas: 0, deptosNuevos: [], avisos: 8 });
+  const [stays, depto] = listarAuditoria(db, hoy());
+  assert.equal(depto.cambios, 'Código: AAA · Propietario: Propietario Uno · Desde: Stays');
+  assert.equal(stays.cambios, 'Reservas: 83 · Pagos: 221 · Avisos: 8');
+});
+
+test('saldado por fuera: con su depto y mes, y sin repetir el contexto', () => {
+  const db = base();
+  db.exec(`INSERT INTO liquidacion(periodo_id, depto_id, cambio, comision_pct, noches_disponibles, noches_ocupadas, cant_reservas, ingresos_ars,
+    ingresos_usd, costos_operativos, comisiones_ars, comisiones_usd, bruto, honorarios, saldo_anterior_ars, saldo_anterior_usd, movimientos_ars,
+    movimientos_usd, conversion_ars, conversion_usd, saldo_final_ars, saldo_final_usd, calculada_en)
+    VALUES (1, 1, 1000, 0.2, 31, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5000, 0, '2026-05-31')`);
+  auditar(db, 'liquidacion', 1, 'modificacion', { saldado_fuera: null, pendiente: 5000 },
+    { saldado_fuera: '2026-05-31', nota: 'pagado en efectivo', depto: 'AAA', mes: '2026-05', moneda: 'ARS' });
+  const [f] = listarAuditoria(db, hoy());
+  assert.deepEqual([f.tipo, f.referencia, f.cambios], ['Saldado por fuera', 'AAA · 2026-05', 'Saldado el: — → 2026-05-31 · Nota: — → pagado en efectivo']);
 });

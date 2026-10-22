@@ -7,7 +7,7 @@ import { createHash, randomBytes, randomInt } from 'node:crypto';
 import { hostname, networkInterfaces } from 'node:os';
 import type { DatabaseSync } from 'node:sqlite';
 import type { Express, NextFunction, Request, Response } from 'express';
-import { nombrarPc, nombrePc, pcActual } from './auditoria.ts';
+import { auditar, nombrarPc, nombrePc, pcActual } from './auditoria.ts';
 
 const COOKIE = 'hornera_terminal';
 const CODIGO_VALIDO_MS = 10 * 60 * 1000;
@@ -79,7 +79,11 @@ export function rutasTerminales(app: Express, db: DatabaseSync) {
   });
 
   app.post('/api/terminales/:id/revocar', soloLocal, (req, res) => {
-    db.prepare(`UPDATE terminal SET revocada_en = datetime('now', 'localtime') WHERE id = ? AND revocada_en IS NULL`).run(Number(req.params.id));
+    const t = db.prepare('SELECT id, nombre FROM terminal WHERE id = ? AND revocada_en IS NULL').get(Number(req.params.id)) as { id: number; nombre: string } | undefined;
+    if (t) {
+      db.prepare(`UPDATE terminal SET revocada_en = datetime('now', 'localtime') WHERE id = ?`).run(t.id);
+      auditar(db, 'terminal', t.id, 'anulacion', { nombre: t.nombre }, null);
+    }
     res.json({ ok: true });
   });
 
@@ -98,7 +102,9 @@ export function rutasTerminales(app: Express, db: DatabaseSync) {
     codigo = null;
     const token = randomBytes(32).toString('base64url');
     const n = typeof nombre === 'string' && nombre.trim() ? nombre.trim().slice(0, 60) : 'Terminal';
-    db.prepare(`INSERT INTO terminal(nombre, token_hash, creada_en) VALUES (?, ?, datetime('now', 'localtime'))`).run(n, hash(token));
+    const id = Number(db.prepare(`INSERT INTO terminal(nombre, token_hash, creada_en) VALUES (?, ?, datetime('now', 'localtime'))`).run(n, hash(token)).lastInsertRowid);
+    // Una PC más que puede ver y cambiar todo: queda registrada con su dirección en la red.
+    pcActual.run(n, () => auditar(db, 'terminal', id, 'alta', null, { nombre: n, direccion: req.socket.remoteAddress?.replace(/^::ffff:/, '') ?? null }));
     res.setHeader('Set-Cookie', `${COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${10 * 365 * 24 * 3600}`);
     res.json({ nombre: n });
   });

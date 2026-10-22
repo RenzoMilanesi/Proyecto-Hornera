@@ -41,7 +41,7 @@ const TIPOS: Record<string, string> = {
   movimiento: 'Movimiento', reserva: 'Reserva', periodo: 'Mes', depto: 'Depto', cuenta: 'Cuenta',
   medio_pago: 'Medio de pago', emisor: 'Emisor', propietario: 'Propietario', comprobante: 'Factura',
   comprobante_arca: 'Comprobante de ARCA', stays: 'Traer mes de Stays', excel: 'Excel mensual', gastos: 'Gastos varios',
-  gasto_ajeno: 'Gasto personal',
+  gasto_ajeno: 'Gasto personal', liquidacion: 'Saldado por fuera', terminal: 'Terminal',
 };
 const ACCIONES: Record<Accion, string> = {
   alta: 'Alta', modificacion: 'Modificación', anulacion: 'Anulación', cierre: 'Cierre', reapertura: 'Reapertura', importacion: 'Importación',
@@ -52,7 +52,15 @@ const CAMPOS: Record<string, string> = {
   ajuste_comision_usd: 'Comisión US$', usd_cotizacion: 'Cotización del dólar', usd_descuento_pct: 'Descuento del dólar',
   comision_pct: 'Comisión', tarifa_base_override: 'Tarifa base propia', adicional_huesped_override: 'Adicional por huésped propio',
   cm_fee_usd_override: 'Channel manager propio', cm_fee_usd: 'Channel manager', descuenta_comision: 'Descuenta comisión', pago_liquidacion: 'Liquidación n.º',
+  propietario_id: 'Propietario', codigo: 'Código', descripcion: 'Descripción', periodoCreado: 'Mes nuevo', deptosNuevos: 'Deptos nuevos',
+  eliminadas: 'Borradas', medios: 'Medios de pago', comision_cobro_usd_pct: 'Comisión de cobro', moneda_liquidacion: 'Liquida en',
+  cbu: 'CBU/CVU', mails: 'Mails', saldado_fuera: 'Saldado el', direccion: 'Dirección', razon_social: 'Razón social', doc_nro: 'Documento', condicion_iva: 'Condición IVA',
 };
+// En altas e importaciones no se muestra el mes (ya está en el filtro de la pantalla).
+const SIN_MOSTRAR = new Set(['mes', 'periodo_id']);
+// Datos de contexto que una modificación guarda solo en "después" (saldado por fuera): ya van en la referencia.
+const CONTEXTO = new Set(['mes', 'depto', 'moneda']);
+const vacio = (v: unknown) => v === null || v === undefined || v === '' || v === 0 || v === false || (Array.isArray(v) && !v.length);
 
 const plata = (c: number, usd: boolean) =>
   `${usd ? 'US$' : '$'} ${(c / 100).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -78,12 +86,13 @@ function valor(k: string, v: unknown, n: Nombres): string {
 // Anulación: lo que había (o "Anulado" si solo cambió el estado).
 function cambios(accion: Accion, antes: Record<string, unknown> | null, despues: Record<string, unknown> | null, n: Nombres) {
   if (accion === 'modificacion' && antes && despues) {
-    return Object.keys(despues).filter((k) => JSON.stringify(antes[k]) !== JSON.stringify(despues[k]))
+    return Object.keys(despues).filter((k) => !(CONTEXTO.has(k) && !(k in antes)) && JSON.stringify(antes[k]) !== JSON.stringify(despues[k]))
       .map((k) => `${etiqueta(k)}: ${valor(k, antes[k], n)} → ${valor(k, despues[k], n)}`).join(' · ') || 'Sin cambios';
   }
   const fila = accion === 'anulacion' ? antes : despues ?? antes;
   if (!fila || (accion === 'anulacion' && Object.keys(fila).join() === 'estado')) return accion === 'anulacion' ? 'Anulado' : '';
-  return Object.entries(fila).filter(([, v]) => v !== null && v !== '')
+  // Alta, cierre e importación: lo que vale algo; los ceros y vacíos no dicen nada.
+  return Object.entries(fila).filter(([k, v]) => !vacio(v) && !SIN_MOSTRAR.has(k))
     // El pago de una liquidación guarda 'importe' y su moneda (antes de v0.31.0, sin moneda: se muestra en pesos).
     .map(([k, v]) => `${etiqueta(k)}: ${k === 'importe' && typeof v === 'number' ? plata(v, fila.moneda === 'USD') : valor(k, v, n)}`).join(' · ');
 }
@@ -96,6 +105,7 @@ export function listarAuditoria(db: DatabaseSync, mes: string): FilaAuditoria[] 
   const n: Nombres = {
     depto_id: mapa('SELECT id, codigo AS n FROM depto'), concepto_id: mapa('SELECT id, nombre AS n FROM concepto'),
     cuenta_id: mapa('SELECT id, nombre AS n FROM cuenta'), periodo_id: mapa('SELECT id, mes AS n FROM periodo'),
+    propietario_id: mapa('SELECT id, nombre AS n FROM propietario'),
   };
   // A qué se refiere cada renglón, con los datos de hoy (el depto y concepto del movimiento, el código de la reserva…).
   const filas = db.prepare(`
@@ -109,6 +119,9 @@ export function listarAuditoria(db: DatabaseSync, mes: string): FilaAuditoria[] 
       WHEN 'cuenta' THEN (SELECT nombre FROM cuenta WHERE id = a.registro_id)
       WHEN 'propietario' THEN (SELECT nombre FROM propietario WHERE id = a.registro_id)
       WHEN 'emisor' THEN (SELECT nombre FROM emisor WHERE id = a.registro_id)
+      WHEN 'liquidacion' THEN (SELECT d.codigo || ' · ' || p.mes FROM liquidacion l JOIN depto d ON d.id = l.depto_id
+        JOIN periodo p ON p.id = l.periodo_id WHERE l.id = a.registro_id)
+      WHEN 'terminal' THEN (SELECT nombre FROM terminal WHERE id = a.registro_id)
     END AS referencia
     FROM auditoria a WHERE a.fecha >= ? AND a.fecha < date(?, '+1 month') ORDER BY a.id DESC`)
     .all(`${mes}-01`, `${mes}-01`) as { id: number; fecha: string; pc: string; tabla: string; accion: Accion; antes_json: string | null; despues_json: string | null; referencia: string | null }[];

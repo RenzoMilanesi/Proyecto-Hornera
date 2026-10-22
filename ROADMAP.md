@@ -57,6 +57,8 @@ en la LAN (fase 5d), que sigue a testear.
    - Herramientas → Auditoría: tabla con fecha, quién, qué (movimiento, reserva, variables…), acción y qué cambió; filtros por mes, quién y tipo.
      "Qué cambió" muestra solo los campos que cambiaron ("Importe: $ 10.000 → $ 12.000"), con la plata en pesos; altas y anulaciones, un resumen.
    - "Traer mes" de Stays e importaciones (Excel mensual, gastos varios): un renglón por vez con el resumen (reservas nuevas/cambiadas, cobros), no uno por reserva.
+   - v0.35.2: más legible (fecha corta, acción con color, cada dato con su rótulo, sin ceros ni vacíos en altas e importaciones),
+     buscador, "Saldado por fuera" con su depto y mes, y emparejar o revocar una terminal queda registrado con su IP.
 4. **Variables operativas** administrables — **Testeado**: Liquidación → "Variables del mes"
    (tarifas de limpieza, lavandería, tramos, channel manager, descuento del dólar) y Deptos → "Variables"
    (comisión y tarifas propias). Solo el mes abierto; queda en la auditoría.
