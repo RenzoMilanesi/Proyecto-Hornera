@@ -235,6 +235,8 @@ async function iniciar() {
 
 // Una sola instancia por PC: si ya está abierta, la segunda trae esa ventana al frente y sale.
 if (!app.requestSingleInstanceLock()) {
+  // `npm run dev` comparte la carpeta de datos con la app instalada: si esa está abierta, se ve la instalada.
+  console.log('Hornera ya está abierta en esta PC (¿la versión instalada?): se trae esa ventana al frente. Cerrala para abrir esta.');
   app.quit();
 } else {
   app.on('second-instance', () => {

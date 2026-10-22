@@ -12,7 +12,7 @@
 // - alojamientos: avisa deptos activos en uno y no en el otro; completa direcciones vacías
 //   y reemplaza las fotos de cada depto.
 // - propietarios: vincula cada uno con su par de Stays y avisa si un depto cambió de dueño.
-// - deptos nuevos: los activos en Stays que no están en la app se informan en `deptosNuevos`;
+// - deptos nuevos: los que tienen reservas o están activos en Stays y no están en la app se informan en `deptosNuevos`;
 //   los que el usuario confirma (`crear`) se dan de alta con los datos de Stays antes de las reservas.
 // Si el período no existe se crea con los parámetros del último cargado.
 import type { DatabaseSync } from 'node:sqlite';
@@ -191,8 +191,9 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
         if (db.prepare('SELECT 1 FROM depto WHERE codigo = ?').get(codigo)) continue;
         const a = alojamientos?.find((x) => texto(x.internalName) === codigo);
         const o = duenios?.find((x) => (x.listings ?? []).some((l) => texto(l.internalName) === codigo));
-        if (!a || !o) {
-          avisos.push(`No se creó el depto ${codigo}: ${a ? 'no tiene dueño en Stays' : 'no está entre los alojamientos de Stays'}.`);
+        // Sin alojamiento en la lista de Stays (un anuncio nuevo puede no estar activo) se crea igual, sin dirección ni fotos.
+        if (!o) {
+          avisos.push(`No se creó el depto ${codigo}: no tiene dueño en Stays.`);
           continue;
         }
         const otros = (o.listings ?? []).map((l) => texto(l.internalName)).filter((c) => c !== null && c !== codigo);
@@ -202,7 +203,7 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
           ?? (delMismo.length === 1 ? delMismo[0].id : undefined)
           ?? Number(db.prepare('INSERT INTO propietario(nombre, stays_owner_id) VALUES (?, ?)').run(texto(o.name) ?? o._id, o._id).lastInsertRowid);
         const deptoId = Number(db.prepare(`INSERT INTO depto(codigo, nombre, propietario_id, stays_listing_id) VALUES (?, ?, ?, ?)`)
-          .run(codigo, codigo, propietarioId, a._id).lastInsertRowid);
+          .run(codigo, codigo, propietarioId, a?._id ?? null).lastInsertRowid);
         auditar(db, 'depto', deptoId, 'alta', null, { codigo, propietario_id: propietarioId, desde: 'Stays' });
         avisos.push(`Se creó el depto ${codigo} con 20% de comisión: revisala en Deptos → Variables.`);
       }
@@ -253,6 +254,8 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
         const deptoId = depto ? deptos.get(depto) : undefined;
         if (deptoId === undefined) {
           if (!cancelada) avisos.push(`Reserva ${codigo}: el alojamiento "${depto ?? ''}" no es un depto cargado, no se trae.`);
+          // Una reserva de un depto que la app no tiene: se ofrece crearlo, esté como esté su anuncio en Stays.
+          if (depto && !reporte.deptosNuevos.includes(depto)) reporte.deptosNuevos.push(depto);
           return;
         }
         const antes = previa.get(codigo) as { cancelada: number; tenia_ajuste: number; liquidada: number } | undefined;
@@ -339,7 +342,7 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
         for (const [codigo, a] of enStays) {
           if (a.status === 'active' && !codigosApp.has(codigo)) {
             avisos.push(`El alojamiento "${codigo}" está activo en Stays pero no es un depto cargado en la app.`);
-            reporte.deptosNuevos.push(codigo);
+            if (!reporte.deptosNuevos.includes(codigo)) reporte.deptosNuevos.push(codigo);
           }
         }
         const ponerDireccion = db.prepare('UPDATE depto SET direccion = ? WHERE id = ?');
