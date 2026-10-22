@@ -5,6 +5,7 @@ import { Importar } from './Importar.tsx';
 import { Stays } from './Stays.tsx';
 import { Liquidacion } from './Liquidacion.tsx';
 import { Movimientos } from './Movimientos.tsx';
+import { GastosAjenos } from './GastosAjenos.tsx';
 import { Cuentas } from './Cuentas.tsx';
 import { Transferencias } from './Transferencias.tsx';
 import { Terminales } from './Terminales.tsx';
@@ -24,6 +25,7 @@ const secciones = {
   historial: { grupo: 'Mes', titulo: 'Historial', ayuda: 'Pagos a cada propietario mes a mes: lo liquidado, lo pagado y lo pendiente.', vista: <Historial /> },
   comprobantes: { grupo: 'Mes', titulo: 'Comprobantes', ayuda: 'Facturas y notas de crédito emitidas en ARCA, por mes de emisión.', vista: <Comprobantes /> },
   movimientos: { grupo: 'Mes', titulo: 'Movimientos', ayuda: 'Gastos, ingresos, adelantos y transferencias entre cuentas. No se borran: se anulan.', vista: <Movimientos /> },
+  gastosAjenos: { grupo: 'Mes', titulo: 'Gastos personales', ayuda: 'Gastos de Amancay, Lautaro, la Casa del Estudiante y la casa. No son de Hornera: no entran en liquidaciones ni en el resultado.', vista: <GastosAjenos /> },
   deptos: { grupo: 'Datos', titulo: 'Deptos', ayuda: 'Los deptos que administra Hornera, con su dueño y estado.', vista: <Deptos /> },
   propietarios: { grupo: 'Datos', titulo: 'Propietarios', ayuda: 'Dueños de los deptos y en qué moneda se les liquida.', vista: <Propietarios /> },
   cuentas: { grupo: 'Datos', titulo: 'Cuentas', ayuda: 'Cuentas de la empresa con su saldo y a qué cuenta entra cada medio de pago.', vista: <Cuentas /> },

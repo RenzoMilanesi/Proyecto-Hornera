@@ -123,6 +123,20 @@ falla(arca('2026-10-16'), 'UNIQUE');
 run(mov('tipo, importe_ars, origen', "'gasto', -100, 'gastos:x'"));
 falla(mov('tipo, importe_ars, origen', "'gasto', -100, 'gastos:x'"), 'UNIQUE');
 
+// Gastos ajenos: código conocido, importe positivo, una fila de origen; período cerrado = congelado
+run(`INSERT INTO periodo(mes, fecha_inicio, fecha_cierre_reservas, fecha_corte_gastos, fecha_pago, costo_hora_limpieza, servicio_limpieza,
+      servicio_lavanderia, prestamo_blanqueria, gestion_operativa, mantenimiento, tarifa_base, adicional_huesped, cargo_tramo_1, cargo_tramo_2, cm_fee_usd)
+     VALUES ('2026-09','2026-09-01','2026-10-01','2026-09-28','2026-10-10',1,1,1,1,1,1,1,1,1,1,0)`);
+const ajenoPer = db.prepare(`SELECT id FROM periodo WHERE mes = '2026-09'`).get().id;
+const ajeno = (codigo, importe, origen) => `INSERT INTO gasto_ajeno(periodo_id, fecha, codigo, importe, origen, creado_en)
+  VALUES (${ajenoPer}, '2026-09-05', '${codigo}', ${importe}, ${origen}, 'x')`;
+run(ajeno('CAY/LAU', 100, `'gastos:a'`));
+falla(ajeno('BBVA', 100, 'NULL'), 'CHECK');
+falla(ajeno('CAY', 0, 'NULL'), 'CHECK');
+falla(ajeno('CAY', 100, `'gastos:a'`), 'UNIQUE');
+run(`UPDATE periodo SET estado = 'cerrado' WHERE id = ${ajenoPer}`);
+falla(`UPDATE gasto_ajeno SET importe = 200`, 'periodo cerrado');
+
 // Auditoría: "traer mes" e importaciones van con la acción importacion; otra acción no entra
 run(`INSERT INTO auditoria(fecha, pc, tabla, accion) VALUES ('x', 'Lautaro', 'stays', 'importacion')`);
 falla(`INSERT INTO auditoria(fecha, pc, tabla, accion) VALUES ('x', 'Lautaro', 'stays', 'borrado')`, 'CHECK');

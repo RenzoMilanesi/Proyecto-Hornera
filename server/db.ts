@@ -171,6 +171,26 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
   // 16 → 17: una liquidación se puede marcar como saldada por fuera del sistema (deudas iniciales ya resueltas).
   `ALTER TABLE liquidacion ADD COLUMN saldado_fuera TEXT CHECK (saldado_fuera IS NULL OR date(saldado_fuera) IS saldado_fuera);
    ALTER TABLE liquidacion ADD COLUMN saldado_fuera_nota TEXT;`,
+  // 17 → 18: gastos ajenos guardados aparte de los movimientos (plan 047).
+  `CREATE TABLE gasto_ajeno (
+       id          INTEGER PRIMARY KEY,
+       periodo_id  INTEGER NOT NULL,
+       fecha       TEXT    NOT NULL CHECK (date(fecha) IS fecha),
+       codigo      TEXT    NOT NULL CHECK (codigo IN ('CAY','LAU','CAY/LAU','CASEST','CASA')),
+       descripcion TEXT,
+       importe     INTEGER NOT NULL CHECK (importe > 0),   -- centavos: lo que se gastó
+       estado      TEXT    NOT NULL DEFAULT 'vigente' CHECK (estado IN ('vigente','anulado')),
+       origen      TEXT    UNIQUE,                         -- fila del Excel (como movimiento.origen), NULL = cargado a mano
+       creado_en   TEXT    NOT NULL,
+       CONSTRAINT fk_ajeno_periodo FOREIGN KEY (periodo_id) REFERENCES periodo(id) ON DELETE RESTRICT ON UPDATE CASCADE
+   ) STRICT;
+   CREATE INDEX ix_ajeno_periodo ON gasto_ajeno(periodo_id);
+   CREATE TRIGGER tr_ajeno_periodo_cerrado_upd BEFORE UPDATE ON gasto_ajeno
+   WHEN (SELECT estado FROM periodo WHERE id = OLD.periodo_id) = 'cerrado'
+     OR (SELECT estado FROM periodo WHERE id = NEW.periodo_id) = 'cerrado'
+   BEGIN
+       SELECT RAISE(ABORT, 'periodo cerrado: reabrirlo para modificar gastos ajenos');
+   END;`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

@@ -3,10 +3,12 @@
 import * as XLSX from 'xlsx';
 import type { DatabaseSync } from 'node:sqlite';
 import { anularMovimiento, crearMovimiento } from '../movimientos.ts';
+import { CODIGOS_AJENOS, crearGastoAjeno } from '../gastosAjenos.ts';
 
 export interface ReporteGastos {
   importados: number;
   repetidos: number;                    // ya estaban (reimportación)
+  ajenos: number;                       // gastos ajenos guardados en Gastos personales (plan 047)
   anulados: number;                     // ajenos que una versión anterior había cargado a Hornera (plan 045)
   anteriores: number;                   // de meses anteriores al abierto: ya descontados por fuera
   cuenta: Record<string, number>;      // centavos del mes abierto por código (DEPTOS = todos los deptos), entren o no
@@ -16,8 +18,6 @@ export interface ReporteGastos {
 
 const DIA = 86_400_000;
 const fechaSerial = (serial: number) => new Date(Date.UTC(1899, 11, 30) + Math.floor(serial) * DIA).toISOString().slice(0, 10);
-// Lo que no es de Hornera (gastos personales, la casa, la Casa del Estudiante): se cuenta pero no se importa.
-const AJENOS = new Set(['CAY', 'LAU', 'CAY/LAU', 'CASEST', 'CASA']);
 const ALIAS: Record<string, string> = { CASAEST: 'CASEST', 'LAU/CAY': 'CAY/LAU' };
 const clave = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
 
@@ -35,7 +35,7 @@ export function importarGastos(db: DatabaseSync, archivo: Buffer): ReporteGastos
   if (!abiertos.size) throw new Error('No hay un mes abierto para cargar los gastos.');
   const primero = [...abiertos].sort()[0];
   const deptos = new Set((db.prepare('SELECT codigo FROM depto').all() as { codigo: string }[]).map((d) => d.codigo));
-  const r: ReporteGastos = { importados: 0, repetidos: 0, anulados: 0, anteriores: 0, cuenta: {}, codigosDesconocidos: {}, avisos: [] };
+  const r: ReporteGastos = { importados: 0, repetidos: 0, ajenos: 0, anulados: 0, anteriores: 0, cuenta: {}, codigosDesconocidos: {}, avisos: [] };
   // Antes del plan 045 los códigos ajenos entraban sin depto con "[CODIGO]" en el detalle; si sigue así, nadie lo tocó.
   const ajenoViejo = db.prepare(`SELECT id FROM movimiento WHERE origen = ? AND estado = 'vigente' AND depto_id IS NULL AND detalle LIKE '[%'`);
   const anularViejo = (origen: string, fila: number) => {
@@ -43,6 +43,7 @@ export function importarGastos(db: DatabaseSync, archivo: Buffer): ReporteGastos
     if (!m) return;
     try { anularMovimiento(db, m.id); r.anulados++; } catch (e) { r.avisos.push(`Fila ${fila}: no se pudo anular el gasto ya cargado (${(e as Error).message}).`); }
   };
+  const ajenoYaEsta = db.prepare('SELECT 1 FROM gasto_ajeno WHERE origen = ?'); // vigente o anulado: lo de la app manda
   const yaEsta = db.prepare('SELECT 1 FROM movimiento WHERE origen = ?'); // vigente o anulado: un anulado no vuelve
 
   const vistas = new Map<string, number>(); // filas de un mismo mensaje: cada una con su número de aparición
@@ -73,7 +74,14 @@ export function importarGastos(db: DatabaseSync, archivo: Buffer): ReporteGastos
     const depto = deptos.has(codigo) ? codigo : null;
     const grupo = depto ? 'DEPTOS' : codigo || '(vacío)';
     r.cuenta[grupo] = (r.cuenta[grupo] ?? 0) + monto;
-    if (AJENOS.has(codigo)) { anularViejo(origen, fila); return; }
+    // Lo que no es de Hornera (personales, la casa, la Casa del Estudiante) va a Gastos personales.
+    if (CODIGOS_AJENOS.includes(codigo)) {
+      anularViejo(origen, fila);
+      if (ajenoYaEsta.get(origen)) { r.repetidos++; return; }
+      crearGastoAjeno(db, { fecha, codigo, descripcion: descripcion || null, importe: monto, origen });
+      r.ajenos++;
+      return;
+    }
     if (!depto && codigo !== 'INT') r.codigosDesconocidos[codigo || '(vacío)'] = (r.codigosDesconocidos[codigo || '(vacío)'] ?? 0) + 1;
     const adelanto = depto !== null && /adelanto|pre.?liquidaci/i.test(clave(descripcion));
     const tipo = adelanto ? 'pre_liquidacion' : 'gasto';

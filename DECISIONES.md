@@ -70,6 +70,7 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - Transferencia entre cuentas propias: dos movimientos con el mismo `transferencia_grupo`; entre monedas distintas (compra/venta de USD) cada lado lleva su importe. Anular una pata anula las dos.
 - Saldo de una cuenta (`v_saldo_cuenta`, esquema 3) = movimientos con esa cuenta + lo cobrado en Stays por los medios de pago asociados (completados, neto de comisión, menos débitos), desde la fecha de su "Saldo inicial" (lo anterior ya está incluido en ese saldo; sin saldo inicial suma todo). La moneda de una cuenta no se cambia; un medio de pago solo se asocia a una cuenta de su moneda.
 - El saldo de arranque de cada cuenta se carga como movimiento "Saldo inicial" con la cuenta y sin depto.
+- Gastos ajenos (plan 047, pantalla "Gastos personales"): lo del Excel de gastos varios con código CAY, LAU, CAY/LAU, CASEST (o CASAEST) y CASA va a la tabla `gasto_ajeno`, aparte de `movimiento`: nunca toca liquidaciones, cuentas ni el resultado. Se editan y se anulan con el mes abierto. Los compartidos (CAY/LAU) se parten mitad y mitad sobre el total del mes; el centavo impar, a Amancay. BBVA es un error de carga (aviso).
 
 ## Stays ("traer mes", `server/stays/`)
 - Reemplaza los scripts 0 a 2 de `balances-hornera`, con sus mismas reglas: reservas por llegada, por salida (corrida un día) e incluidas; entra la que tiene noches en el período o llega en él (cancelaciones de 0 noches). Reserva sin canal = "Carga Agente".

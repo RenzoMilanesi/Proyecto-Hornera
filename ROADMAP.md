@@ -27,6 +27,9 @@ en la LAN (fase 5d), que sigue a testear.
 
 1. **Gastos varios** — **Testeado** ([plan 037](plans/037-importar-gastos-varios.md)): Herramientas → Importar Excel → "Gastos varios"
    importa el Excel de comprobantes como movimientos del mes abierto (concepto "Gastos varios"); reimportar no duplica ni lo editado a mano (plan 038).
+   - v0.33.0 — **A testear**: los códigos que no son de Hornera (CAY, LAU, CAY/LAU, CASEST/CASAEST, CASA) van a la pantalla nueva
+     Mes → Gastos personales (tabla `gasto_ajeno`, editable), con lo de cada uno y los compartidos partidos mitad y mitad; BBVA da aviso;
+     reimportar anula los que una versión anterior había cargado a Hornera ([plan 045](plans/045-gastos-ajenos-ya-importados.md), [plan 047](plans/047-gastos-ajenos-guardados.md)).
 2. **Cuenta de la liquidación** — **A testear**: en el detalle de cada depto (Liquidación) y en el Resumen del PDF, renglón por renglón,
    con lo que compone cada uno y dónde se corrige (Ajustar la reserva, Variables, Agregar/Editar el movimiento):
    - Ingresos operativos − Costos = Ingreso bruto

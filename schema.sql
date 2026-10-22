@@ -316,6 +316,29 @@ CREATE INDEX ix_mov_concepto ON movimiento(concepto_id);
 CREATE INDEX ix_mov_cuenta ON movimiento(cuenta_id);
 CREATE UNIQUE INDEX uq_mov_origen ON movimiento(origen) WHERE origen IS NOT NULL;
 
+-- Gastos del Excel de gastos varios que no son de Hornera (plan 047): personales de Amancay (CAY) y Lautaro (LAU),
+-- compartidos (CAY/LAU), de la Casa del Estudiante (CASEST) y de la casa (CASA). No entran en liquidaciones,
+-- cuentas ni en el resultado: por eso van aparte de movimiento.
+CREATE TABLE gasto_ajeno (
+    id          INTEGER PRIMARY KEY,
+    periodo_id  INTEGER NOT NULL,
+    fecha       TEXT    NOT NULL CHECK (date(fecha) IS fecha),
+    codigo      TEXT    NOT NULL CHECK (codigo IN ('CAY','LAU','CAY/LAU','CASEST','CASA')),
+    descripcion TEXT,
+    importe     INTEGER NOT NULL CHECK (importe > 0),   -- centavos: lo que se gastó
+    estado      TEXT    NOT NULL DEFAULT 'vigente' CHECK (estado IN ('vigente','anulado')),
+    origen      TEXT    UNIQUE,                         -- fila del Excel (como movimiento.origen), NULL = cargado a mano
+    creado_en   TEXT    NOT NULL,
+    CONSTRAINT fk_ajeno_periodo FOREIGN KEY (periodo_id) REFERENCES periodo(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) STRICT;
+CREATE INDEX ix_ajeno_periodo ON gasto_ajeno(periodo_id);
+CREATE TRIGGER tr_ajeno_periodo_cerrado_upd BEFORE UPDATE ON gasto_ajeno
+WHEN (SELECT estado FROM periodo WHERE id = OLD.periodo_id) = 'cerrado'
+  OR (SELECT estado FROM periodo WHERE id = NEW.periodo_id) = 'cerrado'
+BEGIN
+    SELECT RAISE(ABORT, 'periodo cerrado: reabrirlo para modificar gastos ajenos');
+END;
+
 -- Período cerrado = congelado. Única excepción: tipo 'liquidacion', porque el
 -- pago al propietario se hace después del cierre (fecha_pago) y se imputa al
 -- período que liquida. El saldo_anterior del mes siguiente es entonces

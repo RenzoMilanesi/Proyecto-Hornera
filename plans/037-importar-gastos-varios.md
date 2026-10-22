@@ -11,7 +11,7 @@ Esos gastos no están en CORRIENTE: solo se llevan en ese Excel.
 - Depto conocido → gasto del depto (se le descuenta al propietario). `INT`, vacío o código que la
   app no conoce → gasto de la empresa (sin depto). Los códigos desconocidos se listan juntos para
   preguntarles qué son (p. ej. CAFE).
-- No son de Hornera y no se importan (aclarado por Lautaro y Amancay, 2026-10-21): `CAY` (personales de
+- No son de Hornera: van a `gasto_ajeno` (pantalla "Gastos personales", plan 047), no a movimientos (aclarado por Lautaro y Amancay, 2026-10-21): `CAY` (personales de
   Amancay), `LAU` (de Lautaro), `CAY/LAU` (compartidos), `CASEST`/`CASAEST` (Casa del Estudiante) y `CASA`
   (la casa donde viven). `BBVA` es un error de carga: aviso. El reporte trae la cuenta del mes por código.
 - "Adelanto" o "pre liquidación" en la descripción, con depto conocido → `pre_liquidacion`

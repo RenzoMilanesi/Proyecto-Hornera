@@ -143,7 +143,7 @@ es el dato a anotar si se reporta un problema.</p>
 <table>
   <tr><th style="width:22%">Grupo</th><th style="width:30%">Pantallas</th><th>Para qué</th></tr>
   <tr><td>—</td><td>Resumen</td><td>La primera pantalla: cómo viene el mes.</td></tr>
-  <tr><td><b>MES</b></td><td>Liquidación, Transferencias, Historial, Movimientos</td><td>El trabajo de todos los meses.</td></tr>
+  <tr><td><b>MES</b></td><td>Liquidación, Transferencias, Historial, Movimientos, Gastos personales</td><td>El trabajo de todos los meses.</td></tr>
   <tr><td><b>DATOS</b></td><td>Deptos, Propietarios, Cuentas, Emisores</td><td>Los datos fijos: se cargan una vez y se corrigen cuando cambian.</td></tr>
   <tr><td><b>HERRAMIENTAS</b></td><td>Stays, Importar Excel, Terminales</td><td>Traer datos de afuera y conectar otras PC.</td></tr>
 </table>
@@ -433,6 +433,23 @@ cerrado la lista es de solo lectura. Se puede filtrar por depto, buscar por conc
 <p>Para mover plata entre cuentas de la empresa: <b>Sale de</b> una cuenta y <b>Entra a</b> otra. Si las dos son de la misma
 moneda, el importe es el mismo. En una <b>compra o venta de dólares</b> (de una cuenta en pesos a una en dólares) se pone lo que
 sale en pesos y lo que entra en dólares. Se registran dos movimientos, uno por cuenta.</p>
+
+<h2>Gastos personales</h2>
+<p>En <span class="menu">Gastos personales</span> están los gastos del Excel de gastos varios que <b>no son de Hornera</b>:
+no entran en las liquidaciones, en las cuentas ni en el resultado. Llegan solos al importar el Excel
+(<span class="menu">Herramientas → Importar Excel</span>), y también se pueden cargar con <span class="boton">Nuevo gasto</span>.</p>
+<table>
+  <tr><th style="width:24%">Código</th><th>De quién es</th></tr>
+  <tr><td>CAY</td><td>Gastos personales de Amancay.</td></tr>
+  <tr><td>LAU</td><td>Gastos personales de Lautaro.</td></tr>
+  <tr><td>CAY/LAU</td><td>Compartidos: se parten mitad para cada uno.</td></tr>
+  <tr><td>CASEST</td><td>La Casa del Estudiante (en el Excel también aparece como CASAEST).</td></tr>
+  <tr><td>CASA</td><td>La casa.</td></tr>
+</table>
+<p>Arriba está lo que lleva cada uno en el mes: Amancay y Lautaro con lo propio más la mitad de los compartidos (si sobra un
+centavo, va a Amancay). <span class="boton">Editar</span> corrige el código, la fecha, la descripción o el importe y
+<span class="boton">Anular</span> lo deja sin efecto. Volver a importar el Excel no pisa lo que se corrigió a mano. Con el mes
+cerrado, la lista es de solo lectura.</p>
 
 <!-- ============================================================ -->
 <h1>10. Deptos</h1>

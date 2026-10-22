@@ -25,7 +25,7 @@ export interface DatosMovimiento {
 const ahora = () => new Date().toLocaleString('sv-SE').replace('T', ' ').slice(0, 19); // hora local
 const esFecha = (s: unknown) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
 
-function periodoAbierto(db: DatabaseSync, mes: unknown): number {
+export function periodoAbierto(db: DatabaseSync, mes: unknown): number {
   const p = db.prepare('SELECT id, estado FROM periodo WHERE mes = ?').get(String(mes)) as { id: number; estado: string } | undefined;
   if (!p) throw new Error(`No existe el período ${mes}.`);
   if (p.estado !== 'abierto') throw new Error(`El período ${mes} está cerrado: reabrilo para cargar o cambiar movimientos.`);

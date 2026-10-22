@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import { abrirDb } from '../db.ts';
 import { importarGastos } from './gastos.ts';
 import { crearMovimiento, editarMovimiento } from '../movimientos.ts';
+import { editarGastoAjeno } from '../gastosAjenos.ts';
 
 function base() {
   const db = abrirDb(':memory:');
@@ -46,7 +47,7 @@ test('importa los gastos del mes abierto con depto, empresa y adelantos; reimpor
   const db = base();
   const r = importarGastos(db, archivo);
   assert.deepEqual({ ...r, avisos: r.avisos.length },
-    { importados: 5, repetidos: 0, anulados: 0, anteriores: 1, codigosDesconocidos: { ZZZ: 1 }, avisos: 3,
+    { importados: 5, repetidos: 0, ajenos: 4, anulados: 0, anteriores: 1, codigosDesconocidos: { ZZZ: 1 }, avisos: 3,
       cuenta: { DEPTOS: 11700100, INT: 50000000, CASA: 300000, ZZZ: 200000, CAY: 150000, CASEST: 70000, 'CAY/LAU': 40000 } });
   const movs = db.prepare(`SELECT d.codigo, m.tipo, c.nombre AS concepto, m.detalle, m.importe_ars, m.cuenta_id FROM movimiento m
     LEFT JOIN depto d ON d.id = m.depto_id JOIN concepto c ON c.id = m.concepto_id ORDER BY m.id`).all().map((m) => ({ ...m }));
@@ -58,13 +59,21 @@ test('importa los gastos del mes abierto con depto, empresa y adelantos; reimpor
     { codigo: 'AAA', tipo: 'pre_liquidacion', concepto: 'Adelanto', detalle: 'Pre-liquidación', importe_ars: -10000000, cuenta_id: null },
   ]);
 
+  const ajenos = db.prepare('SELECT id, codigo, importe FROM gasto_ajeno ORDER BY id').all().map((g) => ({ ...g }));
+  assert.deepEqual(ajenos.map(({ codigo, importe }) => ({ codigo, importe })), [
+    { codigo: 'CASA', importe: 300000 }, { codigo: 'CAY', importe: 150000 }, { codigo: 'CASEST', importe: 70000 }, { codigo: 'CAY/LAU', importe: 40000 },
+  ]);
+  editarGastoAjeno(db, ajenos[1].id as number, { fecha: '2026-10-06', codigo: 'LAU', descripcion: 'ropa', importe: 160000 }); // corregido a mano
+
   db.prepare(`UPDATE movimiento SET estado = 'anulado' WHERE detalle = 'Honorarios'`).run(); // anulado a mano: no vuelve
   const zzz = (db.prepare("SELECT id FROM movimiento WHERE detalle LIKE '[ZZZ]%'").get() as { id: number }).id;
   editarMovimiento(db, zzz, { mes: '2026-10', fecha: '2026-10-04', depto: 'AAA', tipo: 'gasto', concepto: 'Supermercado', detalle: 'súper',
     importe_ars: -250000, importe_usd: 0, cuenta_id: null });                                // reasignado a mano: tampoco vuelve
   const otra = importarGastos(db, archivo);
   assert.equal(otra.importados, 0);
-  assert.equal(otra.repetidos, 5);
+  assert.equal(otra.repetidos, 9);
+  assert.equal(otra.ajenos, 0);
+  assert.deepEqual({ ...db.prepare(`SELECT codigo, importe FROM gasto_ajeno WHERE id = ?`).get(ajenos[1].id as number) }, { codigo: 'LAU', importe: 160000 });
 });
 
 test('rechaza un Excel que no es el de gastos', () => {

@@ -41,6 +41,7 @@ const TIPOS: Record<string, string> = {
   movimiento: 'Movimiento', reserva: 'Reserva', periodo: 'Mes', depto: 'Variables del depto', cuenta: 'Cuenta',
   medio_pago: 'Medio de pago', emisor: 'Emisor', propietario: 'Datos fiscales', comprobante: 'Factura',
   comprobante_arca: 'Comprobante de ARCA', stays: 'Traer mes de Stays', excel: 'Excel mensual', gastos: 'Gastos varios',
+  gasto_ajeno: 'Gasto personal',
 };
 const ACCIONES: Record<Accion, string> = {
   alta: 'Alta', modificacion: 'Modificación', anulacion: 'Anulación', cierre: 'Cierre', reapertura: 'Reapertura', importacion: 'Importación',
@@ -102,6 +103,7 @@ export function listarAuditoria(db: DatabaseSync, mes: string): FilaAuditoria[] 
       WHEN 'movimiento' THEN (SELECT COALESCE(d.codigo || ' · ', '') || COALESCE(c.nombre, m.tipo) FROM movimiento m
         LEFT JOIN depto d ON d.id = m.depto_id LEFT JOIN concepto c ON c.id = m.concepto_id WHERE m.id = a.registro_id)
       WHEN 'reserva' THEN (SELECT d.codigo || ' · ' || r.codigo FROM reserva r JOIN depto d ON d.id = r.depto_id WHERE r.id = a.registro_id)
+      WHEN 'gasto_ajeno' THEN (SELECT codigo || COALESCE(' · ' || descripcion, '') FROM gasto_ajeno WHERE id = a.registro_id)
       WHEN 'periodo' THEN (SELECT mes FROM periodo WHERE id = a.registro_id)
       WHEN 'depto' THEN (SELECT codigo FROM depto WHERE id = a.registro_id)
       WHEN 'cuenta' THEN (SELECT nombre FROM cuenta WHERE id = a.registro_id)

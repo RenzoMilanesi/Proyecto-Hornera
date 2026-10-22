@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import { importarExcel } from './importador/excel.ts';
 import { importarGastos } from './importador/gastos.ts';
+import { anularGastoAjeno, crearGastoAjeno, editarGastoAjeno, listarGastosAjenos } from './gastosAjenos.ts';
 import { crearClienteStays, URL_STAYS, type Credenciales } from './stays/cliente.ts';
 import { sincronizarMes } from './stays/sync.ts';
 import { SQL_EN_PERIODO } from './periodo.ts';
@@ -366,6 +367,11 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     anularMovimiento(db, Number(req.params.id));
     return { ok: true, facturaVigente: facturaVigente(db, Number(req.params.id)) };
   }));
+  // Gastos ajenos (plan 047): el origen lo pone solo el importador de gastos.
+  app.get('/api/gastos-ajenos', (req, res) => { res.json(listarGastosAjenos(db, String(req.query.mes ?? ''))); });
+  app.post('/api/gastos-ajenos', (req, res) => intentar(res, () => ({ id: crearGastoAjeno(db, { ...req.body, origen: null }) })));
+  app.put('/api/gastos-ajenos/:id', (req, res) => intentar(res, () => editarGastoAjeno(db, Number(req.params.id), req.body ?? {})));
+  app.post('/api/gastos-ajenos/:id/anular', (req, res) => intentar(res, () => { anularGastoAjeno(db, Number(req.params.id)); return { ok: true }; }));
   app.post('/api/transferencias', (req, res) => intentar(res, () => ({ id: transferir(db, req.body ?? {}) })));
   app.get('/api/conceptos', (_req, res) => {
     res.json(db.prepare('SELECT id, nombre FROM concepto WHERE activo = 1 ORDER BY nombre').all());
