@@ -11,6 +11,7 @@ propietarios de HORNERA (alquileres temporarios, Rosario). Contexto y decisiones
 - `npm test`: tests (`node --test "server/**/*.test.ts"`) y `node schema.check.mjs`.
 - `npm run typecheck`: `tsc` solo chequea tipos (no compila).
 - `npm run dist`: typecheck + tests y el instalador de Windows en `release\` (electron-builder, NSIS). Guía de prueba: `GUIA-PRUEBAS.md`.
+  Después de compilar: skill `limpiar-release` (deja solo el instalador de la versión actual).
 - Manual de usuario (`manual/`): `node manual/seed.ts <carpeta>` arma una base de demo ficticia; con
   `npx electron . --user-data-dir=<carpeta>` abierta, `npx electron manual/capturar.mjs manual/img` saca las
   capturas y `npx electron manual/pdf.mjs` genera el PDF desde `manual/manual.html`.
