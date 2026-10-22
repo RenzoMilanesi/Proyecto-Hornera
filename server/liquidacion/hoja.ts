@@ -25,6 +25,7 @@ export interface Hoja {
     ingresos: Importe; costos: number; comisiones: Importe; honorarios: number; saldoAnterior: Importe;
     movimientos: { fecha: string; tipo: string; concepto: string | null; detalle: string | null; ars: number; usd: number }[];
     conversion: Importe; saldo: Importe; // saldo final, después de los pagos de liquidación
+    saldadoFuera: { fecha: string; nota: string | null } | null; // saldado por fuera de la app: el saldo final queda en 0
   };
   reservas: LineaHoja[];
   facturas: DatosComprobante[];  // una página más por factura vigente de los honorarios (plan 031)
@@ -54,6 +55,7 @@ export function hojaDepto(db: DatabaseSync, mes: string, codigo: string): Hoja {
   let cambio: number, comisionPct: number, ingresos: Importe, costos: number, comisiones: Importe, bruto: number;
   let honorarios: number, saldoAnterior: Importe, conversion: Importe, saldoAntesDePagar: Importe, gastosDirectos: number;
   let noches: Omit<Hoja['noches'], 'total'>, reservas: LineaHoja[], moneda: 'ARS' | 'USD' = d.moneda_liquidacion;
+  let saldadoFuera: Hoja['detalle']['saldadoFuera'] = null;
   if (p.estado === 'abierto') {
     const calculo = liquidarPeriodo(db, mes);
     if (calculo.cambio === null) throw new Error(calculo.avisos[0]);
@@ -77,6 +79,7 @@ export function hojaDepto(db: DatabaseSync, mes: string, codigo: string): Hoja {
     comisiones = { ars: s.comisiones_ars, usd: s.comisiones_usd }; bruto = s.bruto; honorarios = s.honorarios;
     saldoAnterior = { ars: s.saldo_anterior_ars, usd: s.saldo_anterior_usd }; conversion = { ars: s.conversion_ars, usd: s.conversion_usd };
     saldoAntesDePagar = { ars: s.saldo_final_ars, usd: s.saldo_final_usd };
+    if (s.saldado_fuera) saldadoFuera = { fecha: s.saldado_fuera, nota: s.saldado_fuera_nota };
     gastosDirectos = truncPesos(-costos - comisiones.ars - comisiones.usd * cambio); // [F19], no se guarda
     noches = { disponibles: s.noches_disponibles, noDisponibles: s.noches_no_disponibles, propietario: s.noches_propietario, ocupadas: s.noches_ocupadas, reservas: s.cant_reservas };
     reservas = (db.prepare(`
@@ -107,7 +110,8 @@ export function hojaDepto(db: DatabaseSync, mes: string, codigo: string): Hoja {
     noches: { total: dias(p.fecha_inicio, p.fecha_cierre_reservas), ...noches },
     detalle: {
       ingresos, costos, comisiones, honorarios, saldoAnterior, movimientos, conversion,
-      saldo: { ars: saldoAntesDePagar.ars + pagosLiq.ars, usd: saldoAntesDePagar.usd + pagosLiq.usd },
+      saldo: saldadoFuera ? { ars: 0, usd: 0 } : { ars: saldoAntesDePagar.ars + pagosLiq.ars, usd: saldoAntesDePagar.usd + pagosLiq.usd },
+      saldadoFuera,
     },
     reservas,
   };

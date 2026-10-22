@@ -118,6 +118,7 @@ export function desmarcarSaldadoFuera(db: DatabaseSync, liquidacionId: number) {
 // Carga inicial: todo lo pendiente (o que debe) de los meses cerrados hasta `mes` queda saldado por fuera.
 // Lo que ya pasó a un mes siguiente cerrado se marca en ese mes, no en el suyo.
 export function saldarFueraHasta(db: DatabaseSync, mes: string, d: DatosSaldado): number {
+  if (!/^\d{4}-\d{2}$/.test(mes)) throw new Error('Mes inválido (AAAA-MM).');
   validarFecha(d.fecha);
   const meses = db.prepare(`SELECT mes FROM periodo WHERE estado = 'cerrado' AND mes <= ? ORDER BY mes`).all(mes) as { mes: string }[];
   let n = 0;

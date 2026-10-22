@@ -215,6 +215,9 @@ function ImprimirHoja({ parametros }: { parametros: URLSearchParams }) {
             <tr key={i}><td>{fecha(m.fecha)}</td><td>{m.concepto ?? ''}</td><td>{m.detalle ?? ''}</td><td className="n">{ars(m.ars)}</td><td className="n">{usd(m.usd)}</td></tr>
           ))}
           <tr><td /><td>Cambio moneda</td><td /><td className="n">{ars(h.detalle.conversion.ars)}</td><td className="n">{usd(h.detalle.conversion.usd)}</td></tr>
+          {h.detalle.saldadoFuera && (
+            <tr><td>{fecha(h.detalle.saldadoFuera.fecha)}</td><td>Saldado por fuera</td><td>{h.detalle.saldadoFuera.nota ?? ''}</td><td /><td /></tr>
+          )}
           <tr className="total"><td colSpan={3}>Saldo {mesTexto(h.mes).split(' ')[0]}</td><td className="n">{ars(h.detalle.saldo.ars)}</td><td className="n">{usd(h.detalle.saldo.usd)}</td></tr>
         </tbody>
       </table>

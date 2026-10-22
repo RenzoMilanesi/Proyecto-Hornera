@@ -201,6 +201,9 @@ test('saldado por fuera: no queda pendiente ni se arrastra, sin movimiento; se d
   assert.deepEqual([saldada.pagado, saldada.pendiente, saldada.saldadoFuera], [1000000, 0, { fecha: '2026-06-15', nota: 'Pagado en efectivo antes de la app' }]);
   assert.equal(movimientos(), antes); // sin movimiento: no toca cuentas ni se factura
   assert.equal(arrastre(), 0);
+  // El PDF del mes no muestra la deuda: saldo final 0 y la marca con su fecha y nota.
+  const pdf = hojaDepto(db, '2026-05', 'AAA');
+  assert.deepEqual([pdf.detalle.saldo, pdf.detalle.saldadoFuera], [{ ars: 0, usd: 0 }, saldada.saldadoFuera]);
   assert.equal(historial(db, { deptoId: 1 }, false).find((f) => f.mes === '2026-05')!.estado, 'saldado_fuera');
   assert.throws(() => saldarFuera(db, mayo.liquidacionId, { fecha: '2026-06-15' }), /ya está marcado/);
   assert.throws(() => pagarLiquidacion(db, mayo.liquidacionId, { cuenta_id: 1, fecha: '2026-06-10', importe: 100 }), /saldado por fuera/);
@@ -211,6 +214,7 @@ test('saldado por fuera: no queda pendiente ni se arrastra, sin movimiento; se d
   assert.equal(listarTransferencias(db, '2026-05')[0].pendiente, mayo.saldo - 1000000);
   assert.equal(arrastre(), mayo.saldo - 1000000);
 
+  assert.throws(() => saldarFueraHasta(db, '', { fecha: '2026-06-20' }), /Mes inválido/);
   assert.equal(saldarFueraHasta(db, '2026-05', { fecha: '2026-06-20' }), 1);
   assert.equal(saldarFueraHasta(db, '2026-05', { fecha: '2026-06-20' }), 0); // lo ya marcado no se vuelve a marcar
   assert.equal((db.prepare(`SELECT count(*) n FROM auditoria WHERE tabla = 'liquidacion'`).get() as any).n, 3);
