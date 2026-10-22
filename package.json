@@ -1,7 +1,7 @@
-{
+﻿{
   "name": "hornera",
-  "version": "0.33.0",
-  "description": "HORNERA — liquidación mensual a propietarios",
+  "version": "0.33.1",
+  "description": "HORNERA â€” liquidaciÃ³n mensual a propietarios",
   "private": true,
   "type": "module",
   "main": "electron/main.ts",

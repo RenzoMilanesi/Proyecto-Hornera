@@ -31,8 +31,10 @@ const estilos = `
   tr.total td { font-weight: bold; border-top: 1.5px solid #333; border-bottom: none; }
   .nota { margin-top: 10px; font-size: 9.5px; color: #444; }
   .salto { break-before: page; }
-  .salto table { font-size: 9px; }
-  .salto th { white-space: normal; vertical-align: bottom; } /* encabezados en dos líneas: entran las 11 columnas */
+  tr { break-inside: avoid; }
+  h2 { break-after: avoid; }
+  .reservas table { font-size: 9px; }
+  .reservas th { white-space: normal; vertical-align: bottom; } /* encabezados en dos líneas: entran las 11 columnas */
   .resumen td { border: none; padding: 2px 4px; }
   .cbte { border: 1.5px solid #333; }
   .cbte table { font-size: 10.5px; }
@@ -224,7 +226,7 @@ function ImprimirHoja({ parametros }: { parametros: URLSearchParams }) {
       <p className="nota">Salvo pedido expreso o caso particular, se transferirá el saldo a la cuenta informada o se computará como crédito/débito para el próximo período.</p>
 
       {h.reservas.length > 0 && (
-        <div className="salto">
+        <div className="reservas">
           <h2>Detalle reservas · {h.depto.codigo} · {mesTexto(h.mes)}</h2>
           <table>
             <thead><tr>
