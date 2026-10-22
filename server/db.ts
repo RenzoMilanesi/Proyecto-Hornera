@@ -168,6 +168,9 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
    INSERT INTO auditoria SELECT * FROM auditoria_vieja;
    DROP TABLE auditoria_vieja;
    CREATE INDEX ix_auditoria_registro ON auditoria(tabla, registro_id);`,
+  // 16 → 17: una liquidación se puede marcar como saldada por fuera del sistema (deudas iniciales ya resueltas).
+  `ALTER TABLE liquidacion ADD COLUMN saldado_fuera TEXT CHECK (saldado_fuera IS NULL OR date(saldado_fuera) IS saldado_fuera);
+   ALTER TABLE liquidacion ADD COLUMN saldado_fuera_nota TEXT;`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

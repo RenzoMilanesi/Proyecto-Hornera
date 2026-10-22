@@ -81,6 +81,12 @@ export function reabrirPeriodo(db: DatabaseSync, mes: string) {
   if (pagados.length) {
     throw new Error(`Hay liquidaciones de ${mes} pagadas (${pagados.map((x) => x.codigo).join(', ')}): anulá esos pagos antes de reabrir.`);
   }
+  const saldados = db.prepare(`
+    SELECT d.codigo FROM liquidacion l JOIN depto d ON d.id = l.depto_id
+    WHERE l.periodo_id = ? AND l.saldado_fuera IS NOT NULL ORDER BY d.codigo`).all(p.id) as { codigo: string }[];
+  if (saldados.length) {
+    throw new Error(`Hay liquidaciones de ${mes} saldadas por fuera (${saldados.map((x) => x.codigo).join(', ')}): desmarcalas antes de reabrir.`);
+  }
   enTransaccion(db, () => {
     db.prepare('DELETE FROM liquidacion WHERE periodo_id = ?').run(p.id); // liquidacion_reserva se borra en cascada
     db.prepare(`UPDATE periodo SET estado = 'abierto', cerrado_en = NULL WHERE id = ?`).run(p.id);

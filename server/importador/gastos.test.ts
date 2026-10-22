@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
 import { abrirDb } from '../db.ts';
 import { importarGastos } from './gastos.ts';
-import { editarMovimiento } from '../movimientos.ts';
+import { crearMovimiento, editarMovimiento } from '../movimientos.ts';
 
 function base() {
   const db = abrirDb(':memory:');
@@ -36,13 +36,18 @@ const archivo = excel([
   [d('2026-10-05'), '10:00', 'Uno', 'AAA', 'Pre-liquidación', 100000, 'X7', ''],
   [d('2026-10-05'), '10:00', 'Uno', '', 'Imagen sin descripcion', 0, 'X8', ''],
   [d('2026-11-01'), '10:00', 'Uno', 'AAA', 'luz', 100, 'X9', ''],
+  [d('2026-10-06'), '10:00', 'Uno', 'CAY', 'ropa', 1500, 'X10', ''],                // personales y de la Casa del Estudiante: solo se cuentan
+  [d('2026-10-06'), '10:00', 'Uno', 'casaest', 'pintura', 700, 'X11', ''],
+  [d('2026-10-06'), '10:00', 'Uno', 'LAU / CAY', 'cena', 400, 'X12', ''],
+  [d('2026-10-06'), '10:00', 'Uno', 'BBVA', '?', 100, 'X13', ''],                   // error de carga: aviso
 ]);
 
 test('importa los gastos del mes abierto con depto, empresa y adelantos; reimportar no duplica ni lo anulado ni lo editado', () => {
   const db = base();
   const r = importarGastos(db, archivo);
   assert.deepEqual({ ...r, avisos: r.avisos.length },
-    { importados: 5, repetidos: 0, anteriores: 1, casa: 1, codigosDesconocidos: { ZZZ: 1 }, avisos: 2 });
+    { importados: 5, repetidos: 0, anulados: 0, anteriores: 1, codigosDesconocidos: { ZZZ: 1 }, avisos: 3,
+      cuenta: { DEPTOS: 11700100, INT: 50000000, CASA: 300000, ZZZ: 200000, CAY: 150000, CASEST: 70000, 'CAY/LAU': 40000 } });
   const movs = db.prepare(`SELECT d.codigo, m.tipo, c.nombre AS concepto, m.detalle, m.importe_ars, m.cuenta_id FROM movimiento m
     LEFT JOIN depto d ON d.id = m.depto_id JOIN concepto c ON c.id = m.concepto_id ORDER BY m.id`).all().map((m) => ({ ...m }));
   assert.deepEqual(movs, [
@@ -76,4 +81,24 @@ test('corregir el depto o el monto en el Excel no lo duplica; los avisos dicen e
   assert.deepEqual([r.importados, r.repetidos], [0, 1]);
   assert.deepEqual(r.avisos, ['Fila 4: fecha inválida, no se importa.']);
 
+});
+
+test('reimportar anula los gastos ajenos que una versión anterior cargó a Hornera, salvo los corregidos a mano', () => {
+  const db = base();
+  const viejo = (origen: string, detalle: string) => crearMovimiento(db, { mes: '2026-10', fecha: '2026-10-06', depto: null, tipo: 'gasto',
+    concepto: 'Gastos varios', detalle, importe_ars: -150000, importe_usd: 0, cuenta_id: null, origen });
+  viejo('gastos:V1:1', '[CAY] · ropa');
+  viejo('gastos:V2:1', '[BBVA] · ?');
+  viejo('gastos:V3:1', 'ropa de Amancay');                                             // ya corregido a mano
+  const r = importarGastos(db, excel([
+    [d('2026-10-06'), '10:00', 'Uno', 'CAY', 'ropa', 1500, 'V1', ''],
+    [d('2026-10-06'), '10:00', 'Uno', 'BBVA', '?', 1500, 'V2', ''],
+    [d('2026-10-06'), '10:00', 'Uno', 'CAY', 'ropa', 1500, 'V3', ''],
+  ]));
+  assert.equal(r.anulados, 2);
+  const estados = db.prepare('SELECT origen, estado FROM movimiento ORDER BY id').all().map((m) => ({ ...m }));
+  assert.deepEqual(estados, [
+    { origen: 'gastos:V1:1', estado: 'anulado' }, { origen: 'gastos:V2:1', estado: 'anulado' }, { origen: 'gastos:V3:1', estado: 'vigente' },
+  ]);
+  assert.equal(importarGastos(db, excel([[d('2026-10-06'), '10:00', 'Uno', 'CAY', 'ropa', 1500, 'V1', '']])).anulados, 0);
 });

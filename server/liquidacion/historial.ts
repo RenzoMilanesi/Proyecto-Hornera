@@ -19,8 +19,9 @@ export interface FilaHistorial {
   saldo: number;                     // centavos: >0 se le paga, <0 debe
   pagado: number;
   pendiente: number;
-  estado: 'pagado' | 'parcial' | 'pendiente' | 'debe' | 'arrastrado' | 'en_curso';
+  estado: 'pagado' | 'parcial' | 'pendiente' | 'debe' | 'arrastrado' | 'en_curso' | 'saldado_fuera';
   arrastradoA: string | null;
+  saldadoFuera: Transferencia['saldadoFuera'];
   pagos: (Transferencia['pagos'][number] & { anulado: boolean })[];
 }
 
@@ -44,7 +45,7 @@ export function historial(db: DatabaseSync, filtro: { deptoId?: number; propieta
       filas.push({
         mes: abierto.mes, liquidacionId: null, deptoId: d.deptoId, codigo: d.codigo, depto: d.nombre, propietarioId: x.propietario_id,
         propietario: d.propietario, cbu: x.cbu, esHornera: !!x.es_hornera, moneda: d.moneda, saldo, pagado: 0, pendiente: saldo,
-        estado: 'en_curso', arrastradoA: null, pagos: [],
+        estado: 'en_curso', arrastradoA: null, saldadoFuera: null, pagos: [],
       });
     }
   }
@@ -66,11 +67,11 @@ export function historial(db: DatabaseSync, filtro: { deptoId?: number; propieta
         }
         pagos.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.id - b.id);
       }
-      const estado = t.saldo < 0 ? 'debe' : t.pendiente === 0 ? 'pagado' : t.arrastradoA ? 'arrastrado' : t.pagado > 0 ? 'parcial' : 'pendiente';
+      const estado = t.saldadoFuera ? 'saldado_fuera' : t.saldo < 0 ? 'debe' : t.pendiente === 0 ? 'pagado' : t.arrastradoA ? 'arrastrado' : t.pagado > 0 ? 'parcial' : 'pendiente';
       filas.push({
         mes: p.mes, liquidacionId: t.liquidacionId, deptoId: t.deptoId, codigo: t.codigo, depto: t.depto, propietarioId: t.propietarioId,
         propietario: t.propietario, cbu: t.cbu, esHornera: t.esHornera, moneda: t.moneda, saldo: t.saldo, pagado: t.pagado,
-        pendiente: t.pendiente, estado, arrastradoA: t.arrastradoA, pagos,
+        pendiente: t.pendiente, estado, arrastradoA: t.arrastradoA, saldadoFuera: t.saldadoFuera, pagos,
       });
     }
   }

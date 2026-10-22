@@ -398,6 +398,9 @@ CREATE TABLE liquidacion (
     pdf_path               TEXT,
     calculada_en           TEXT    NOT NULL,
     moneda                 TEXT    NOT NULL DEFAULT 'ARS' CHECK (moneda IN ('ARS','USD')), -- en la que liquidaba el dueño al cerrar
+    -- Saldado por fuera del sistema (deudas de antes de la app): cuenta como pagado sin movimiento ni factura.
+    saldado_fuera          TEXT    CHECK (saldado_fuera IS NULL OR date(saldado_fuera) IS saldado_fuera),
+    saldado_fuera_nota     TEXT,
     CONSTRAINT uq_liq_periodo_depto UNIQUE (periodo_id, depto_id),
     CONSTRAINT fk_liq_periodo FOREIGN KEY (periodo_id) REFERENCES periodo(id) ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_liq_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE RESTRICT ON UPDATE CASCADE,

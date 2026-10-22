@@ -5,7 +5,8 @@ import * as XLSX from 'xlsx';
 import { abrirDb } from '../db.ts';
 import { crearMovimiento, anularMovimiento } from '../movimientos.ts';
 import { cerrarPeriodo, reabrirPeriodo } from './cierre.ts';
-import { excelTransferencias, listarTransferencias, pagarLiquidacion } from './pagos.ts';
+import { desmarcarSaldadoFuera, excelTransferencias, listarTransferencias, pagarLiquidacion, saldarFuera, saldarFueraHasta } from './pagos.ts';
+import { historial } from './historial.ts';
 import { liquidacionGuardada, liquidarPeriodo } from './servicio.ts';
 import { hojaDepto } from './hoja.ts';
 
@@ -178,4 +179,50 @@ test('con el mes abierto la cuenta de la pantalla es la del PDF, y con el redond
   const [d] = liquidarPeriodo(db, '2026-05').deptos;
   assert.deepEqual(d.cuenta, hojaDepto(db, '2026-05', 'AAA').resumen);
   assert.equal(d.cuenta.valorFinal + d.saldoAnterior.ars + d.redondeo, d.resultado.saldo.ars);
+});
+
+test('saldado por fuera: no queda pendiente ni se arrastra, sin movimiento; se desmarca y se marca todo hasta un mes', () => {
+  const db = base();
+  db.exec(`INSERT INTO periodo(mes, fecha_inicio, fecha_cierre_reservas, fecha_corte_gastos, fecha_pago, usd_cotizacion, costo_hora_limpieza,
+      servicio_limpieza, servicio_lavanderia, prestamo_blanqueria, gestion_operativa, mantenimiento, tarifa_base, adicional_huesped,
+      cargo_tramo_1, cargo_tramo_2, cm_fee_usd) VALUES
+      ('2026-06', '2026-06-01', '2026-07-01', '2026-06-28', '2026-07-10', 1000, 1, 1, 1, 1, 1, 1, 1000000, 100000, 100000, 100000, 0)`);
+  cerrarPeriodo(db, '2026-05');
+  const [mayo] = listarTransferencias(db, '2026-05');
+  const arrastre = () => liquidarPeriodo(db, '2026-06').deptos[0].saldoAnterior.ars;
+  const movimientos = () => (db.prepare('SELECT count(*) n FROM movimiento').get() as any).n;
+  pagarLiquidacion(db, mayo.liquidacionId, { cuenta_id: 1, fecha: '2026-06-10', importe: 1000000 });
+  assert.equal(arrastre(), mayo.saldo - 1000000);
+
+  assert.throws(() => saldarFuera(db, mayo.liquidacionId, { fecha: '10/06/2026' }), /Fecha inválida/);
+  const antes = movimientos();
+  saldarFuera(db, mayo.liquidacionId, { fecha: '2026-06-15', nota: 'Pagado en efectivo antes de la app' });
+  const saldada = listarTransferencias(db, '2026-05')[0];
+  assert.deepEqual([saldada.pagado, saldada.pendiente, saldada.saldadoFuera], [1000000, 0, { fecha: '2026-06-15', nota: 'Pagado en efectivo antes de la app' }]);
+  assert.equal(movimientos(), antes); // sin movimiento: no toca cuentas ni se factura
+  assert.equal(arrastre(), 0);
+  assert.equal(historial(db, { deptoId: 1 }, false).find((f) => f.mes === '2026-05')!.estado, 'saldado_fuera');
+  assert.throws(() => saldarFuera(db, mayo.liquidacionId, { fecha: '2026-06-15' }), /ya está marcado/);
+  assert.throws(() => pagarLiquidacion(db, mayo.liquidacionId, { cuenta_id: 1, fecha: '2026-06-10', importe: 100 }), /saldado por fuera/);
+  const hoja = XLSX.read(excelTransferencias(db, '2026-05'), { type: 'buffer' });
+  assert.equal(XLSX.utils.sheet_to_json(hoja.Sheets[hoja.SheetNames[0]]).length, 0);
+
+  desmarcarSaldadoFuera(db, mayo.liquidacionId);
+  assert.equal(listarTransferencias(db, '2026-05')[0].pendiente, mayo.saldo - 1000000);
+  assert.equal(arrastre(), mayo.saldo - 1000000);
+
+  assert.equal(saldarFueraHasta(db, '2026-05', { fecha: '2026-06-20' }), 1);
+  assert.equal(saldarFueraHasta(db, '2026-05', { fecha: '2026-06-20' }), 0); // lo ya marcado no se vuelve a marcar
+  assert.equal((db.prepare(`SELECT count(*) n FROM auditoria WHERE tabla = 'liquidacion'`).get() as any).n, 3);
+
+  // Con junio cerrado el saldo de mayo ya es parte de junio: se marca ahí, no en mayo.
+  cerrarPeriodo(db, '2026-06');
+  assert.equal(listarTransferencias(db, '2026-06')[0].saldo, 0);
+  assert.throws(() => desmarcarSaldadoFuera(db, mayo.liquidacionId), /marcalo desde 2026-06/);
+
+  // Saldado sin pagos: la reapertura se frena por la marca (se perdería al borrar la liquidación).
+  const otra = base();
+  cerrarPeriodo(otra, '2026-05');
+  saldarFuera(otra, listarTransferencias(otra, '2026-05')[0].liquidacionId, { fecha: '2026-06-15' });
+  assert.throws(() => reabrirPeriodo(otra, '2026-05'), /saldadas por fuera \(AAA\): desmarcalas/);
 });

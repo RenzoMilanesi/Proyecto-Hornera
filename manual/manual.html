@@ -225,7 +225,7 @@ mouse se ven los montos) y <b>saldo</b> (en rojo si el propietario
 debe). Arriba de la tabla están el buscador y los totales. Tocando el <span class="boton">+</span> de una fila se ve el detalle:</p>
 <figure>
   <img src="img/liquidacion-detalle.png">
-  <figcaption>Detalle de un depto: la cuenta de la liquidación renglón por renglón, sus reservas y sus costos excepcionales.</figcaption>
+  <figcaption>Detalle de un depto: la cuenta de la liquidación renglón por renglón, sus reservas y sus gastos varios.</figcaption>
 </figure>
 <p>Primero, la barra <b>Distribución del importe</b>: reparte lo que entró del depto en costos, Hornera, gastos del
 depto y lo que queda para el propietario. Si los gastos superan lo que le tocaba, un tramo rayado en rojo muestra lo que
@@ -239,14 +239,14 @@ dice qué lo compone y, con el mes abierto, dónde se corrige:</p>
   <li><b>Ingreso bruto.</b></li>
   <li><b>− Honorarios:</b> la comisión de Hornera sobre el ingreso bruto (se cambia en Deptos → Variables).</li>
   <li><b>Valor liquidación inicial.</b></li>
-  <li><b>− Costos excepcionales:</b> los gastos del depto y los adelantos al propietario del mes. <span class="boton">Agregar</span>
+  <li><b>− Gastos Varios:</b> los gastos del depto y los adelantos al propietario del mes. <span class="boton">Agregar Nuevo Gasto</span>
     y <span class="boton">Editar</span> abren el mismo formulario que Movimientos, con el depto ya elegido.</li>
   <li><b>Valor liquidación final.</b></li>
   <li><b>Saldo mes anterior</b> y <b>Saldo a liquidar</b>. Si los redondeos del Excel no coinciden, aparece un renglón
     <b>Redondeo</b> de $ 1 para que la cuenta cierre. El que liquida en dólares tiene además <b>Pasado a dólares</b>.</li>
 </ul>
-<p>Abajo, las <b>reservas</b> (código interno, noches del mes sobre noches totales, lo cobrado, la tarifa y la comisión) y
-los <b>costos excepcionales</b>. Con el mes cerrado se ve lo que quedó guardado al cerrar, sin botones para corregir.</p>
+<p>Abajo, las <b>reservas</b> (código interno, noches del mes sobre noches totales, lo cobrado, la tarifa y la comisión de la
+plataforma, con el total abajo; una columna sin importes en ninguna reserva no se muestra) y los <b>gastos varios</b>. Con el mes cerrado se ve lo que quedó guardado al cerrar, sin botones para corregir.</p>
 <p>El botón <span class="boton">PDF</span> de cada fila genera la hoja de ese depto. Con el mes abierto es una vista previa.</p>
 
 <h2>Variables del mes</h2>
@@ -289,7 +289,7 @@ el mes ya tiene pagos: primero hay que anularlos en Transferencias. Tampoco si e
 
 <h2>El PDF de la liquidación</h2>
 <p>Es la hoja que se le manda a cada propietario: datos del depto y del propietario, período, resumen (la cuenta: ingresos operativos,
-costos, ingreso bruto, honorarios, valor de liquidación inicial, costos excepcionales y valor final), el detalle de ingresos y egresos y el detalle de reservas. Si los honorarios ya están facturados,
+costos, ingreso bruto, honorarios, valor de liquidación inicial, gastos varios y valor final), el detalle de ingresos y egresos y el detalle de reservas. Si los honorarios ya están facturados,
 el PDF suma una página por cada factura.</p>
 <figure class="media">
   <img src="img/pdf-liquidacion.png" style="max-height:215mm">
@@ -324,6 +324,19 @@ Si no hay meses cerrados, la pantalla lo avisa: las transferencias salen al cerr
     de una cuenta (por ejemplo, el depto propio).</li>
   <li><span class="boton">Marcar pagado</span>. El pago se registra como movimiento y descuenta el saldo de la cuenta.</li>
 </ol>
+
+<h2>Saldado por fuera</h2>
+<p>Para deudas que ya se resolvieron fuera de la app, típicamente las de antes de empezar a usarla: un mes que figura
+pendiente (o que el propietario debe) pero que en la realidad ya está saldado.</p>
+<ul>
+  <li><span class="boton">Saldado por fuera</span> en la fila del depto pide la <b>fecha</b> en que se saldó y una <b>nota</b> opcional.</li>
+  <li>Deja de figurar como pendiente y <b>no pasa al mes siguiente</b> como saldo anterior. No registra un pago: no mueve
+    ninguna cuenta, no aparece en Movimientos ni se factura. Queda en la Auditoría.</li>
+  <li><span class="boton">Saldar por fuera hasta …</span> (arriba) marca de una vez todo lo pendiente de los meses cerrados
+    hasta el elegido. Sirve para la carga inicial.</li>
+  <li><span class="boton">Desmarcar</span> lo vuelve a dejar pendiente. Solo mientras el mes siguiente siga abierto: cerrado,
+    el saldo ya es parte de ese mes y se marca ahí. Un mes con algo saldado por fuera no se reabre hasta desmarcarlo.</li>
+</ul>
 
 <h2>Los pagos de un depto</h2>
 <p>El <span class="boton">+</span> de la fila muestra los pagos hechos: fecha, importe, cuenta y su factura.</p>
@@ -369,8 +382,9 @@ deptos, se puede filtrar uno). También se llega desde el botón <span class="bo
   <figcaption>Historial de un propietario con dos deptos.</figcaption>
 </figure>
 <ul>
-  <li>Estados: <i>pagado</i>, <i>pendiente</i> y <i>en curso</i> (mes todavía abierto).</li>
-  <li>Desde acá también se puede <span class="boton">Marcar pagado</span> y anular un pago, igual que en Transferencias.</li>
+  <li>Estados: <i>pagado</i>, <i>pendiente</i>, <i>saldado por fuera</i> y <i>en curso</i> (mes todavía abierto).</li>
+  <li>Desde acá también se puede <span class="boton">Marcar pagado</span>, marcar <span class="boton">Saldado por fuera</span>
+    y anular un pago, igual que en Transferencias.</li>
   <li><b>Ver anulados</b> muestra también los pagos anulados.</li>
 </ul>
 
@@ -647,8 +661,8 @@ pueden estar abiertas a la vez.</div>
   <tr><td>Honorarios</td><td>Lo que cobra Hornera: la comisión del depto sobre el bruto menos costos operativos y comisiones, redondeada a centenas.</td></tr>
   <tr><td>Ingreso bruto</td><td>Ingresos operativos menos costos (costos operativos y comisiones de plataformas). Sobre esto se calculan los honorarios.</td></tr>
   <tr><td>Valor liquidación inicial</td><td>Ingreso bruto menos honorarios.</td></tr>
-  <tr><td>Costos excepcionales</td><td>Gastos del depto y adelantos al propietario cargados en el mes (Movimientos), sin el saldo anterior ni los pagos.</td></tr>
-  <tr><td>Valor liquidación final</td><td>Valor liquidación inicial menos costos excepcionales. Sumado al saldo anterior da el saldo.</td></tr>
+  <tr><td>Gastos Varios</td><td>Gastos del depto y adelantos al propietario cargados en el mes (Movimientos), sin el saldo anterior ni los pagos.</td></tr>
+  <tr><td>Valor liquidación final</td><td>Valor liquidación inicial menos gastos varios. Sumado al saldo anterior da el saldo.</td></tr>
   <tr><td>Costos operativos</td><td>La tarifa por reserva (limpieza, lavandería, gestión, mantenimiento), prorrateada a las noches del mes.</td></tr>
   <tr><td>Saldo</td><td>Lo que le corresponde al propietario. Positivo: se le transfiere. Negativo (en rojo): debe.</td></tr>
   <tr><td>Cambio</td><td>Dólar cripto al cierre menos el descuento del mes; convierte entre pesos y dólares.</td></tr>

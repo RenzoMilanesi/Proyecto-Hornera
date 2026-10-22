@@ -49,6 +49,7 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 042 | [Barra del reparto: manual al día, deptos en dólares e ingresos negativos](042-barra-reparto-pulido.md) | P2 | S | — | HECHO |
 | 043 | [El manual y la guía de prueba explican la auditoría por usuario](043-manual-auditoria.md) | P2 | S | 042 (manual) | TODO |
 | 044 | [Auditoría: nombre de PC que choca con una terminal, pagos en dólares viejos y texto del ROADMAP](044-auditoria-pulido.md) | P3 | S | — | TODO |
+| 045 | [Anular los gastos ajenos (CAY, LAU, CASEST…) que ya se importaron como gasto de Hornera](045-gastos-ajenos-ya-importados.md) | P2 | S | — | HECHO |
 
 Los planes 001 a 030 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 

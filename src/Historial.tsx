@@ -5,7 +5,7 @@ import { Alert, Button, Popconfirm, Select, Space, Switch, Table, Tag, Typograph
 import type { TableColumnsType } from 'antd';
 import type { FilaHistorial } from '../server/liquidacion/historial.ts';
 import { enviar, get, pesos } from './api.ts';
-import { EstadoFactura, FormFactura, FormNotaCredito, FormPago, type AFacturar, type FacturaNC } from './Transferencias.tsx';
+import { AccionesDeuda, EstadoFactura, FormFactura, FormNotaCredito, FormPago, FormSaldado, TagSaldado, type AFacturar, type FacturaNC, type Saldar } from './Transferencias.tsx';
 
 interface Cuenta { id: number; nombre: string; moneda: 'ARS' | 'USD'; activo: number }
 interface Periodo { mes: string; fecha_pago: string }
@@ -18,6 +18,7 @@ const ESTADOS: Record<FilaHistorial['estado'], { color: string; label: string }>
   debe: { color: 'red', label: 'debe' },
   arrastrado: { color: 'default', label: 'pasó al mes siguiente' },
   en_curso: { color: 'purple', label: 'en curso' },
+  saldado_fuera: { color: 'cyan', label: 'saldado por fuera' },
 };
 
 export function Historial({ deptoId, propietarioId }: { deptoId?: number; propietarioId?: number }) {
@@ -30,6 +31,7 @@ export function Historial({ deptoId, propietarioId }: { deptoId?: number; propie
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
   const [pagando, setPagando] = useState<FilaHistorial>();
+  const [saldando, setSaldando] = useState<Saldar>();
   const [nc, setNc] = useState<{ factura: FacturaNC; codigo: string }>();
   const [facturando, setFacturando] = useState<AFacturar>();
   const [error, setError] = useState<string>();
@@ -62,7 +64,17 @@ export function Historial({ deptoId, propietarioId }: { deptoId?: number; propie
     }
   };
 
+  const desmarcar = async (id: number) => {
+    try {
+      await enviar(`liquidaciones/${id}/saldado-fuera`, 'DELETE', {});
+      setVersion((v) => v + 1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   const porPropietario = elegido?.startsWith('p:');
+  const porDepto = elegido?.startsWith('d:');
   const deptos = [...new Map((filas ?? []).map((f) => [f.deptoId, f.codigo])).entries()];
   const visibles = (filas ?? []).filter((f) => !filtroDepto || f.deptoId === filtroDepto);
   // En curso y "pasó al mes siguiente" no suman: lo primero puede cambiar y lo segundo ya está en el mes siguiente.
@@ -74,16 +86,19 @@ export function Historial({ deptoId, propietarioId }: { deptoId?: number; propie
 
   const columnas: TableColumnsType<FilaHistorial> = [
     { title: 'Mes', dataIndex: 'mes', width: 90 },
-    { title: 'Depto', dataIndex: 'codigo', width: 80, render: (v: string) => <b>{v}</b> },
-    // Por depto se ve quién era el dueño cada mes (puede haber cambiado).
-    ...(porPropietario ? [] : [{ title: 'Propietario', dataIndex: 'propietario', ellipsis: true }]),
+    // Por depto, el depto ya está en el título y se ve quién era el dueño cada mes (puede haber cambiado).
+    ...(porDepto ? [] : [{ title: 'Depto', dataIndex: 'codigo', width: 80, render: (v: string) => <b>{v}</b> }]),
+    ...(porPropietario ? [] : [{ title: 'Propietario', dataIndex: 'propietario', width: 150, ellipsis: true }]),
     { title: 'Saldo', dataIndex: 'saldo', ...derecha, render: (v: number, f) => <Typography.Text type={v < 0 ? 'danger' : undefined}>{pesos(v, f.moneda)}</Typography.Text> },
     { title: 'Pagado', dataIndex: 'pagado', ...derecha, render: (v: number, f) => (v ? pesos(v, f.moneda) : '') },
     { title: 'Pendiente', dataIndex: 'pendiente', ...derecha, render: (v: number, f) => (f.estado === 'pendiente' || f.estado === 'parcial' ? <b>{pesos(v, f.moneda)}</b> : '') },
-    { title: 'Estado', dataIndex: 'estado', width: 170, render: (v: FilaHistorial['estado'], f) =>
-      <Tag color={ESTADOS[v].color}>{v === 'arrastrado' && f.arrastradoA ? `pasó a ${f.arrastradoA}` : ESTADOS[v].label}</Tag> },
-    { title: '', key: 'pagar', ...derecha, render: (_: unknown, f) => (f.estado === 'pendiente' || f.estado === 'parcial')
-      && <Button size="small" type="primary" onClick={() => setPagando(f)}>Marcar pagado</Button> },
+    { title: 'Estado', dataIndex: 'estado', render: (v: FilaHistorial['estado'], f) => (f.saldadoFuera ? <TagSaldado s={f.saldadoFuera} /> :
+      <Tag color={ESTADOS[v].color}>{v === 'arrastrado' && f.arrastradoA ? `pasó a ${f.arrastradoA}` : ESTADOS[v].label}</Tag>) },
+    // Solo meses cerrados: el en curso todavía no tiene liquidación.
+    { title: '', key: 'pagar', ...derecha, render: (_: unknown, f) => f.liquidacionId != null && (
+      <AccionesDeuda t={f} pagar={() => setPagando(f)} saldar={() => setSaldando({ t: { ...f, liquidacionId: f.liquidacionId! } })}
+        desmarcar={() => desmarcar(f.liquidacionId!)} />
+    ) },
   ];
 
   return (
@@ -139,6 +154,7 @@ export function Historial({ deptoId, propietarioId }: { deptoId?: number; propie
           setPagando(undefined);
           if (guardado) setVersion((v) => v + 1);
         }} />
+      <FormSaldado s={saldando} alCerrar={(guardado) => { setSaldando(undefined); if (guardado) setVersion((v) => v + 1); }} />
       <FormFactura a={facturando} alCerrar={(cambio) => { setFacturando(undefined); if (cambio) setVersion((v) => v + 1); }} />
       <FormNotaCredito nc={nc} alCerrar={(cambio) => { setNc(undefined); if (cambio) setVersion((v) => v + 1); }} />
     </Space>

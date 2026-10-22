@@ -37,6 +37,10 @@ run(`INSERT INTO liquidacion(periodo_id, depto_id, cambio, comision_pct, noches_
       conversion_usd, saldo_final_ars, saldo_final_usd, calculada_en)
      VALUES (1,1,1400.6,0.2,30,29,2,0,0,0,0,0,0,0,0,0,0,0,0,0,84171700,0,'x')`);
 assert.equal(db.prepare('SELECT propietario_id FROM liquidacion').get().propietario_id, null); // NULL = dueño actual
+// Saldado por fuera: una fecha YYYY-MM-DD o nada
+falla(`UPDATE liquidacion SET saldado_fuera = '21/10/2026'`, 'CHECK');
+run(`UPDATE liquidacion SET saldado_fuera = '2026-10-21'`);
+run(`UPDATE liquidacion SET saldado_fuera = NULL`);
 run(`UPDATE periodo SET estado = 'cerrado' WHERE id = 1`);
 falla(mov('tipo, importe_ars', `'gasto', -1`), 'periodo cerrado');
 falla(`UPDATE movimiento SET detalle = 'x' WHERE id = 1`, 'periodo cerrado');

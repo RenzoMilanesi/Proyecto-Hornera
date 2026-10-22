@@ -36,6 +36,11 @@ en la LAN (fase 5d), que sigue a testear.
    - Un mes cerrado se ve como se guardó al cerrar (o al importar el Excel), igual que el PDF ([plan 040](plans/040-liquidacion-cerrada-desde-snapshot.md), v0.30.1).
    - Si los redondeos del Excel no coinciden, un renglón "Redondeo" de $ 1 cierra la cuenta con el saldo ([plan 041](plans/041-cuenta-cierra-al-peso.md), v0.30.3). Manual y guía de prueba al día ([plan 039](plans/039-manual-cuenta-liquidacion.md)).
    - Arriba de la cuenta, la barra "Distribución del importe" reparte lo que entró en costos, Hornera, gastos del depto y propietario (con la deuda si el saldo es negativo); en la tabla, la columna Reparto con una mini barra reemplaza a Bruto y Honorarios ([plan 042](plans/042-barra-reparto-pulido.md), v0.30.4).
+   - v0.32.0: "Costos excepcionales" pasa a llamarse "Gastos Varios" (pantalla, PDF y manual); tablas del detalle con subtotales,
+     total de reservas, columnas vacías ocultas y bordes más marcados; la tabla se ordena por Saldo y por Reparto.
+7. **Saldado por fuera** — **A testear** (v0.32.0): las deudas de antes de la app que ya se resolvieron se marcan en Transferencias
+   o en el Historial (una por una, o "Saldar por fuera hasta" un mes para la carga inicial). No quedan pendientes ni pasan al mes
+   siguiente, sin registrar un pago (no mueven cuentas ni se facturan); se desmarcan y quedan en la auditoría.
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.
    - Terminales → "Nombre de esta PC" en el servidor (se guarda en `configuracion`); reemplaza al nombre de Windows en la auditoría.

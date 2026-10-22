@@ -14,7 +14,7 @@ import { auditar, listarAuditoria } from './auditoria.ts';
 import { actualizarCotizacion, type Fetch } from './cotizacion.ts';
 import { anularMovimiento, crearMovimiento, editarMovimiento, listarMovimientos, transferir } from './movimientos.ts';
 import { cerrarPeriodo, reabrirPeriodo } from './liquidacion/cierre.ts';
-import { excelTransferencias, listarTransferencias, pagarLiquidacion } from './liquidacion/pagos.ts';
+import { desmarcarSaldadoFuera, excelTransferencias, listarTransferencias, pagarLiquidacion, saldarFuera, saldarFueraHasta } from './liquidacion/pagos.ts';
 import { hojaDepto } from './liquidacion/hoja.ts';
 import { historial } from './liquidacion/historial.ts';
 import { evolucion, resumenDelMes } from './resumen.ts';
@@ -421,6 +421,9 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   app.post('/api/periodos/:mes/reabrir', (req, res) => intentar(res, () => reabrirPeriodo(db, req.params.mes)));
   app.get('/api/transferencias', (req, res) => { res.json(listarTransferencias(db, String(req.query.mes ?? ''))); });
   app.post('/api/liquidaciones/:id/pagar', (req, res) => intentar(res, () => ({ id: pagarLiquidacion(db, Number(req.params.id), req.body ?? {}) })));
+  app.post('/api/liquidaciones/:id/saldado-fuera', (req, res) => intentar(res, () => saldarFuera(db, Number(req.params.id), req.body ?? {})));
+  app.delete('/api/liquidaciones/:id/saldado-fuera', (req, res) => intentar(res, () => desmarcarSaldadoFuera(db, Number(req.params.id))));
+  app.post('/api/transferencias/saldado-fuera', (req, res) => intentar(res, () => ({ marcadas: saldarFueraHasta(db, String(req.body?.hasta ?? ''), req.body ?? {}) })));
   app.get('/api/historial', (req, res) => intentar(res, () => historial(db,
     { deptoId: Number(req.query.depto) || undefined, propietarioId: Number(req.query.propietario) || undefined }, req.query.anulados === '1')));
   app.get('/api/transferencias/excel', (req, res) => {

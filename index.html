@@ -17,6 +17,14 @@
       .ficha > dt { color: #6E6259; margin: 0; }
       .ficha > dd { margin: 0; }
       .detalle-abierto > td { background: #FBF4EF !important; box-shadow: inset 4px 0 0 #A8461F; }
+      /* Subtotales y totales de las tablas del detalle (la cuenta, el total de reservas). */
+      .subtotal > td { background: #F6EEE7 !important; }
+      /* Tablas del detalle: borde de afuera, renglones y línea bajo la cabecera más marcados. */
+      .detalle-abierto .ant-table { border: 2px solid #E6DED3; border-radius: 6px; overflow: hidden; }
+      .detalle-abierto .ant-table-tbody > tr > td, .detalle-abierto .ant-table-summary td { border-bottom: 2px solid #EDE5DC !important; }
+      .detalle-abierto table:not(:has(tfoot)) > .ant-table-tbody > tr:last-child > td,
+      .detalle-abierto .ant-table-summary tr:last-child td { border-bottom: none !important; }
+      .detalle-abierto .ant-table-thead > tr > th { border-bottom: 2px solid #CDBFAF !important; }
     </style>
   </head>
   <body style="margin: 0">

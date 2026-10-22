@@ -89,6 +89,9 @@ interface Edicion {
   variables: () => void;
 }
 interface Renglon { key: string; concepto: string; importe: ReactNode; detalle?: ReactNode; total?: boolean }
+// Título de cada sección del detalle, un poco más grande que el texto de las tablas.
+const Titulo = ({ children }: { children: ReactNode }) => <Typography.Text strong style={{ fontSize: 16 }}>{children}</Typography.Text>;
+type Fila =LiquidacionDepto['resultado']['reservas'][number] & { reserva: LiquidacionDepto['reservas'][number] };
 
 function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto; comparacion?: ComparacionDepto; movimientos: Movimiento[]; editar?: Edicion }) {
   const r = d.resultado;
@@ -106,7 +109,7 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
     { key: 'bru', concepto: 'Ingreso bruto', importe: pesos(c.ingresoBruto), total: true },
     { key: 'hon', concepto: `− Honorarios (${pct})`, importe: pesos(c.honorarios), detalle: editar ? 'Comisión del depto: Deptos → Variables.' : undefined },
     { key: 'ini', concepto: 'Valor liquidación inicial', importe: pesos(c.valorInicial), total: true },
-    { key: 'exc', concepto: '− Costos excepcionales', importe: pesos(c.excepcionales),
+    { key: 'exc', concepto: '− Gastos Varios', importe: pesos(c.excepcionales),
       detalle: <>Gastos del depto y adelantos al propietario del mes ({movimientos.length}, abajo){editar && <> · {enlace('Agregar', () => editar.movimiento())}</>}.</> },
     { key: 'fin', concepto: 'Valor liquidación final', importe: pesos(c.valorFinal), total: true },
     { key: 'ant', concepto: 'Saldo mes anterior', importe: <>{ars(d.saldoAnterior.ars)} {usd(d.saldoAnterior.usd)}</> },
@@ -116,6 +119,30 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
     ...(d.redondeo ? [{ key: 'red', concepto: 'Redondeo', importe: pesos(d.redondeo),
       detalle: 'La cuenta usa los totales redondeados como el Excel; el saldo, los valores exactos.' }] : []),
     { key: 'sal', concepto: 'Saldo a liquidar', importe: <Typography.Text type={saldo < 0 ? 'danger' : undefined}>{pesos(saldo, d.moneda)}</Typography.Text>, total: true },
+  ];
+  // Reservas: las columnas de plata que no tienen nada en ninguna reserva no se muestran, y abajo va el total.
+  const filas: Fila[] = r.reservas.map((l, i) => ({ ...l, reserva: d.reservas[i] }));
+  const sumar = (f: (l: Fila) => number) => filas.reduce((s, l) => s + f(l), 0);
+  const hay = (f: (l: Fila) => number) => filas.some((l) => f(l) !== 0);
+  const comisionArs = (l: Fila) => l.reserva.comision.ars;
+  const comisionUsd = (l: Fila) => l.reserva.comision.usd;
+  const totales: Record<string, ReactNode> = {
+    reserva: 'Total', noches: `${sumar((l) => l.nochesPeriodo)} noches`,
+    ars: ars(sumar((l) => l.importePeriodoArs)), usd: usd(sumar((l) => l.importePeriodoUsd)),
+    tarifa: ars(sumar((l) => l.tarifaPeriodo)), com: <>{ars(sumar(comisionArs))} {usd(sumar(comisionUsd))}</>,
+  };
+  const columnasReservas: TableColumnsType<Fila> = [
+    { title: 'Reserva', key: 'reserva', dataIndex: 'codigoInterno', render: (v: string) => <Typography.Text code>{v}</Typography.Text> },
+    { title: 'Noches (período / total)', key: 'noches', render: (_: unknown, l) => `${l.nochesPeriodo} / ${l.nochesTotales}` },
+    ...(hay((l) => l.importePeriodoArs) ? [{ title: 'Cobrado ARS', key: 'ars', dataIndex: 'importePeriodoArs', ...derecha, render: ars }] : []),
+    ...(hay((l) => l.importePeriodoUsd) ? [{ title: 'Cobrado USD', key: 'usd', dataIndex: 'importePeriodoUsd', ...derecha, render: usd }] : []),
+    { title: 'Tarifa', key: 'tarifa', dataIndex: 'tarifaPeriodo', ...derecha, render: ars },
+    ...(hay(comisionArs) || hay(comisionUsd)
+      ? [{ title: 'Comisión OTA', key: 'com', ...derecha, render: (_: unknown, l: Fila) => <>{ars(comisionArs(l))} {usd(comisionUsd(l))}</> }] : []),
+    ...(editar ? [{
+      title: '', key: 'aj', width: 80,
+      render: (_: unknown, l: Fila) => <Button size="small" onClick={() => editar.ajustar({ ...l.reserva, depto: d.codigo, excluida: 0 })}>Ajustar</Button>,
+    }] : []),
   ];
   return (
     // width 0 + minWidth 100%: el detalle ocupa el ancho de la fila sin agrandarlo. La tabla de deptos es
@@ -127,34 +154,30 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
             <li key={i}>{x.campo}{x.unidad === 'noches' ? '' : ` ${x.unidad}`}: app {x.unidad === 'noches' ? x.app : pesos(x.app, x.unidad)} · Excel {x.unidad === 'noches' ? x.excel : pesos(x.excel, x.unidad)}</li>
           ))}</ul>} />
       )}
-      <Typography.Text strong>Distribución del importe</Typography.Text>
+      <Titulo>Distribución del importe</Titulo>
       <BarraReparto c={c} moneda={d.moneda} />
-      <Typography.Text strong>Cuenta de la liquidación</Typography.Text>
+      <Titulo>Cuenta de la liquidación</Titulo>
       <Table<Renglon> size="small" pagination={false} showHeader={false} rowKey="key" dataSource={renglones}
+        rowClassName={(x) => (x.total ? 'subtotal' : '')}
         columns={[
           { dataIndex: 'concepto', width: 240, render: (v: string, x) => (x.total ? <b>{v}</b> : v) },
           { dataIndex: 'importe', width: 170, ...derecha, render: (v: ReactNode, x) => (x.total ? <b>{v}</b> : v) },
           { dataIndex: 'detalle', render: (v?: ReactNode) => <Typography.Text type="secondary">{v}</Typography.Text> },
         ]} />
-      <Typography.Text strong>Reservas · ingresos y costos</Typography.Text>
-      <Table size="small" pagination={false} rowKey="codigoInterno" dataSource={r.reservas.map((l, i) => ({ ...l, reserva: d.reservas[i] }))} columns={[
-        { title: 'Reserva', dataIndex: 'codigoInterno', render: (v: string) => <Typography.Text code>{v}</Typography.Text> },
-        { title: 'Noches (período / total)', key: 'n', render: (_: unknown, l) => `${l.nochesPeriodo} / ${l.nochesTotales}` },
-        { title: 'Cobrado ARS', dataIndex: 'importePeriodoArs', ...derecha, render: ars },
-        { title: 'Cobrado USD', dataIndex: 'importePeriodoUsd', ...derecha, render: usd },
-        { title: 'Tarifa', dataIndex: 'tarifaPeriodo', ...derecha, render: ars },
-        { title: 'Comisión', key: 'com', ...derecha, render: (_: unknown, l) => <>{ars(l.reserva.comision.ars)} {usd(l.reserva.comision.usd)}</> },
-        ...(editar ? [{
-          title: '', key: 'aj', width: 80,
-          render: (_: unknown, l: { reserva: LiquidacionDepto['reservas'][number] }) => (
-            <Button size="small" onClick={() => editar.ajustar({ ...l.reserva, depto: d.codigo, excluida: 0 })}>Ajustar</Button>
-          ),
-        }] : []),
-      ]} />
+      <Titulo>Reservas · ingresos y costos</Titulo>
+      <Table<Fila> size="small" pagination={false} rowKey="codigoInterno" dataSource={filas} columns={columnasReservas}
+        summary={() => filas.length > 1 && (
+          <Table.Summary.Row className="subtotal">
+            {columnasReservas.map((col, i) => (
+              <Table.Summary.Cell key={col.key} index={i} align={col.align}><b>{totales[col.key as string]}</b></Table.Summary.Cell>
+            ))}
+          </Table.Summary.Row>
+        )} />
       <Space>
-        <Typography.Text strong>Costos excepcionales</Typography.Text>
-        {editar && <Button size="small" onClick={() => editar.movimiento()}>Agregar</Button>}
+        <Titulo>Gastos Varios</Titulo>
+        {editar && <Button size="small" onClick={() => editar.movimiento()}>Agregar Nuevo Gasto</Button>}
       </Space>
+      {movimientos.length === 0 && <Typography.Text type="secondary">Sin gastos ni adelantos del depto este mes.</Typography.Text>}
       {movimientos.length > 0 && (
         <Table<Movimiento> size="small" pagination={false} rowKey="id" dataSource={movimientos} columns={[
           { title: 'Fecha', dataIndex: 'fecha', width: 110 },
@@ -260,13 +283,21 @@ export function Liquidacion() {
     }
   };
 
+  // Orden por Saldo: los que liquidan en dólares, pasados a pesos al cambio del mes, para compararlos con el resto.
+  const saldoEnPesos = (d: LiquidacionDepto) => (d.moneda === 'USD' ? d.resultado.saldo.usd * (datos?.cambio ?? 0) : d.resultado.saldo.ars);
+  // Orden por Reparto: la parte de lo que entró que le queda al propietario (con deuda, negativa).
+  const parteDelPropietario = (d: LiquidacionDepto) => {
+    const r = repartoCuenta(d.cuenta);
+    return r.entro > 0 ? (r.propietario - r.deuda) / r.entro : 0;
+  };
   const columnas: TableColumnsType<LiquidacionDepto> = [
     { title: 'Depto', dataIndex: 'codigo', width: 80, render: (v: string) => <b>{v}</b>, sorter: (a, b) => a.codigo.localeCompare(b.codigo) },
     { title: 'Propietario', dataIndex: 'propietario', ellipsis: true, sorter: (a, b) => a.propietario.localeCompare(b.propietario) },
     { title: 'Noches', key: 'noches', width: 90, render: (_: unknown, d) => `${d.resultado.nochesOcupadas} / ${d.resultado.nochesDisponibles}` },
-    { title: 'Reparto', key: 'reparto', width: 160, render: (_: unknown, d) => <BarraReparto c={d.cuenta} mini /> },
+    { title: 'Reparto', key: 'reparto', width: 160, render: (_: unknown, d) => <BarraReparto c={d.cuenta} mini />,
+      sorter: (a, b) => parteDelPropietario(a) - parteDelPropietario(b) },
     {
-      title: 'Saldo', key: 'saldo', ...derecha,
+      title: 'Saldo', key: 'saldo', ...derecha, sorter: (a, b) => saldoEnPesos(a) - saldoEnPesos(b),
       render: (_: unknown, d) => {
         const valor = d.moneda === 'USD' ? d.resultado.saldo.usd : d.resultado.saldo.ars;
         return <Typography.Text type={valor < 0 ? 'danger' : undefined} strong>{pesos(valor, d.moneda)}</Typography.Text>;

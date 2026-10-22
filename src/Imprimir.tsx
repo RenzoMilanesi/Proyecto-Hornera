@@ -196,7 +196,7 @@ function ImprimirHoja({ parametros }: { parametros: URLSearchParams }) {
             <tr className="total"><td>Ingreso bruto</td><td className="n">{ars(r.ingresoBruto)}</td><td /></tr>
             <tr><td>Honorarios</td><td className="n">{ars(r.honorarios)}</td><td className="n">{r.ingresoBruto ? pct(r.honorarios / r.ingresoBruto) : ''}</td></tr>
             <tr className="total"><td>Valor liquidación inicial</td><td className="n">{ars(r.valorInicial)}</td><td /></tr>
-            <tr><td>Costos excepcionales</td><td className="n">{ars(r.excepcionales)}</td><td /></tr>
+            <tr><td>Gastos Varios</td><td className="n">{ars(r.excepcionales)}</td><td /></tr>
             <tr className="total"><td>Valor liquidación final</td><td className="n">{ars(r.valorFinal)}</td><td /></tr>
           </tbody></table>
         </div>

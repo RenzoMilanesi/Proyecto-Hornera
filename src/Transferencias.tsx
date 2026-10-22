@@ -56,6 +56,55 @@ export function FormPago({ t, fecha, cuentas, alCerrar }: { t?: Transferencia; f
   );
 }
 
+// "Saldado por fuera": una deuda de antes de la app que ya se resolvió. No registra pago, no toca cuentas ni se factura.
+// Con `t`, la liquidación de un depto; con `hasta`, todo lo pendiente de los meses cerrados hasta ese mes (carga inicial).
+export type Saldar = { t: Transferencia; hasta?: undefined } | { hasta: string; cantidad: number; t?: undefined };
+export function FormSaldado({ s, alCerrar }: { s?: Saldar; alCerrar: (guardado: boolean) => void }) {
+  const [form] = Form.useForm();
+  const [error, setError] = useState<string>();
+  useEffect(() => {
+    if (s) { setError(undefined); form.setFieldsValue({ fecha: new Date().toLocaleDateString('sv-SE'), nota: '' }); }
+  }, [s, form]);
+  const guardar = async () => {
+    const v = await form.validateFields();
+    try {
+      if (s?.t) await enviar(`liquidaciones/${s.t.liquidacionId}/saldado-fuera`, 'POST', v);
+      else await enviar('transferencias/saldado-fuera', 'POST', { ...v, hasta: s!.hasta });
+      alCerrar(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  const [guardarUnaVez, guardando] = useUnaVez(guardar);
+  return (
+    <Modal open={!!s} title={s?.t ? `Saldado por fuera: ${s.t.codigo}` : `Saldar por fuera todo lo pendiente hasta ${s?.hasta ?? ''}`}
+      okText="Marcar saldado" cancelText="Cancelar" onOk={guardarUnaVez} confirmLoading={guardando} width={560} onCancel={() => alCerrar(false)} destroyOnHidden>
+      {s?.t && (
+        <dl className="ficha">
+          <dt>Propietario</dt><dd><b>{s.t.propietario}</b></dd>
+          <dt>{s.t.pendiente < 0 ? 'Debe' : 'Pendiente'}</dt>
+          <dd><Typography.Text strong style={{ fontSize: 18 }}>{pesos(Math.abs(s.t.pendiente), s.t.moneda)}</Typography.Text></dd>
+        </dl>
+      )}
+      {s?.hasta && (
+        <dl className="ficha">
+          <dt>Meses</dt><dd>Los cerrados hasta <b>{s.hasta}</b></dd>
+          <dt>Deptos de {s.hasta}</dt><dd><b>{s.cantidad}</b> con algo pendiente o que deben</dd>
+        </dl>
+      )}
+      <Typography.Paragraph type="secondary">
+        Para deudas que ya se resolvieron fuera de la app. Deja de figurar como pendiente y no pasa al mes siguiente,
+        pero no registra un pago: no mueve ninguna cuenta ni se factura. Se puede desmarcar.
+      </Typography.Paragraph>
+      <Form form={form} layout="vertical">
+        <Form.Item label="Fecha en que se saldó" name="fecha" rules={[{ required: true }]}><Input type="date" style={{ width: 170 }} /></Form.Item>
+        <Form.Item label="Nota" name="nota"><Input placeholder="Pagado en efectivo antes de usar la app" /></Form.Item>
+      </Form>
+      {error && <Alert type="error" showIcon title={error} />}
+    </Modal>
+  );
+}
+
 interface EmisorLista { id: number; nombre: string; ambiente: 'homologacion' | 'produccion'; activo: number; certificado: { vence: string } | null; tiene_clave: boolean }
 interface Propuesta {
   ofrece: boolean; motivo?: string; honorarios: number; facturado?: number; propuesto?: number;
@@ -238,6 +287,7 @@ export function Transferencias() {
   const [filas, setFilas] = useState<Transferencia[]>();
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);
   const [pagando, setPagando] = useState<Transferencia>();
+  const [saldando, setSaldando] = useState<Saldar>();
   const [facturando, setFacturando] = useState<AFacturar>();
   const [nc, setNc] = useState<{ factura: FacturaNC; codigo: string }>();
   const [soloPendientes, setSoloPendientes] = useState(false);
@@ -264,6 +314,14 @@ export function Transferencias() {
     }
   };
   const pdfFactura = async (id: number) => setError(await descargarPdfComprobante(id));
+  const desmarcar = async (id: number) => {
+    try {
+      await enviar(`liquidaciones/${id}/saldado-fuera`, 'DELETE', {});
+      setVersion((v) => v + 1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
   const exportar = async () => {
     const r = await fetch(`/api/transferencias/excel?mes=${mes}`);
     if (!r.ok) { setError((await r.json().catch(() => null))?.error ?? `No se pudo exportar (HTTP ${r.status}).`); return; }
@@ -280,10 +338,15 @@ export function Transferencias() {
     { title: 'Pagado', key: 'pagado', ...derecha, render: (_: unknown, t) => (t.pagado ? pesos(t.pagado, t.moneda) : '') },
     {
       title: 'Pendiente', key: 'pendiente', ...derecha,
-      render: (_: unknown, t) => (t.saldo < 0 ? <Tag color="red">debe</Tag> : t.pendiente === 0 ? <Tag color="green">pagado</Tag>
+      render: (_: unknown, t) => (t.saldadoFuera ? <TagSaldado s={t.saldadoFuera} />
+        : t.saldo < 0 ? <Tag color="red">debe</Tag> : t.pendiente === 0 ? <Tag color="green">pagado</Tag>
         : t.arrastradoA ? <Tag title="El saldo quedó como saldo anterior del mes siguiente, ya cerrado">pasó a {t.arrastradoA}</Tag> : <b>{pesos(t.pendiente, t.moneda)}</b>),
     },
-    { title: '', key: 'pagar', ...derecha, render: (_: unknown, t) => t.pendiente > 0 && !t.arrastradoA && <Button size="small" type="primary" onClick={() => setPagando(t)}>Marcar pagado</Button> },
+    {
+      title: '', key: 'pagar', ...derecha, render: (_: unknown, t) => !t.arrastradoA && (
+        <AccionesDeuda t={t} pagar={() => setPagando(t)} saldar={() => setSaldando({ t })} desmarcar={() => desmarcar(t.liquidacionId)} />
+      ),
+    },
   ];
   const aPagar = (filas ?? []).filter((t) => t.pendiente > 0 && !t.arrastradoA);
   const totales = (moneda: 'ARS' | 'USD') => aPagar.filter((t) => t.moneda === moneda).reduce((s, t) => s + t.pendiente, 0);
@@ -296,6 +359,7 @@ export function Transferencias() {
           <Button disabled={!mes} onClick={exportar}>Exportar a Excel</Button>
           <Space><Switch size="small" checked={soloPendientes} onChange={setSoloPendientes} /> Solo pendientes</Space>
           {filas && <Typography.Text>Pendiente: <b>{pesos(totales('ARS'))}</b> · <b>{pesos(totales('USD'), 'USD')}</b> ({aPagar.length} deptos)</Typography.Text>}
+          {mes && <Button onClick={() => setSaldando({ hasta: mes, cantidad: (filas ?? []).filter(saldable).length })}>Saldar por fuera hasta {mes}</Button>}
         </Space>
       </Card>
       {!periodos.length && !error && <Alert type="info" showIcon title="No hay meses cerrados: las transferencias salen al cerrar el mes en Liquidación." />}
@@ -331,8 +395,39 @@ export function Transferencias() {
           setPagando(undefined);
           if (guardado) setVersion((v) => v + 1);
         }} />
+      <FormSaldado s={saldando} alCerrar={(guardado) => { setSaldando(undefined); if (guardado) setVersion((v) => v + 1); }} />
       <FormFactura a={facturando} alCerrar={(cambio) => { setFacturando(undefined); if (cambio) setVersion((v) => v + 1); }} />
       <FormNotaCredito nc={nc} alCerrar={(cambio) => { setNc(undefined); if (cambio) setVersion((v) => v + 1); }} />
+    </Space>
+  );
+}
+
+// Lo que se puede saldar por fuera: algo pendiente (o que debe), sin marcar y sin haber pasado al mes siguiente.
+const saldable = (t: { pendiente: number; arrastradoA: string | null; saldadoFuera: Transferencia['saldadoFuera'] }) =>
+  t.pendiente !== 0 && !t.arrastradoA && !t.saldadoFuera;
+
+export const TagSaldado = ({ s }: { s: NonNullable<Transferencia['saldadoFuera']> }) => (
+  <Tag color="cyan" title={`Saldado por fuera el ${s.fecha}${s.nota ? `: ${s.nota}` : ''}`}>saldado por fuera</Tag>
+);
+
+// Botones de una deuda de un mes cerrado: pagar, saldar por fuera o desmarcar lo saldado.
+export function AccionesDeuda({ t, pagar, saldar, desmarcar }: {
+  t: { pendiente: number; arrastradoA: string | null; saldadoFuera: Transferencia['saldadoFuera'] };
+  pagar: () => void; saldar: () => void; desmarcar: () => void;
+}) {
+  if (t.saldadoFuera) {
+    return (
+      <Popconfirm title="Vuelve a figurar como pendiente y a pasar al mes siguiente." okText="Desmarcar" cancelText="No" onConfirm={desmarcar}>
+        <Button size="small">Desmarcar</Button>
+      </Popconfirm>
+    );
+  }
+  if (!saldable(t)) return null;
+  return (
+    // Uno arriba del otro: lado a lado no entran en el historial de Deptos y Propietarios.
+    <Space orientation="vertical" size={4} align="end">
+      {t.pendiente > 0 && <Button size="small" type="primary" onClick={pagar}>Marcar pagado</Button>}
+      <Button size="small" onClick={saldar}>Saldado por fuera</Button>
     </Space>
   );
 }

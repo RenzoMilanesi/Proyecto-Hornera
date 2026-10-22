@@ -10,8 +10,10 @@ Esos gastos no están en CORRIENTE: solo se llevan en ese Excel.
   que no está abierto (posterior o inexistente) también se saltea, con aviso.
 - Depto conocido → gasto del depto (se le descuenta al propietario). `INT`, vacío o código que la
   app no conoce → gasto de la empresa (sin depto). Los códigos desconocidos se listan juntos para
-  preguntarles qué son (p. ej. CAY, CASEST/CASAEST, CAFE, CAY/LAU, BBVA).
-- `CASA` (la casa donde viven) no se importa.
+  preguntarles qué son (p. ej. CAFE).
+- No son de Hornera y no se importan (aclarado por Lautaro y Amancay, 2026-10-21): `CAY` (personales de
+  Amancay), `LAU` (de Lautaro), `CAY/LAU` (compartidos), `CASEST`/`CASAEST` (Casa del Estudiante) y `CASA`
+  (la casa donde viven). `BBVA` es un error de carga: aviso. El reporte trae la cuenta del mes por código.
 - "Adelanto" o "pre liquidación" en la descripción, con depto conocido → `pre_liquidacion`
   (concepto "Adelanto"). Lo demás → `gasto`, concepto "Gastos varios", detalle = descripción
   (más el medio de pago de "Otro", si lo hay). Honorarios y alquiler ya vienen con `INT`.

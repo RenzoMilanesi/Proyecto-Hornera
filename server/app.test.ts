@@ -162,7 +162,8 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
   // y sin la tabla terminal (3 → 4) ni las fotos del depto (4 → 5) ni el vínculo del propietario con Stays (5 → 6)
   // ni los datos nuevos de la reserva (6 → 7) ni el dueño de la liquidación (7 → 8)
   // ni la fecha de la cotización del período (8 → 9) ni la facturación ARCA (9 → 10)
-  // ni lo importado de Mis Comprobantes (10 → 11) ni el origen de los gastos importados (11 → 12) ni la moneda de la liquidación (12 → 13).
+  // ni lo importado de Mis Comprobantes (10 → 11) ni el origen de los gastos importados (11 → 12) ni la moneda de la liquidación (12 → 13)
+  // ni la marca de saldado por fuera (16 → 17).
   const actual = readFileSync(new URL('../schema.sql', import.meta.url), 'utf8');
   const v1 = actual
     .replace(/^\s*(-- Datos para facturarle|-- que vienen del Excel en texto libre|fiscal_).*\r?\n/gm, '')
@@ -180,6 +181,7 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
     .replace(/^\s*origen\s+TEXT,.*\r?\n/m, '')
     .replace(/CREATE UNIQUE INDEX uq_mov_origen[^;]*;/, '')
     .replace(/^\s*moneda .*-- en la que liquidaba el dueño al cerrar\r?\n/m, '')
+    .replace(/^\s*(-- Saldado por fuera|saldado_fuera(_nota)? ).*\r?\n/gm, '')
     .replace(/saldo_final_ars\s+INTEGER NOT NULL,\s*\r?\n\s*saldo_final_usd\s+INTEGER NOT NULL,/, 'saldo_final INTEGER NOT NULL,');
   assert.notEqual(v1, actual);
   const ruta = join(temporal(t), 'v1.db');

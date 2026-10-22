@@ -70,9 +70,9 @@ export function liquidarPeriodo(db: DatabaseSync, mes: string): LiquidacionPerio
       avisos.push(`Se arrastra el saldo de ${anterior.mes}: falta cargar ${mesAnterior}.`);
     }
     const filas = db.prepare(`
-      SELECT l.depto_id,
-             l.saldo_final_ars + COALESCE(SUM(m.importe_ars), 0) AS ars,
-             l.saldo_final_usd + COALESCE(SUM(m.importe_usd), 0) AS usd
+      SELECT l.depto_id, -- saldado por fuera: no se arrastra
+             CASE WHEN l.saldado_fuera IS NULL THEN l.saldo_final_ars + COALESCE(SUM(m.importe_ars), 0) ELSE 0 END AS ars,
+             CASE WHEN l.saldado_fuera IS NULL THEN l.saldo_final_usd + COALESCE(SUM(m.importe_usd), 0) ELSE 0 END AS usd
       FROM liquidacion l
       LEFT JOIN movimiento m ON m.periodo_id = l.periodo_id AND m.depto_id = l.depto_id
                             AND m.tipo = 'liquidacion' AND m.estado = 'vigente'

@@ -71,7 +71,7 @@ copia aparte que no toque los datos de verdad:
 ## 4. Liquidación del mes abierto (fase 5a)
 1. **Liquidación** → mes de mayo → cargar el **dólar cripto al cierre** y *Guardar*.
 2. Revisar la tabla: saldo de cada depto y, desplegando la fila, la **cuenta de la liquidación**: ingresos
-   operativos − costos = ingreso bruto − honorarios = valor inicial − costos excepcionales = valor final. Valor final
+   operativos − costos = ingreso bruto − honorarios = valor inicial − gastos varios = valor final. Valor final
    + saldo anterior (+ "Redondeo" si aparece) tiene que dar el saldo a liquidar, en los que liquidan en pesos.
    Desplegar no tiene que agrandar la tabla a lo ancho.
    - **Ajustar** una reserva y **Agregar** un costo excepcional desde el detalle: la cuenta y el PDF del depto cambian.
@@ -101,6 +101,9 @@ copia aparte que no toque los datos de verdad:
 3. **Transferencias**: **Marcar pagado** un depto completo y otro en dos partes; anular un pago.
 4. **Exportar a Excel** la lista de transferencias y revisarlo como si se fuera a subir al banco (CBU/CVU).
 5. **Reabrir** el mes (antes hay que anular los pagos) y volver a cerrarlo: los números no cambian.
+6. **Saldado por fuera**: en Transferencias, **Saldado por fuera** en un depto pendiente (fecha y nota). Queda
+   "saldado por fuera", no aparece en Movimientos ni en el Excel, y en Liquidación el "Saldo mes anterior" de ese depto
+   en el mes abierto pasa a 0. **Desmarcar** lo vuelve atrás. **Saldar por fuera hasta** el mes marca todos los pendientes.
 
 ## 7. Terminales (fase 5d) — dos PC en la misma red
 1. En el **servidor**: **Terminales** → anotar la dirección (la primera, con el nombre de la PC).

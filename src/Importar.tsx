@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Alert, Descriptions, Divider, Typography, Upload } from 'antd';
-import { subirArchivo } from './api.ts';
+import { pesos, subirArchivo } from './api.ts';
 
 interface Reporte {
   mes: string; propietarios: number; deptos: number; plataformas: number; cuentas: number;
@@ -73,9 +73,15 @@ export function Importar() {
 }
 
 interface ReporteGastos {
-  importados: number; repetidos: number; anteriores: number; casa: number;
+  importados: number; repetidos: number; anulados: number; anteriores: number; cuenta: Record<string, number>;
   codigosDesconocidos: Record<string, number>; avisos: string[];
 }
+
+// Qué es cada código del Excel (lo aclararon Lautaro y Amancay); los ajenos a Hornera no se importan.
+const GRUPOS: Record<string, string> = {
+  DEPTOS: 'Deptos (a los propietarios)', INT: 'INT · Hornera operativos', CAY: 'CAY · personales de Amancay',
+  LAU: 'LAU · personales de Lautaro', 'CAY/LAU': 'CAY/LAU · compartidos', CASEST: 'CASEST · Casa del Estudiante', CASA: 'CASA · la casa',
+};
 
 // Excel de gastos varios ("Comprobantes Hornera"): plans/037-importar-gastos-varios.md.
 function GastosVarios() {
@@ -102,7 +108,8 @@ function GastosVarios() {
       <Typography.Title level={5}>Gastos varios</Typography.Title>
       <Typography.Paragraph type="secondary">
         El Excel de comprobantes de gastos. Entran los del mes abierto como movimientos: con depto se le descuentan
-        al propietario; INT y los códigos que no son deptos, a Hornera; CASA no se importa. Se puede volver a importar:
+        al propietario; INT y los códigos que no son deptos, a Hornera. CAY, LAU, CAY/LAU, CASEST y CASA no son de Hornera:
+        no se importan, solo se suman en la cuenta. Se puede volver a importar:
         lo que ya está no se duplica.
       </Typography.Paragraph>
       <Upload.Dragger accept=".xlsx" showUploadList={false} disabled={cargando}
@@ -116,9 +123,11 @@ function GastosVarios() {
           <Alert style={{ marginTop: 16 }} type="success" showIcon title={`${reporte.importados} gastos importados`} />
           <Descriptions style={{ marginTop: 16 }} size="small" bordered column={2} items={[
             { label: 'Ya estaban', children: reporte.repetidos },
+            { label: 'Ajenos ya cargados (anulados)', children: reporte.anulados },
             { label: 'De meses anteriores (salteados)', children: reporte.anteriores },
-            { label: 'CASA (salteados)', children: reporte.casa },
           ]} />
+          <Descriptions style={{ marginTop: 16 }} size="small" bordered column={1} title="Cuenta del mes por código"
+            items={Object.entries(reporte.cuenta).map(([c, centavos]) => ({ label: GRUPOS[c] ?? c, children: pesos(centavos) }))} />
           {desconocidos.length > 0 && (
             <Alert style={{ marginTop: 16 }} type="info" showIcon title="Códigos que no son deptos (cargados a Hornera, con el código en el detalle)"
               description={desconocidos.map(([c, n]) => `${c}: ${n}`).join(' · ')} />

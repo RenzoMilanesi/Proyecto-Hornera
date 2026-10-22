@@ -22,6 +22,8 @@ export interface Transferencia {
   pendiente: number;
   // El mes siguiente ya está cerrado: lo pendiente quedó como saldo anterior de ese mes y se paga desde ahí.
   arrastradoA: string | null;
+  // Saldado por fuera del sistema (deuda de antes de la app): no queda pendiente ni pasa al mes siguiente.
+  saldadoFuera: { fecha: string; nota: string | null } | null;
   // Los vigentes y los anulados cuya factura sigue vigente (falta la NC): esos no suman a "pagado".
   pagos: { id: number; fecha: string; importe: number; cuenta: string | null; anulado?: boolean; factura?: FacturaDePago | null; externa?: FacturaExterna | null }[];
 }
@@ -39,7 +41,7 @@ export interface FacturaDePago {
 export function listarTransferencias(db: DatabaseSync, mes: string): Transferencia[] {
   const filas = db.prepare(`
     SELECT l.id, l.periodo_id, l.depto_id, d.codigo, d.nombre AS depto, pr.id AS propietario_id, pr.nombre AS propietario, pr.cbu, pr.es_hornera,
-           l.moneda, l.saldo_final_ars, l.saldo_final_usd
+           l.moneda, l.saldo_final_ars, l.saldo_final_usd, l.saldado_fuera, l.saldado_fuera_nota
     FROM liquidacion l JOIN periodo p ON p.id = l.periodo_id JOIN depto d ON d.id = l.depto_id
     JOIN propietario pr ON pr.id = COALESCE(l.propietario_id, d.propietario_id) -- el dueño de ese mes
     WHERE p.mes = ? ORDER BY d.codigo`).all(mes) as any[];
@@ -67,9 +69,73 @@ export function listarTransferencias(db: DatabaseSync, mes: string): Transferenc
     const pagado = pagos.reduce((s, x) => s + (x.anulado ? 0 : x.importe), 0);
     return {
       liquidacionId: f.id, deptoId: f.depto_id, codigo: f.codigo, depto: f.depto, propietarioId: f.propietario_id, propietario: f.propietario, cbu: f.cbu, esHornera: !!f.es_hornera,
-      moneda: f.moneda, saldo, pagado, pendiente: saldo - pagado, arrastradoA, pagos,
+      moneda: f.moneda, saldo, pagado, pendiente: f.saldado_fuera ? 0 : saldo - pagado, arrastradoA,
+      saldadoFuera: f.saldado_fuera ? { fecha: f.saldado_fuera, nota: f.saldado_fuera_nota } : null, pagos,
     };
   });
+}
+
+// "Saldado por fuera": la deuda de un mes (a favor o en contra del propietario) se resolvió fuera de la app.
+// Cuenta como pagada sin movimiento, sin tocar cuentas y sin factura; deja de arrastrarse al mes siguiente.
+// Solo mientras el mes siguiente esté abierto: después el saldo ya es parte de ese mes y se marca ahí.
+export interface DatosSaldado { fecha: string; nota?: string | null }
+
+function transferenciaDe(db: DatabaseSync, liquidacionId: number) {
+  const l = db.prepare(`SELECT p.mes, d.codigo FROM liquidacion l JOIN periodo p ON p.id = l.periodo_id JOIN depto d ON d.id = l.depto_id
+    WHERE l.id = ?`).get(liquidacionId) as { mes: string; codigo: string } | undefined;
+  if (!l) throw new Error('No existe la liquidación.');
+  const t = listarTransferencias(db, l.mes).find((x) => x.liquidacionId === liquidacionId)!;
+  if (t.arrastradoA) throw new Error(`El saldo de ${l.mes} ya pasó a ${t.arrastradoA} (cerrado): marcalo desde ${t.arrastradoA}.`);
+  return { ...l, t };
+}
+
+function marcar(db: DatabaseSync, t: Transferencia, mes: string, d: DatosSaldado) {
+  db.prepare('UPDATE liquidacion SET saldado_fuera = ?, saldado_fuera_nota = ? WHERE id = ?').run(d.fecha, d.nota?.trim() || null, t.liquidacionId);
+  auditar(db, 'liquidacion', t.liquidacionId, 'modificacion', { saldado_fuera: null, pendiente: t.pendiente },
+    { saldado_fuera: d.fecha, nota: d.nota?.trim() || null, depto: t.codigo, mes, moneda: t.moneda });
+}
+
+const validarFecha = (fecha: unknown) => {
+  if (typeof fecha !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) throw new Error('Fecha inválida (AAAA-MM-DD).');
+};
+
+export function saldarFuera(db: DatabaseSync, liquidacionId: number, d: DatosSaldado) {
+  validarFecha(d.fecha);
+  const { mes, codigo, t } = transferenciaDe(db, liquidacionId);
+  if (t.saldadoFuera) throw new Error(`${codigo} ya está marcado como saldado por fuera en ${mes}.`);
+  if (t.pendiente === 0) throw new Error(`${codigo} no tiene nada pendiente en ${mes}.`);
+  marcar(db, t, mes, d);
+}
+
+export function desmarcarSaldadoFuera(db: DatabaseSync, liquidacionId: number) {
+  const { mes, codigo, t } = transferenciaDe(db, liquidacionId);
+  if (!t.saldadoFuera) throw new Error(`${codigo} no está marcado como saldado por fuera en ${mes}.`);
+  db.prepare('UPDATE liquidacion SET saldado_fuera = NULL, saldado_fuera_nota = NULL WHERE id = ?').run(liquidacionId);
+  auditar(db, 'liquidacion', liquidacionId, 'modificacion', { saldado_fuera: t.saldadoFuera.fecha, nota: t.saldadoFuera.nota },
+    { saldado_fuera: null, depto: codigo, mes });
+}
+
+// Carga inicial: todo lo pendiente (o que debe) de los meses cerrados hasta `mes` queda saldado por fuera.
+// Lo que ya pasó a un mes siguiente cerrado se marca en ese mes, no en el suyo.
+export function saldarFueraHasta(db: DatabaseSync, mes: string, d: DatosSaldado): number {
+  validarFecha(d.fecha);
+  const meses = db.prepare(`SELECT mes FROM periodo WHERE estado = 'cerrado' AND mes <= ? ORDER BY mes`).all(mes) as { mes: string }[];
+  let n = 0;
+  db.exec('BEGIN');
+  try {
+    for (const p of meses) {
+      for (const t of listarTransferencias(db, p.mes)) {
+        if (t.arrastradoA || t.saldadoFuera || t.pendiente === 0) continue;
+        marcar(db, t, p.mes, d);
+        n++;
+      }
+    }
+    db.exec('COMMIT');
+  } catch (e) {
+    if (db.isTransaction) db.exec('ROLLBACK');
+    throw e;
+  }
+  return n;
 }
 
 export interface DatosPago { cuenta_id: number | null; fecha: string; importe: number; detalle?: string | null }
@@ -83,6 +149,7 @@ export function pagarLiquidacion(db: DatabaseSync, liquidacionId: number, d: Dat
   if (t.arrastradoA) {
     throw new Error(`El saldo de ${l.mes} ya pasó a ${t.arrastradoA} (cerrado): pagalo desde ${t.arrastradoA}.`);
   }
+  if (t.saldadoFuera) throw new Error(`${l.codigo} está marcado como saldado por fuera en ${l.mes}: desmarcalo para registrar un pago.`);
   if (!Number.isInteger(d.importe) || d.importe <= 0) throw new Error('El importe va en centavos enteros y positivos.');
   if (d.importe > t.pendiente) {
     throw new Error(t.pendiente > 0 ? `El pago supera lo pendiente de ${l.codigo}.` : `${l.codigo} no tiene saldo a pagar en ${l.mes}.`);
@@ -114,7 +181,7 @@ export function pagarLiquidacion(db: DatabaseSync, liquidacionId: number, d: Dat
 
 // Lista para el banco: una fila por depto con saldo a pagar (montos en pesos/dólares, no centavos).
 export function excelTransferencias(db: DatabaseSync, mes: string): Buffer {
-  const filas = listarTransferencias(db, mes).filter((t) => t.saldo > 0 && !t.arrastradoA).map((t) => ({
+  const filas = listarTransferencias(db, mes).filter((t) => t.saldo > 0 && !t.arrastradoA && !t.saldadoFuera).map((t) => ({
     Depto: t.codigo, Propietario: t.propietario, 'CBU/CVU': t.esHornera ? 'Nosotros' : (t.cbu ?? 'No informado'),
     Moneda: t.moneda, Saldo: t.saldo / 100, Pagado: t.pagado / 100, Pendiente: t.pendiente / 100,
   }));
