@@ -220,13 +220,17 @@ que haya cargado. Al cerrar el mes queda guardado.</p>
 </ul>
 
 <h2>La tabla de deptos</h2>
-<p>Una fila por depto: propietario, noches ocupadas sobre disponibles, bruto, honorarios y <b>saldo</b> (en rojo si el propietario
+<p>Una fila por depto: propietario, noches ocupadas sobre disponibles, una barra con el <b>reparto</b> (pasando el
+mouse se ven los montos) y <b>saldo</b> (en rojo si el propietario
 debe). Arriba de la tabla están el buscador y los totales. Tocando el <span class="boton">+</span> de una fila se ve el detalle:</p>
 <figure>
   <img src="img/liquidacion-detalle.png">
   <figcaption>Detalle de un depto: la cuenta de la liquidación renglón por renglón, sus reservas y sus costos excepcionales.</figcaption>
 </figure>
-<p>Arriba está la <b>cuenta de la liquidación</b>, en pesos (los dólares al cambio del mes). Al lado de cada renglón
+<p>Primero, la barra <b>¿A dónde fue cada peso?</b>: reparte lo que entró del depto en costos, Hornera, gastos del
+depto y lo que queda para el propietario. Si los gastos superan lo que le tocaba, un tramo rayado en rojo muestra lo que
+el propietario queda debiendo. Es en pesos (también para el que liquida en dólares) y no incluye el saldo del mes anterior.</p>
+<p>Abajo está la <b>cuenta de la liquidación</b>, en pesos (los dólares al cambio del mes). Al lado de cada renglón
 dice qué lo compone y, con el mes abierto, dónde se corrige:</p>
 <ul>
   <li><b>Ingresos operativos:</b> lo cobrado de las reservas del mes. Se corrige con <span class="boton">Ajustar</span> en la reserva.</li>

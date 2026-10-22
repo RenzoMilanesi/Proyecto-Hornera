@@ -189,6 +189,20 @@ export function cuentaLiquidacion(bruto: Centavos, gastosDirectos: Centavos, hon
   return { ingresosOperativos: bruto, costos: gastosDirectos, ingresoBruto, honorarios, valorInicial, excepcionales, valorFinal: valorInicial + excepcionales };
 }
 
+// A dónde fue lo que entró (barra de la pantalla Liquidación): costos, Hornera, gastos del depto y lo que
+// queda para el propietario. Un renglón positivo (un cobro directo) suma a lo que entró; si el valor final
+// es negativo, la deuda del propietario estira la barra más allá de lo que entró.
+export interface Reparto { entro: Centavos; costos: Centavos; hornera: Centavos; gastos: Centavos; propietario: Centavos; deuda: Centavos }
+export function repartoCuenta(c: CuentaLiquidacion): Reparto {
+  const renglones = [c.costos, c.honorarios, c.excepcionales];
+  const sale = (v: Centavos) => Math.max(0, -v);
+  return {
+    entro: c.ingresosOperativos + renglones.reduce((s, v) => s + Math.max(0, v), 0),
+    costos: sale(c.costos), hornera: sale(c.honorarios), gastos: sale(c.excepcionales),
+    propietario: Math.max(0, c.valorFinal), deuda: sale(c.valorFinal),
+  };
+}
+
 // La cuenta parte de [F18] y [F19] redondeados, como el Excel, y el saldo [J55] de los valores sin
 // redondear: valor final + saldo anterior puede no dar el saldo por $ 1. Es el renglón "Redondeo" (plan 041).
 // Solo para el que liquida en pesos; el de dólares pasa por el cambio de cobro y no se compara.

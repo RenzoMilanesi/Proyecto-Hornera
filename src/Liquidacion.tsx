@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Alert, Button, Card, Input, InputNumber, Popconfirm, Select, Space, Table, Tag, Typography, Upload } from 'antd';
+import { Alert, Button, Card, Input, InputNumber, Popconfirm, Select, Space, Table, Tag, Tooltip, Typography, Upload } from 'antd';
 import type { TableColumnsType } from 'antd';
 import type { LiquidacionDepto, LiquidacionPeriodo } from '../server/liquidacion/servicio.ts';
+import { repartoCuenta, type CuentaLiquidacion } from '../server/liquidacion/motor.ts';
 import type { ComparacionDepto } from '../server/liquidacion/comparar.ts';
 import { enviar, get, pesos, subirArchivo } from './api.ts';
 import { VariablesMes } from './Variables.tsx';
@@ -24,6 +25,56 @@ function Comparacion({ c }: { c?: ComparacionDepto }) {
   if (c.estado === 'solo_excel') return <Tag color="orange">solo en el Excel</Tag>;
   if (c.estado === 'solo_app') return <Tag color="orange">no está en el Excel</Tag>;
   return <Tag color="red">{c.diferencias.length} diferencia{c.diferencias.length > 1 ? 's' : ''}</Tag>;
+}
+
+// ¿A dónde fue cada peso? La barra del reparto: grande en el detalle, `mini` en la fila de la tabla.
+const TRAMOS = [
+  { k: 'costos', nombre: 'Costos', color: '#B4B2A9' },
+  { k: 'hornera', nombre: 'Hornera', color: '#F0997B' },
+  { k: 'gastos', nombre: 'Gastos del depto', color: '#EF9F27' },
+  { k: 'propietario', nombre: 'Propietario', color: '#1D9E75' },
+  { k: 'deuda', nombre: 'Deuda del propietario', color: '#E24B4A' },
+] as const;
+function BarraReparto({ c, moneda, mini }: { c: CuentaLiquidacion; moneda?: 'ARS' | 'USD'; mini?: boolean }) {
+  const r = repartoCuenta(c);
+  const ancho = r.entro + r.deuda;
+  if (r.entro <= 0) return null; // ponytail: sin barra cuando no entró plata; la cuenta de abajo lo explica
+  const tramos = TRAMOS.filter((t) => r[t.k] > 0);
+  const pct = (v: number) => `${Math.round((v / r.entro) * 100)}%`;
+  const barra = (
+    <div style={{ position: 'relative' }}>
+      <div style={{ display: 'flex', height: mini ? 8 : 26, minWidth: mini ? 120 : undefined, borderRadius: mini ? 4 : 6, overflow: 'hidden' }}>
+        {tramos.map((t) => (
+          <div key={t.k} title={mini ? undefined : `${t.nombre} ${pesos(r[t.k])}`}
+            style={{ width: `${(r[t.k] / ancho) * 100}%`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, overflow: 'hidden',
+              background: t.k === 'deuda' && !mini ? `repeating-linear-gradient(45deg, ${t.color} 0 4px, #F7C1C1 4px 8px)` : t.color }}>
+            {!mini && t.k !== 'deuda' && r[t.k] / r.entro >= 0.1 ? pct(r[t.k]) : ''}
+          </div>
+        ))}
+      </div>
+      {/* Con deuda, la línea marca hasta dónde llegó lo que entró. */}
+      {!mini && r.deuda > 0 && <div style={{ position: 'absolute', left: `${(r.entro / ancho) * 100}%`, top: -4, bottom: -4, borderLeft: '1.5px dashed #2A211B' }} />}
+    </div>
+  );
+  if (mini) return <Tooltip title={tramos.map((t) => <div key={t.k}>{t.nombre}: {pesos(r[t.k])}</div>)}>{barra}</Tooltip>;
+  return (
+    <div>
+      {barra}
+      <Space wrap size="large" style={{ marginTop: 8 }}>
+        {tramos.map((t) => (
+          <div key={t.k}>
+            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: t.color, marginRight: 6 }} />
+            <Typography.Text type="secondary">{t.nombre}{t.k === 'deuda' ? '' : ` ${pct(r[t.k])}`}</Typography.Text>
+            <div><Typography.Text strong type={t.k === 'deuda' ? 'danger' : undefined}>{pesos(t.k === 'deuda' ? -r.deuda : r[t.k])}</Typography.Text></div>
+          </div>
+        ))}
+      </Space>
+      <div><Typography.Text type="secondary">
+        Sobre {pesos(r.entro)} que entraron{r.deuda > 0 ? ': los gastos superan lo que le tocaba al propietario (la línea punteada marca lo que entró)' : ''}
+        {moneda === 'USD' ? ' · En pesos; el saldo pasa a dólares en la cuenta' : ''}.
+      </Typography.Text></div>
+    </div>
+  );
 }
 
 // La cuenta de la liquidación renglón por renglón, con lo que compone cada uno y dónde se corrige.
@@ -72,6 +123,8 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
             <li key={i}>{x.campo}{x.unidad === 'noches' ? '' : ` ${x.unidad}`}: app {x.unidad === 'noches' ? x.app : pesos(x.app, x.unidad)} · Excel {x.unidad === 'noches' ? x.excel : pesos(x.excel, x.unidad)}</li>
           ))}</ul>} />
       )}
+      <Typography.Text strong>¿A dónde fue cada peso?</Typography.Text>
+      <BarraReparto c={c} moneda={d.moneda} />
       <Typography.Text strong>Cuenta de la liquidación</Typography.Text>
       <Table<Renglon> size="small" pagination={false} showHeader={false} rowKey="key" dataSource={renglones}
         columns={[
@@ -207,8 +260,7 @@ export function Liquidacion() {
     { title: 'Depto', dataIndex: 'codigo', width: 80, render: (v: string) => <b>{v}</b>, sorter: (a, b) => a.codigo.localeCompare(b.codigo) },
     { title: 'Propietario', dataIndex: 'propietario', ellipsis: true, sorter: (a, b) => a.propietario.localeCompare(b.propietario) },
     { title: 'Noches', key: 'noches', width: 90, render: (_: unknown, d) => `${d.resultado.nochesOcupadas} / ${d.resultado.nochesDisponibles}` },
-    { title: 'Bruto', key: 'bruto', ...derecha, render: (_: unknown, d) => pesos(d.resultado.bruto) },
-    { title: 'Honorarios', key: 'hon', ...derecha, render: (_: unknown, d) => pesos(d.resultado.honorarios) },
+    { title: 'Reparto', key: 'reparto', width: 160, render: (_: unknown, d) => <BarraReparto c={d.cuenta} mini /> },
     {
       title: 'Saldo', key: 'saldo', ...derecha,
       render: (_: unknown, d) => {

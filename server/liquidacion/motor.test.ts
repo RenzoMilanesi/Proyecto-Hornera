@@ -1,7 +1,7 @@
 // Correr: node --test server/liquidacion/motor.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { liquidar, cambioDelPeriodo, cuentaLiquidacion, redondeoCuenta, type ParametrosPeriodo } from './motor.ts';
+import { liquidar, cambioDelPeriodo, cuentaLiquidacion, redondeoCuenta, repartoCuenta, type ParametrosPeriodo, type Reparto } from './motor.ts';
 
 const c = (pesos: number) => Math.round(pesos * 100); // pesos → centavos
 
@@ -39,6 +39,17 @@ test('OVL abril 2026 da lo mismo que la hoja del Excel', () => {
     ingresosOperativos: c(1245787), costos: c(-180670), ingresoBruto: c(1065117), honorarios: c(-213000),
     valorInicial: c(852117), excepcionales: c(-10400), valorFinal: r.saldo.ars,
   });
+});
+
+test('el reparto cierra con lo que entró, también con deuda o con un cobro directo', () => {
+  const cierra = (r: Reparto) => assert.equal(r.costos + r.hornera + r.gastos + r.propietario, r.entro + r.deuda);
+  const normal = repartoCuenta(cuentaLiquidacion(c(1000), c(-100), c(-180), { ars: c(-20), usd: 0 }, 1));
+  assert.deepEqual(normal, { entro: c(1000), costos: c(100), hornera: c(180), gastos: c(20), propietario: c(700), deuda: 0 });
+  const deuda = repartoCuenta(cuentaLiquidacion(c(300), c(-120), c(-36), { ars: c(-210), usd: 0 }, 1));
+  assert.equal(deuda.deuda, c(66));
+  const cobro = repartoCuenta(cuentaLiquidacion(c(1000), c(-100), c(-180), { ars: c(50), usd: 0 }, 1));
+  assert.equal(cobro.entro, c(1050));
+  [normal, deuda, cobro].forEach(cierra);
 });
 
 test('los costos excepcionales en dólares pasan a pesos al cambio del período', () => {

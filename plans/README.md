@@ -46,6 +46,7 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 039 | [El manual y la guía de prueba explican la cuenta de la liquidación](039-manual-cuenta-liquidacion.md) | P2 | S | — | HECHO |
 | 040 | [La pantalla Liquidación de un mes cerrado muestra lo guardado al cerrar](040-liquidacion-cerrada-desde-snapshot.md) | P1 | M | — | A TESTEAR |
 | 041 | [La cuenta de la liquidación cierra al peso con el saldo](041-cuenta-cierra-al-peso.md) | P2 | S | 040 (mismo archivo) | A TESTEAR (opción A) |
+| 042 | [Barra del reparto: manual al día, deptos en dólares e ingresos negativos](042-barra-reparto-pulido.md) | P2 | S | — | HECHO |
 
 Los planes 001 a 030 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 
