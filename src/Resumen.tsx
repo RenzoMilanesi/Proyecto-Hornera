@@ -1,6 +1,6 @@
 // Resumen interno (fase 6): KPIs del mes por depto, resultado de Hornera, saldos de cuentas y evolución.
 import { useEffect, useState } from 'react';
-import { Alert, Card, Col, Descriptions, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { Alert, Card, Col, Descriptions, Row, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from 'antd';
 import type { elasticidadDelMes, evolucion, resumenDelMes } from '../server/resumen.ts';
 import { get, pesos } from './api.ts';
 
@@ -14,6 +14,10 @@ const pct = (x: number | null) => (x == null ? '' : `${Math.round(100 * x)} %`);
 const chico = { content: { fontSize: 20 } }; // seis tarjetas: la plata entra en un renglón
 const coef = (x: number | null | undefined) => (x == null ? '' : x.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
 const plata = (x: number | null) => (x == null ? '' : pesos(x));
+// Título de tarjeta con un ⓘ que explica la cuenta al pasar el mouse.
+const ayuda = (titulo: string, texto: string) => (
+  <Tooltip title={texto}><span style={{ cursor: 'help' }}>{titulo} <sup>ⓘ</sup></span></Tooltip>
+);
 // Para ordenar: los null (sin noches) al final.
 const orden = (k: 'ocupacion' | 'adr' | 'revpar' | 'neto_noche') => (a: KpiDepto, b: KpiDepto) => (a[k] ?? -1) - (b[k] ?? -1);
 
@@ -56,8 +60,10 @@ export function Resumen() {
       <Row gutter={16}>
         <Col span={4}><Card size="small"><Statistic styles={chico} title="Ocupación" value={t ? pct(t.ocupacion) || '—' : '—'} /></Card></Col>
         <Col span={4}><Card size="small"><Statistic styles={chico} title="Noches vendidas" value={t?.noches_vendidas ?? '—'} suffix={t ? `/ ${t.noches_venta}` : undefined} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic styles={chico} title="ADR (tarifa por noche)" value={t ? plata(t.adr) || '—' : '—'} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic styles={chico} title="RevPAR (mediana)" value={t ? plata(t.revpar_mediana) || '—' : '—'} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic styles={chico} value={t ? plata(t.adr) || '—' : '—'} title={ayuda('ADR (tarifa por noche)',
+          'Tarifa promedio por noche vendida, de toda la cartera: lo que pagaron los huéspedes por las noches (sin la tarifa por estadía) ÷ noches vendidas. Las estadías del propietario no cuentan.')} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic styles={chico} value={t ? plata(t.revpar_mediana) || '—' : '—'} title={ayuda('RevPAR (mediana)',
+          'Ingreso por noche a la venta: lo que pagaron los huéspedes por las noches ÷ noches a la venta (las del mes menos las bloqueadas y las del propietario). Es ADR × ocupación. Se calcula por depto y se muestra la mediana, así un depto muy grande o muy chico no la mueve.')} /></Card></Col>
         <Col span={4}><Card size="small"><Statistic styles={chico} title="Bruto" value={t ? pesos(t.bruto) : '—'} /></Card></Col>
         <Col span={4}><Card size="small"><Statistic title="Resultado Hornera" value={r ? pesos(r.total_ars) : '—'}
           styles={{ content: { ...chico.content, color: r && r.total_ars < 0 ? '#B42318' : undefined } }} /></Card></Col>
