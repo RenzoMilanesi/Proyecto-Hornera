@@ -173,6 +173,11 @@ Runner):
   está en la consola). Cache leída al precio de caché.
 - Errores tipados del SDK → mensaje claro: key inválida (`AuthenticationError`), tope/saldo (`RateLimitError` /
   400 de facturación), sin conexión (`APIConnectionError`). Nada se guarda si falla.
+- **Hecho (2026-10-23):** `preguntar()` en `server/ia/asistente.ts`, con el cliente inyectable (`ClienteIa`) para los
+  tests. Va por `client.beta.messages` (el respaldo por rechazo es beta). Diferencias: un rechazo no se guarda (la
+  respuesta puede venir vacía y el historial quedaría inválido); `max_tokens` cortado avisa; la escritura de caché se
+  cuenta como entrada en el costo. `herramientas_json` guarda `{id, nombre, entrada, filas, error}`: el resultado
+  completo está en `mensajes_json` (mismo `id` que el `tool_use`) para el desplegable "Cómo lo calculé".
 
 ### 5. Rutas (`server/app.ts`)
 - `POST /api/ia/preguntar` `{ conversacion_id?, pregunta, pantalla, mes }` → respuesta. Funciona desde terminales
@@ -192,7 +197,7 @@ Runner):
 - Sin key: el panel explica cómo cargarla (y que solo se hace desde la PC servidor).
 
 ### 7. Empaquetado
-- Sumar `manual/manual.html` a `build.files` en `package.json` (hoy no viaja en el instalador). Sin el archivo, el
+- **Hecho en el paso 4.** Sumar `manual/manual.html` a `build.files` en `package.json` (hoy no viaja en el instalador). Sin el archivo, el
   asistente arranca igual, sin la parte de ayuda de uso (aviso en consola).
 
 ### 8. Tests (`server/ia/*.test.ts`, sin llamar a la API real)
