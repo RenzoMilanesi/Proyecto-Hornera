@@ -65,6 +65,9 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 058 | [Lavandería: cada pago como gasto de la empresa](058-lavanderia.md) | P2 | S | 057 | TODO |
 | 059 | [El pago de una liquidación de limpieza no se edita desde Movimientos](059-pago-limpieza-no-editable.md) | P2 | S | 057 | A TESTEAR |
 | 060 | [El manual explica el menú nuevo y la pantalla Resumen Hornera](060-manual-menu-hornera.md) | P2 | S | — | HECHO (v0.41.1: manual revisado completo) |
+| 061 | [Asistente con IA (Claude) para consultar la app: fase 1, solo lectura](061-asistente-ia.md) | P2 | L | — | TODO |
+
+Plan 061: definido con `grill-me` el 2026-10-23 (sobre `7baa8c5`). La fase 2 (acciones con confirmación) va en un plan aparte, después de probar la fase 1.
 
 Plan 060: revisión `improve deep` del grupo HORNERA y Resumen Hornera (definido con `grill-me` el 2026-10-23, sobre `dcc7481`). Descartado: el Disponible no descuenta vencimientos (no tienen importe cargado; la pantalla lo aclara); lo pendiente a propietarios mira solo el último mes cerrado (lo anterior ya se arrastró a ese saldo); NC de factura de crédito electrónica 203/208/213 (marcado `ponytail:` en `SQL_FACTURADO`, Hornera no las usa); evolución recalcula cada mes cerrado (pocos meses, como en el Resumen).
 
