@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import Anthropic from '@anthropic-ai/sdk';
 import { abrirDb } from '../db.ts';
-import { guardarConfigIa, MAX_RESULTADO, MAX_VUELTAS, preguntar, type ClienteIa } from './asistente.ts';
+import { costo, guardarConfigIa, MAX_RESULTADO, MAX_VUELTAS, preguntar, type ClienteIa } from './asistente.ts';
 
 type Bloque = Anthropic.Beta.BetaContentBlock;
 const usage = { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 1000, cache_creation_input_tokens: 0 };
@@ -103,4 +103,14 @@ test('asistente: un resultado enorme llega cortado y con el aviso al final', asy
   assert.ok(contenido.length < MAX_RESULTADO + 200);
   assert.ok(contenido.endsWith('caracteres. Pedí menos datos (un depto, un mes, menos columnas).]'), contenido.slice(-150));
   assert.match(contenido, /\n\[Resultado cortado: tenía \d+ caracteres\./);
+});
+
+test('costo: también el de los modelos de respaldo, sin confundir opus-5-5 con opus-5', () => {
+  const t = { entrada: 1_000_000, cache: 1_000_000, salida: 1_000_000 };
+  assert.equal(costo('claude-sonnet-5-5', t), 2 + 10 + 0.20);
+  assert.equal(costo('claude-sonnet-5', t), 2 + 10 + 0.20);
+  assert.equal(costo('claude-opus-5-5', t), 4 + 20 + 0.20);
+  assert.equal(costo('claude-opus-5', t), 5 + 25 + 0.50);
+  assert.equal(costo('claude-opus-4-8', t), 5 + 25 + 0.50);
+  assert.equal(costo('otro-modelo', t), null);
 });

@@ -55,10 +55,16 @@ const PRECIOS: Record<string, [number, number, number]> = {
   'claude-haiku-5-5': [0.10, 0.50, 0.01],
   'claude-sonnet-5-5': [2, 10, 0.20],
   'claude-opus-5-5': [4, 20, 0.20],
+  // Los que contestan cuando la API pasa una pregunta rechazada a otro modelo (fallbacks: 'default', plan 065).
+  'claude-sonnet-5': [2, 10, 0.20],
+  'claude-opus-5': [5, 25, 0.50],
+  'claude-opus-4-8': [5, 25, 0.50],
 };
+// El prefijo más largo primero: claude-opus-5-5 no tiene que caer en claude-opus-5.
+const MODELOS_CON_PRECIO = Object.keys(PRECIOS).sort((a, b) => b.length - a.length);
 
 export function costo(modelo: string, t: { entrada: number; cache: number; salida: number }) {
-  const p = PRECIOS[Object.keys(PRECIOS).find((m) => modelo.startsWith(m)) ?? ''];
+  const p = PRECIOS[MODELOS_CON_PRECIO.find((m) => modelo.startsWith(m)) ?? ''];
   return p ? (t.entrada * p[0] + t.salida * p[1] + t.cache * p[2]) / 1e6 : null;
 }
 
