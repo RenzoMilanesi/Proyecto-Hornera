@@ -225,6 +225,8 @@ Runner):
 - `DECISIONES.md`: las decisiones de arriba (sobre todo 3, 4 y "la IA no escribe").
 - Manual: sección corta "Asistente" (cómo cargar la key, qué puede y qué no, que los datos salen a Anthropic).
   Capturas al final de la tanda.
+- **Hecho (2026-10-23):** sección "Asistente con IA" en `DECISIONES.md`; capítulo 22 del manual (sin captura todavía;
+  el PDF se regenera con la tanda de capturas). Como el manual es contexto del asistente, también sabe explicarse a sí mismo.
 
 ## Fuera de este plan
 - **Fase 2 — acciones** (proponer un cambio y confirmarlo con un botón): plan aparte cuando la fase 1 esté probada.

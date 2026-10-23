@@ -82,6 +82,7 @@
   <li>Auditoría</li>
   <li>Terminales: usar Hornera en otra PC</li>
   <li>Copias de seguridad y recuperación</li>
+  <li>Asistente con IA</li>
   <li>Problemas frecuentes</li>
   <li>Glosario</li>
 </ol>
@@ -870,7 +871,30 @@ Antes se hace una copia <code>antes-de-reemplazar</code> de la base, igual que a
 pueden estar abiertas a la vez.</div>
 
 <!-- ============================================================ -->
-<h1>22. Problemas frecuentes</h1>
+<h1>22. Asistente con IA</h1>
+<p>El <b>asistente</b> contesta preguntas sobre los datos de la app (<i>"¿cuánto se le liquidó a OVL en septiembre?"</i>), sobre cómo se usa
+(<i>"¿cómo cargo un gasto personal?"</i>) y pide análisis (<i>"¿qué depto tuvo peor ocupación este año?"</i>). Se abre con
+<span class="menu">Asistente con IA</span>, abajo del menú, desde cualquier pantalla y en cualquier PC: sabe qué pantalla y qué mes se está mirando.</p>
+<ul>
+  <li><b>Solo lee:</b> no carga, no cambia ni borra nada. Para hacer algo, hay que hacerlo en la pantalla que corresponde.</li>
+  <li><b>Verificar los números:</b> al pie de cada respuesta dice qué modelo contestó, cuántas consultas hizo y cuánto costó.
+    <b>Cómo lo calculé</b> muestra qué datos pidió (y la consulta, si escribió una). Ante la duda, comparar con la pantalla de la app.</li>
+  <li><b>Conversaciones:</b> quedan guardadas en cada PC; se retoman desde la lista de arriba. <span class="boton">Nueva</span> empieza otra y
+    <span class="boton">Borrar</span> borra la que está abierta.</li>
+  <li><b>Los datos salen a Anthropic:</b> para contestar, la pregunta y los datos que consulta (incluidas las claves de los deptos si las pide) se mandan a
+    Anthropic, la empresa de Claude. Nunca se mandan las claves de Stays, de ARCA ni de las terminales.</li>
+</ul>
+<h2>Cargar la API key (una sola vez, en la PC servidor)</h2>
+<ol class="pasos">
+  <li>Con la cuenta del negocio en <code>console.anthropic.com</code> (no sirve la suscripción de Claude Pro), crear una API key y, en la misma
+    consola, poner un tope de gasto mensual.</li>
+  <li>En la PC servidor, ir a <i>Herramientas → Asistente</i>, pegar la key y tocar <b>Guardar</b>. Queda cifrada en esa PC y no viaja en las copias.</li>
+  <li>Ahí mismo se elige el modelo: Sonnet alcanza para casi todo; Opus para análisis difíciles (más caro); Haiku es el más barato.</li>
+</ol>
+<p>Si el asistente no está disponible (sin key, sin internet, sin saldo o con el tope alcanzado), el panel dice por qué; el resto de la app anda igual.</p>
+
+<!-- ============================================================ -->
+<h1>23. Problemas frecuentes</h1>
 <table>
   <tr><th style="width:38%">Qué pasa</th><th>Qué hacer</th></tr>
   <tr><td>"No se pudo conectar con Stays…"</td><td>Es un corte de internet. Revisar la conexión y volver a traer el mes: no se guardó nada a medias.</td></tr>
@@ -895,7 +919,7 @@ pueden estar abiertas a la vez.</div>
 </ul>
 
 <!-- ============================================================ -->
-<h1>23. Glosario</h1>
+<h1>24. Glosario</h1>
 <table>
   <tr><th style="width:28%">Término</th><th>Significado</th></tr>
   <tr><td>Bruto</td><td>Ingresos del depto en el mes: lo cobrado en pesos más lo cobrado en dólares convertido al cambio.</td></tr>

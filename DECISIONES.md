@@ -123,6 +123,13 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
   no están en un período pagado; lo pagado queda como se pagó y, si el Excel cambió, avisa.
 - Las horas por chica, depto y mes son solo información.
 
+## Asistente con IA (`server/ia/`, panel "Asistente con IA"; plan 061, 2026-10-23)
+- **Fase 1, solo lectura:** contesta sobre datos, uso de la app (el manual entero como contexto, con caché) y análisis. Ninguna herramienta escribe; las acciones (cargar, facturar) son una fase 2 aparte, con confirmación.
+- **Solo Claude**, con una API key del negocio (console.anthropic.com, no Claude Pro), cifrada con safeStorage en la PC servidor y fuera de los backups. El tope de gasto se pone en la consola de Anthropic; la app no tiene tope propio. Modelo y esfuerzo se eligen en Herramientas → Asistente (arranca Sonnet 5.5, medio).
+- **Corre en la PC servidor:** las terminales preguntan por la API. La key y el modelo solo se tocan en el servidor. El historial es por PC (como la auditoría: sin login).
+- **Privacidad:** salen a Anthropic todos los datos del negocio que la IA consulte, **incluidas las claves de los deptos** (decisión del usuario). Nunca salen las tablas `terminal` y `configuracion` (tokens, ticket de ARCA): `consulta_sql` las bloquea con el authorizer de SQLite.
+- **Números verificables:** 20 herramientas que reusan las funciones del programa + `consulta_sql` (conexión de solo lectura, solo SELECT, 200 filas, 5 s, en un proceso aparte que se mata si se pasa). Al pie de cada respuesta, modelo, consultas, costo y qué consultó.
+
 ## Técnico
 - **Desktop** como Roble: Electron + React/Vite + Express + SQLite. Proyecto nuevo, se copia de Roble solo lo que sirva.
 - **SQLite con `node:sqlite`** (incluido en Node/Electron) en vez de `better-sqlite3`: sin módulo nativo ni `electron-rebuild`. Electron corre los `.ts` directo (type stripping); solo Vite compila la interfaz. `tsc` se usa únicamente para chequear tipos.
