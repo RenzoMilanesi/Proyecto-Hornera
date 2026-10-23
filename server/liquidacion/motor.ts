@@ -72,7 +72,9 @@ export interface ResultadoLiquidacion {
   bruto: Centavos;                     // [F18]
   gastosDirectos: Centavos;            // [F19] (negativo)
   honorarios: Centavos;                // [J34] (negativo)
-  saldoParcial: Centavos;              // [F22]
+  // Lo que pagaron los huéspedes por las noches, sin la tarifa por estadía ni las estadías del propietario:
+  // base del ADR y el RevPAR (pantalla Resumen).
+  alojamiento: Centavos;
   conversion: Importe;                 // fila "Cambio moneda" [J53] [K53]
   saldo: Importe;                      // [J55] [K55] antes del pago: >0 se le paga, <0 debe
   nochesDisponibles: number;           // [B23]
@@ -158,7 +160,8 @@ export function liquidar(e: EntradaLiquidacion): ResultadoLiquidacion {
 
   return {
     reservas, ingresos, costosOperativos, bruto, gastosDirectos, honorarios,
-    saldoParcial: bruto + gastosDirectos + honorarios,
+    alojamiento: redondearPesos(reservas.reduce((s, l, i) => (e.reservas[i].canal === 'P' ? s
+      : s + l.importePeriodoArs + l.importePeriodoUsd * p.cambio - l.tarifaPeriodo), 0)),
     conversion, saldo,
     nochesDisponibles, nochesOcupadas, nochesPropietario,
     ocupacion: nochesDisponibles === 0 ? 0 : nochesOcupadas / nochesDisponibles,
@@ -173,20 +176,20 @@ function codigoInterno(r: ReservaEntrada, depto: string, noches: number, dividid
 }
 
 // La cuenta de la liquidación en pesos, renglón por renglón (pedido 2026-10-16):
-//   Ingresos operativos − Costos = Ingreso bruto
-//   Ingreso bruto − Honorarios = Valor liquidación inicial
+//   Ingresos operativos − Costos = Base de honorarios
+//   Base de honorarios − Honorarios = Valor liquidación inicial
 //   Valor liquidación inicial − Costos excepcionales = Valor liquidación final
 // Costos = costos operativos + comisiones OTA/CM [F19]. Excepcionales = movimientos del mes del depto
 // (gastos, adelantos, cobros directos), sin saldo anterior ni pagos de liquidación; el USD al cambio del período.
 export interface CuentaLiquidacion {
-  ingresosOperativos: Centavos; costos: Centavos; ingresoBruto: Centavos; honorarios: Centavos;
+  ingresosOperativos: Centavos; costos: Centavos; baseHonorarios: Centavos; honorarios: Centavos;
   valorInicial: Centavos; excepcionales: Centavos; valorFinal: Centavos;
 }
 export function cuentaLiquidacion(bruto: Centavos, gastosDirectos: Centavos, honorarios: Centavos, movimientos: Importe, cambio: number): CuentaLiquidacion {
-  const ingresoBruto = bruto + gastosDirectos;
-  const valorInicial = ingresoBruto + honorarios;
+  const baseHonorarios = bruto + gastosDirectos;
+  const valorInicial = baseHonorarios + honorarios;
   const excepcionales = redondearPesos(movimientos.ars + movimientos.usd * cambio);
-  return { ingresosOperativos: bruto, costos: gastosDirectos, ingresoBruto, honorarios, valorInicial, excepcionales, valorFinal: valorInicial + excepcionales };
+  return { ingresosOperativos: bruto, costos: gastosDirectos, baseHonorarios, honorarios, valorInicial, excepcionales, valorFinal: valorInicial + excepcionales };
 }
 
 // A dónde fue lo que entró (barra de la pantalla Liquidación): costos, Hornera, gastos del depto y lo que

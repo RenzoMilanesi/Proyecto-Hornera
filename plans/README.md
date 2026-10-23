@@ -54,6 +54,7 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 047 | [Guardar los gastos ajenos (CAY, LAU, CAY/LAU, CASEST, CASA) y verlos en "Gastos personales"](047-gastos-ajenos-guardados.md) | P2 | M | 045 | HECHO |
 | 048 | [Elegir desde la app la carpeta de las copias de seguridad](048-carpeta-de-copias.md) | P2 | M | — | A TESTEAR |
 | 049 | [Ficha del depto y Vencimientos: decisiones, manual y test de rutas](049-ficha-del-depto.md) | P2 | S | — | HECHO |
+| 050 | [Foto diaria del calendario de Stays (precio y disponibilidad por noche)](050-foto-calendario-stays.md) | P3 | M | — | TODO |
 
 Los planes 001 a 030 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 

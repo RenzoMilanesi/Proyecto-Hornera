@@ -192,11 +192,12 @@ de entrada muestra el último mes cerrado, que tiene los números firmes. Si se 
   <figcaption>Resumen de un mes cerrado.</figcaption>
 </figure>
 <ul>
-  <li><b>Tarjetas de arriba:</b> ocupación (noches ocupadas sobre disponibles), cantidad de reservas, bruto del mes y resultado de Hornera.</li>
+  <li><b>Tarjetas de arriba:</b> ocupación, noches vendidas sobre noches a la venta, ADR, RevPAR (mediana de los deptos), bruto del mes y resultado de Hornera.
+    Las estadías del propietario y los bloqueos no cuentan como noches a la venta.</li>
   <li><b>Resultado de Hornera:</b> honorarios + costos operativos cobrados + ingresos y gastos de la empresa (los movimientos
     sin depto, el "INT" del Excel). Los movimientos de la empresa en dólares se muestran aparte.</li>
   <li><b>Saldos de cuentas (hoy):</b> cuánto hay en cada cuenta en este momento, con el total en pesos y en dólares.</li>
-  <li><b>Por depto:</b> ocupación, noches, reservas, bruto, precio promedio por noche y honorarios de cada depto.
+  <li><b>Por depto:</b> ocupación, noches, reservas, bruto, ADR, RevPAR, neto por noche y honorarios de cada depto. Viene ordenado por RevPAR.
     Se ordena tocando el título de la columna.</li>
   <li><b>Evolución mensual:</b> los meses cerrados con sus barras. Los meses anteriores a Hornera solo tienen noches
     ocupadas (vienen de la hoja OCUPACION del Excel).</li>
@@ -236,7 +237,7 @@ dice qué lo compone y, con el mes abierto, dónde se corrige:</p>
   <li><b>Ingresos operativos:</b> lo cobrado de las reservas del mes. Se corrige con <span class="boton">Ajustar</span> en la reserva.</li>
   <li><b>− Costos:</b> los costos operativos (la tarifa por reserva, prorrateada a las noches del mes; se cambian en
     <span class="boton">Variables del mes</span>) y las comisiones de plataformas y agentes (<span class="boton">Ajustar</span> en la reserva).</li>
-  <li><b>Ingreso bruto.</b></li>
+  <li><b>Base de honorarios.</b></li>
   <li><b>− Honorarios:</b> la comisión de Hornera sobre el ingreso bruto (se cambia en Deptos → Variables).</li>
   <li><b>Valor liquidación inicial.</b></li>
   <li><b>− Gastos Varios:</b> los gastos del depto y los adelantos al propietario del mes. <span class="boton">Agregar Nuevo Gasto</span>
@@ -722,8 +723,12 @@ pueden estar abiertas a la vez.</div>
   <tr><th style="width:28%">Término</th><th>Significado</th></tr>
   <tr><td>Bruto</td><td>Ingresos del depto en el mes: lo cobrado en pesos más lo cobrado en dólares convertido al cambio.</td></tr>
   <tr><td>Honorarios</td><td>Lo que cobra Hornera: la comisión del depto sobre el bruto menos costos operativos y comisiones, redondeada a centenas.</td></tr>
-  <tr><td>Ingreso bruto</td><td>Ingresos operativos menos costos (costos operativos y comisiones de plataformas). Sobre esto se calculan los honorarios.</td></tr>
-  <tr><td>Valor liquidación inicial</td><td>Ingreso bruto menos honorarios.</td></tr>
+  <tr><td>Base de honorarios</td><td>Ingresos operativos menos costos (costos operativos y comisiones de plataformas). Sobre esto se calculan los honorarios.</td></tr>
+  <tr><td>Valor liquidación inicial</td><td>Base de honorarios menos honorarios.</td></tr>
+  <tr><td>ADR</td><td>Tarifa promedio por noche vendida: lo que pagaron los huéspedes por las noches, sin la tarifa por estadía, dividido las noches vendidas (sin estadías del propietario).</td></tr>
+  <tr><td>Ocupación</td><td>Noches vendidas sobre noches a la venta (las del mes menos bloqueos y estadías del propietario).</td></tr>
+  <tr><td>RevPAR</td><td>Ingreso por noche a la venta, se haya alquilado o no: ADR × ocupación. Junta precio y ocupación en un número; sirve para comparar deptos.</td></tr>
+  <tr><td>Neto por noche</td><td>Valor liquidación inicial dividido las noches vendidas: lo que le queda al propietario por noche.</td></tr>
   <tr><td>Gastos Varios</td><td>Gastos del depto y adelantos al propietario cargados en el mes (Movimientos), sin el saldo anterior ni los pagos.</td></tr>
   <tr><td>Valor liquidación final</td><td>Valor liquidación inicial menos gastos varios. Sumado al saldo anterior da el saldo.</td></tr>
   <tr><td>Costos operativos</td><td>La tarifa por reserva (limpieza, lavandería, gestión, mantenimiento), prorrateada a las noches del mes.</td></tr>

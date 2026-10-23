@@ -187,16 +187,16 @@ function ImprimirHoja({ parametros }: { parametros: URLSearchParams }) {
           <div className="fila"><span className="etiqueta">Ocupado cliente</span><span>{h.noches.propietario} noches</span></div>
           <div className="fila"><span className="etiqueta">Ocupado</span><span>{h.noches.ocupadas} noches</span></div>
           <div className="fila"><span className="etiqueta">Reservas</span><span>{h.noches.reservas}</span></div>
-          <div className="fila"><span className="etiqueta">Ocupación</span><span>{h.noches.disponibles ? pct(h.noches.ocupadas / h.noches.disponibles) : '-'}</span></div>
-          <div className="fila"><span className="etiqueta">Tarifa diaria prom.</span><span>{ocupables > 0 ? ars(r.ingresoBruto / ocupables) : '-'}</span></div>
+          <div className="fila"><span className="etiqueta">Ocupación</span><span>{h.noches.disponibles > h.noches.propietario ? pct(ocupables / (h.noches.disponibles - h.noches.propietario)) : '-'}</span></div>
+          <div className="fila"><span className="etiqueta">Tarifa diaria prom.</span><span>{ocupables > 0 ? ars(r.baseHonorarios / ocupables) : '-'}</span></div>
         </div>
         <div>
           <h2>Resumen</h2>
           <table className="resumen"><tbody>
             <tr><td>Ingresos operativos</td><td className="n">{ars(r.ingresosOperativos)}</td><td /></tr>
             <tr><td>Costos</td><td className="n">{ars(r.costos)}</td><td className="n">{r.ingresosOperativos ? pct(r.costos / r.ingresosOperativos) : ''}</td></tr>
-            <tr className="total"><td>Ingreso bruto</td><td className="n">{ars(r.ingresoBruto)}</td><td /></tr>
-            <tr><td>Honorarios</td><td className="n">{ars(r.honorarios)}</td><td className="n">{r.ingresoBruto ? pct(r.honorarios / r.ingresoBruto) : ''}</td></tr>
+            <tr className="total"><td>Base de honorarios</td><td className="n">{ars(r.baseHonorarios)}</td><td /></tr>
+            <tr><td>Honorarios</td><td className="n">{ars(r.honorarios)}</td><td className="n">{r.baseHonorarios ? pct(r.honorarios / r.baseHonorarios) : ''}</td></tr>
             <tr className="total"><td>Valor liquidación inicial</td><td className="n">{ars(r.valorInicial)}</td><td /></tr>
             <tr><td>Gastos Varios</td><td className="n">{ars(r.excepcionales)}</td><td /></tr>
             <tr className="total"><td>Valor liquidación final</td><td className="n">{ars(r.valorFinal)}</td><td /></tr>

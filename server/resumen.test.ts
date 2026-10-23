@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { DatabaseSync } from 'node:sqlite';
 import { abrirDb } from './db.ts';
-import { evolucion, resumenDelMes } from './resumen.ts';
+import { evolucion, metricas, resumenDelMes } from './resumen.ts';
 
 const periodo = (db: DatabaseSync, mes: string, inicio: string, cierre: string, estado: string) => db.prepare(`
   INSERT INTO periodo(mes, fecha_inicio, fecha_cierre_reservas, fecha_corte_gastos, fecha_pago, usd_cotizacion, usd_descuento_pct,
@@ -38,7 +38,12 @@ test('resumen de un mes cerrado: KPIs por depto, resultado de Hornera y saldos d
   const r = resumenDelMes(db, '2026-04');
   assert.equal(r.estado, 'cerrado');
   assert.deepEqual(r.deptos.map((d) => [d.codigo, d.noches_ocupadas, d.honorarios]), [['AAA', 20, 2000000], ['BBB', 10, 1000000]]);
-  assert.deepEqual(r.totales, { noches_disponibles: 60, noches_ocupadas: 30, reservas: 4, bruto: 15000000 });
+  // Sin detalle de reservas (mes del Excel), el alojamiento es bruto − costos operativos.
+  assert.deepEqual(r.totales, {
+    noches_disponibles: 60, noches_ocupadas: 30, noches_propietario: 0, reservas: 4, bruto: 15000000, alojamiento: 13500000,
+    valor_inicial: 10500000, noches_venta: 60, noches_vendidas: 30, ocupacion: 0.5, adr: 450000, revpar: 225000, neto_noche: 350000,
+    revpar_mediana: 225000, honorario_efectivo: 0.2,
+  });
   // 30.000 honorarios + 15.000 costos operativos − 4.000 de gastos de la empresa
   assert.deepEqual(r.resultado, { honorarios: 3000000, costos_operativos: 1500000, empresa: { ars: -400000, usd: 5000 }, total_ars: 4100000 });
   assert.deepEqual(r.cuentas.map((c: any) => [c.nombre, c.saldo]), [['Banco A', 9000000 - 400000 - 300000], ['Caja USD', 5000]]);
@@ -67,8 +72,17 @@ test('evolución: meses cerrados con su resultado y, antes, solo las noches del 
   db.exec(`UPDATE periodo SET estado = 'cerrado' WHERE mes = '2026-04'`);
 
   assert.deepEqual(evolucion(db).map((f: any) => ({ ...f })), [
-    { mes: '2024-10', noches_disponibles: null, noches_ocupadas: 20, reservas: null, bruto: null, honorarios: null, resultado_ars: null },
+    { mes: '2024-10', noches_disponibles: null, noches_ocupadas: 20, ocupacion: null, adr: null, revpar: null, reservas: null, bruto: null, honorarios: null, resultado_ars: null },
     // 2026-04 sale de la liquidación, no del histórico (99)
-    { mes: '2026-04', noches_disponibles: 30, noches_ocupadas: 20, reservas: 2, bruto: 10000000, honorarios: 2000000, resultado_ars: 2600000 },
+    { mes: '2026-04', noches_disponibles: 30, noches_ocupadas: 20, ocupacion: 20 / 30, adr: 450000, revpar: 300000, reservas: 2, bruto: 10000000, honorarios: 2000000, resultado_ars: 2600000 },
   ]);
+});
+
+test('métricas: la estadía del propietario no es noche vendida ni a la venta', () => {
+  // 30 disponibles (sin bloqueos), 20 ocupadas de las que 5 son del propietario.
+  const m = metricas({ noches_disponibles: 30, noches_ocupadas: 20, noches_propietario: 5, alojamiento: 1500000, valor_inicial: 900000 });
+  assert.deepEqual(m, { noches_venta: 25, noches_vendidas: 15, ocupacion: 0.6, adr: 100000, revpar: 60000, neto_noche: 60000 });
+  assert.equal(m.revpar, (m.adr ?? 0) * (m.ocupacion ?? 0)); // RevPAR = ADR × ocupación
+  assert.deepEqual(metricas({ noches_disponibles: 0, noches_ocupadas: 0, noches_propietario: 0, alojamiento: 0, valor_inicial: 0 }),
+    { noches_venta: 0, noches_vendidas: 0, ocupacion: null, adr: null, revpar: null, neto_noche: null });
 });

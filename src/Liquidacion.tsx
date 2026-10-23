@@ -106,7 +106,7 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
       detalle: editar
         ? <>Costos operativos {pesos(-r.costosOperativos)} (tarifas: {enlace('Variables del mes', editar.variables)}) y comisiones OTA/CM {ars(-d.comisiones.ars)} {usd(-d.comisiones.usd)} (en cada reserva: Ajustar).</>
         : <>Costos operativos {pesos(-r.costosOperativos)} y comisiones OTA/CM {ars(-d.comisiones.ars)} {usd(-d.comisiones.usd)}.</> },
-    { key: 'bru', concepto: 'Ingreso bruto', importe: pesos(c.ingresoBruto), total: true },
+    { key: 'bru', concepto: 'Base de honorarios', importe: pesos(c.baseHonorarios), total: true },
     { key: 'hon', concepto: `− Honorarios (${pct})`, importe: pesos(c.honorarios), detalle: editar ? 'Comisión del depto: Deptos → Variables.' : undefined },
     { key: 'ini', concepto: 'Valor liquidación inicial', importe: pesos(c.valorInicial), total: true },
     { key: 'exc', concepto: '− Gastos Varios', importe: pesos(c.excepcionales),

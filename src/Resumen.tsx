@@ -1,16 +1,20 @@
 // Resumen interno (fase 6): KPIs del mes por depto, resultado de Hornera, saldos de cuentas y evolución.
 import { useEffect, useState } from 'react';
 import { Alert, Card, Col, Descriptions, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
-import type { KpiDepto, resumenDelMes } from '../server/resumen.ts';
+import type { evolucion, resumenDelMes } from '../server/resumen.ts';
 import { get, pesos } from './api.ts';
 
 type Resumen = ReturnType<typeof resumenDelMes>;
+type KpiDepto = Resumen['deptos'][number];
 interface Cuenta { nombre: string; moneda: 'ARS' | 'USD'; saldo: number }
-interface Mes { mes: string; noches_disponibles: number | null; noches_ocupadas: number | null; reservas: number | null; bruto: number | null; honorarios: number | null; resultado_ars: number | null }
+type Mes = ReturnType<typeof evolucion>[number];
 
 const derecha = { align: 'right' as const, onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }) };
-const pct = (ocupadas: number, disponibles: number) => (disponibles ? `${Math.round((100 * ocupadas) / disponibles)} %` : '');
-const porNoche = (bruto: number, noches: number) => (noches ? pesos(Math.round(bruto / noches)) : '');
+const pct = (x: number | null) => (x == null ? '' : `${Math.round(100 * x)} %`);
+const chico = { content: { fontSize: 20 } }; // seis tarjetas: la plata entra en un renglón
+const plata = (x: number | null) => (x == null ? '' : pesos(x));
+// Para ordenar: los null (sin noches) al final.
+const orden = (k: 'ocupacion' | 'adr' | 'revpar' | 'neto_noche') => (a: KpiDepto, b: KpiDepto) => (a[k] ?? -1) - (b[k] ?? -1);
 
 export function Resumen() {
   const [meses, setMeses] = useState<{ mes: string; estado: string }[]>([]);
@@ -48,12 +52,13 @@ export function Resumen() {
       {datos?.avisos.length ? <Alert type="warning" showIcon title={datos.avisos.join(' ')} /> : null}
 
       <Row gutter={16}>
-        <Col span={5}><Card size="small"><Statistic title="Ocupación" value={t ? pct(t.noches_ocupadas, t.noches_disponibles) : '—'} /></Card></Col>
-        <Col span={5}><Card size="small"><Statistic title="Noches ocupadas" value={t?.noches_ocupadas ?? '—'} suffix={t ? `/ ${t.noches_disponibles}` : undefined} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic title="Reservas" value={t?.reservas ?? '—'} /></Card></Col>
-        <Col span={5}><Card size="small"><Statistic title="Bruto" value={t ? pesos(t.bruto) : '—'} /></Card></Col>
-        <Col span={5}><Card size="small"><Statistic title="Resultado Hornera" value={r ? pesos(r.total_ars) : '—'}
-          styles={{ content: { color: r && r.total_ars < 0 ? '#B42318' : undefined } }} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic styles={chico} title="Ocupación" value={t ? pct(t.ocupacion) || '—' : '—'} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic styles={chico} title="Noches vendidas" value={t?.noches_vendidas ?? '—'} suffix={t ? `/ ${t.noches_venta}` : undefined} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic styles={chico} title="ADR (tarifa por noche)" value={t ? plata(t.adr) || '—' : '—'} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic styles={chico} title="RevPAR (mediana)" value={t ? plata(t.revpar_mediana) || '—' : '—'} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic styles={chico} title="Bruto" value={t ? pesos(t.bruto) : '—'} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="Resultado Hornera" value={r ? pesos(r.total_ars) : '—'}
+          styles={{ content: { ...chico.content, color: r && r.total_ars < 0 ? '#B42318' : undefined } }} /></Card></Col>
       </Row>
 
       <Row gutter={16}>
@@ -61,7 +66,7 @@ export function Resumen() {
           <Card size="small" title="Resultado de Hornera">
             {r && (
               <Descriptions size="small" column={1} items={[
-                { label: 'Honorarios', children: pesos(r.honorarios) },
+                { label: 'Honorarios', children: <>{pesos(r.honorarios)}{t?.honorario_efectivo != null && <Typography.Text type="secondary"> · {(100 * t.honorario_efectivo).toLocaleString('es-AR', { maximumFractionDigits: 1 })} % del bruto</Typography.Text>}</> },
                 { label: 'Costos operativos cobrados', children: pesos(r.costos_operativos) },
                 { label: 'Ingresos y gastos de la empresa (INT)', children: <>{pesos(r.empresa.ars)}{r.empresa.usd ? ` · ${pesos(r.empresa.usd, 'USD')}` : ''}</> },
                 { label: <b>Resultado en pesos</b>, children: <b>{pesos(r.total_ars)}</b> },
@@ -86,16 +91,22 @@ export function Resumen() {
       </Row>
 
       <Card size="small" title="Por depto">
+        <Typography.Paragraph type="secondary">
+          Noches vendidas / a la venta: sin bloqueos ni estadías del propietario. ADR: lo que pagaron los huéspedes por noche vendida,
+          sin la tarifa por estadía. RevPAR: lo mismo por noche a la venta (ADR × ocupación); es el número para comparar deptos.
+          Neto por noche: lo que le queda al propietario (valor liquidación inicial) por noche vendida.
+        </Typography.Paragraph>
         <Table<KpiDepto> rowKey="codigo" size="small" pagination={false} loading={!datos && !error} dataSource={datos?.deptos} columns={[
           { title: 'Depto', dataIndex: 'codigo', width: 80, sorter: (a, b) => a.codigo.localeCompare(b.codigo) },
           { title: 'Nombre', dataIndex: 'nombre' },
-          { title: 'Ocupación', key: 'ocupacion', ...derecha, render: (_, d) => pct(d.noches_ocupadas, d.noches_disponibles),
-            sorter: (a, b) => a.noches_ocupadas / (a.noches_disponibles || 1) - b.noches_ocupadas / (b.noches_disponibles || 1) },
-          { title: 'Noches', key: 'noches', ...derecha, render: (_, d) => `${d.noches_ocupadas} / ${d.noches_disponibles}` },
+          { title: 'Ocupación', dataIndex: 'ocupacion', ...derecha, render: pct, sorter: orden('ocupacion') },
+          { title: 'Noches', key: 'noches', ...derecha, render: (_, d) => `${d.noches_vendidas} / ${d.noches_venta}` },
           { title: 'Reservas', dataIndex: 'reservas', ...derecha, sorter: (a, b) => a.reservas - b.reservas },
           { title: 'Bruto', dataIndex: 'bruto', ...derecha, render: (v: number) => pesos(v), sorter: (a, b) => a.bruto - b.bruto },
-          { title: 'Por noche', key: 'adr', ...derecha, render: (_, d) => porNoche(d.bruto, d.noches_ocupadas) },
-          { title: 'Honorarios', dataIndex: 'honorarios', ...derecha, render: (v: number) => pesos(v), sorter: (a, b) => a.honorarios - b.honorarios, defaultSortOrder: 'descend' },
+          { title: 'ADR', dataIndex: 'adr', ...derecha, render: plata, sorter: orden('adr') },
+          { title: 'RevPAR', dataIndex: 'revpar', ...derecha, render: plata, sorter: orden('revpar'), defaultSortOrder: 'descend' },
+          { title: 'Neto por noche', dataIndex: 'neto_noche', ...derecha, render: plata, sorter: orden('neto_noche') },
+          { title: 'Honorarios', dataIndex: 'honorarios', ...derecha, render: (v: number) => pesos(v), sorter: (a, b) => a.honorarios - b.honorarios },
         ]} />
       </Card>
 
@@ -107,7 +118,9 @@ export function Resumen() {
           dataSource={historia ? [...historia].reverse() : undefined} columns={[
             { title: 'Mes', dataIndex: 'mes', width: 90 },
             { title: 'Noches ocupadas', dataIndex: 'noches_ocupadas', width: 130, ...derecha },
-            { title: 'Ocupación', key: 'ocupacion', ...derecha, render: (_, m) => (m.noches_disponibles ? pct(m.noches_ocupadas ?? 0, m.noches_disponibles) : '') },
+            { title: 'Ocupación', dataIndex: 'ocupacion', ...derecha, render: pct },
+            { title: 'ADR', dataIndex: 'adr', ...derecha, render: plata },
+            { title: 'RevPAR', dataIndex: 'revpar', ...derecha, render: plata },
             { title: 'Bruto', dataIndex: 'bruto', ...derecha, render: (v: number | null) => (v == null ? '' : pesos(v)) },
             { title: 'Honorarios', dataIndex: 'honorarios', ...derecha, render: (v: number | null) => (v == null ? '' : pesos(v)) },
             { title: 'Resultado', dataIndex: 'resultado_ars', ...derecha, render: (v: number | null) => (v == null ? '' : pesos(v)) },

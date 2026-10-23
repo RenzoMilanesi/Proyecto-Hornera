@@ -30,13 +30,13 @@ test('OVL abril 2026 da lo mismo que la hoja del Excel', () => {
   assert.equal(r.bruto, c(1245787));
   assert.equal(r.gastosDirectos, c(-180670));
   assert.equal(r.honorarios, c(-213000));
-  assert.equal(r.saldoParcial, c(852117));
+  assert.equal(r.alojamiento, c(1245787 - 145655));
   assert.deepEqual(r.saldo, { ars: c(841717), usd: 0 }); // el Excel muestra 0 porque ya resta la transferencia
   assert.equal(r.nochesOcupadas, 29);
   assert.equal(r.ocupacion, 29 / 30);
   // La cuenta explícita cierra con el saldo (OVL liquida en pesos y no tiene saldo anterior).
   assert.deepEqual(cuentaLiquidacion(r.bruto, r.gastosDirectos, r.honorarios, { ars: c(-10400), usd: 0 }, abril.cambio), {
-    ingresosOperativos: c(1245787), costos: c(-180670), ingresoBruto: c(1065117), honorarios: c(-213000),
+    ingresosOperativos: c(1245787), costos: c(-180670), baseHonorarios: c(1065117), honorarios: c(-213000),
     valorInicial: c(852117), excepcionales: c(-10400), valorFinal: r.saldo.ars,
   });
 });
@@ -67,6 +67,21 @@ test('una reserva fuera del período no suma noches ni ingresos', () => {
   assert.equal(r.nochesOcupadas, 0);
   assert.equal(r.ingresos.ars, 0);
   assert.equal(r.costosOperativos, 0);
+});
+
+test('el alojamiento no cuenta la estadía del propietario ni la tarifa por estadía', () => {
+  const r = liquidar({
+    periodo: abril,
+    depto: { codigo: 'OVL', comisionPct: 0.2, monedaLiquidacion: 'ARS', comisionCobroUsdPct: 0, nochesNoDisponibles: 0 },
+    reservas: [
+      { llegada: '2026-04-02', salida: '2026-04-05', huespedes: 2, canal: 'A', ars: c(200000), ajusteArs: 0, usd: 0, ajusteUsd: 0, pagoPlataformaUsd: 0 },
+      { llegada: '2026-04-10', salida: '2026-04-15', huespedes: 2, canal: 'P', ars: 0, ajusteArs: 0, usd: 0, ajusteUsd: 0, pagoPlataformaUsd: 0 },
+    ],
+    comisiones: { ars: 0, usd: 0 },
+    movimientos: [],
+  });
+  assert.equal(r.nochesPropietario, 5);
+  assert.equal(r.alojamiento, c(200000) - r.reservas[0].tarifaPeriodo);
 });
 
 test('el renglón Redondeo cierra la cuenta con el saldo cuando los redondeos del Excel no coinciden', () => {

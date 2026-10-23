@@ -54,6 +54,10 @@ en la LAN (fase 5d), que sigue a testear.
    Deptos → "Ficha" con servicios e impuestos (N° de cuenta, titular, quién paga, vencimiento), claves (ocultas, se copian),
    contactos y notas. Mes → "Vencimientos": lo que vence en el mes de lo que paga Hornera; pagado solo al cargar el gasto
    del depto con ese concepto. Las claves quedan en la auditoría sin el valor. Fuera por ahora: adjuntos, cifrado, aviso en Resumen.
+10. **Métricas del glosario de Amancay** — **A testear** (v0.37.0; 2026-10-23): Resumen muestra ocupación, ADR, RevPAR
+   (mediana de la cartera), neto por noche y honorario efectivo; las estadías del propietario no cuentan como noches vendidas
+   ni a la venta, y el ADR va sin la tarifa por estadía. "Ingreso bruto" pasa a "Base de honorarios". Para medir elasticidad,
+   primero juntar fotos diarias del calendario de Stays ([plan 050](plans/050-foto-calendario-stays.md)).
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.
    - Terminales → "Nombre de esta PC" en el servidor (se guarda en `configuracion`); reemplaza al nombre de Windows en la auditoría.

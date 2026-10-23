@@ -3,7 +3,7 @@
 // No guarda nada: con el período abierto se recalcula cada vez (al cerrar se guardará
 // el snapshot en `liquidacion`).
 import type { DatabaseSync } from 'node:sqlite';
-import { cambioDelPeriodo, cuentaLiquidacion, liquidar, redondeoCuenta, truncPesos, type CuentaLiquidacion, type Importe, type ResultadoLiquidacion } from './motor.ts';
+import { cambioDelPeriodo, cuentaLiquidacion, liquidar, redondearPesos, redondeoCuenta, truncPesos, type CuentaLiquidacion, type Importe, type ResultadoLiquidacion } from './motor.ts';
 import { SQL_EN_PERIODO } from '../periodo.ts';
 
 export interface LiquidacionDepto {
@@ -171,8 +171,8 @@ export function liquidacionGuardada(db: DatabaseSync, mes: string): LiquidacionP
     WHERE l.periodo_id = ? ORDER BY d.codigo`).all(p.id) as any[];
   const reservasDe = db.prepare(`
     SELECT r.id, r.codigo, r.codigo_ota, r.llegada, r.huespedes, r.ajuste_ars, r.ajuste_usd, r.ajuste_comision_ars, r.ajuste_comision_usd,
-           r.observacion, lr.*
-    FROM liquidacion_reserva lr JOIN reserva r ON r.id = lr.reserva_id
+           r.observacion, pl.codigo AS canal, lr.*
+    FROM liquidacion_reserva lr JOIN reserva r ON r.id = lr.reserva_id LEFT JOIN plataforma pl ON pl.id = r.plataforma_id
     WHERE lr.liquidacion_id = ? ORDER BY r.llegada, r.codigo`);
   const cambio: number | null = filas[0]?.cambio ?? (p.usd_cotizacion == null ? null : cambioDelPeriodo(p.usd_cotizacion, p.usd_descuento_pct));
 
@@ -188,7 +188,10 @@ export function liquidacionGuardada(db: DatabaseSync, mes: string): LiquidacionP
         tarifa: x.tarifa, tarifaPeriodo: x.tarifa_periodo, pagoPlataformaUsd: x.pago_plataforma_usd,
       })),
       ingresos: { ars: l.ingresos_ars, usd: l.ingresos_usd }, costosOperativos: l.costos_operativos,
-      bruto: l.bruto, gastosDirectos, honorarios: l.honorarios, saldoParcial: l.bruto + gastosDirectos + l.honorarios,
+      bruto: l.bruto, gastosDirectos, honorarios: l.honorarios,
+      // ponytail: mes importado del Excel, sin detalle de reservas: no se puede separar al propietario.
+      alojamiento: reservas.length === 0 ? l.bruto - l.costos_operativos : redondearPesos(reservas.reduce((s, x) => (x.canal === 'P' ? s
+        : s + x.importe_periodo_ars + x.importe_periodo_usd * l.cambio - x.tarifa_periodo), 0)),
       conversion: { ars: l.conversion_ars, usd: l.conversion_usd }, saldo: { ars: l.saldo_final_ars, usd: l.saldo_final_usd },
       nochesDisponibles: l.noches_disponibles, nochesOcupadas: l.noches_ocupadas, nochesPropietario: l.noches_propietario,
       ocupacion: l.noches_disponibles === 0 ? 0 : l.noches_ocupadas / l.noches_disponibles,
