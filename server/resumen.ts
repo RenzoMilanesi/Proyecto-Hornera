@@ -109,3 +109,64 @@ export function evolucion(db: DatabaseSync) {
   }));
   return [...historico, ...cerrados].sort((a, b) => a.mes.localeCompare(b.mes));
 }
+
+// Elasticidad precio de la ocupación por depto (pedido de Amancay, 2026-10-23): cuánto cambia la ocupación
+// cuando cambia el ADR, entre este mes y el mismo mes del año anterior (o, si no hay, el mes anterior).
+// Fórmula de arco: (Δocupación / promedio) / (ΔADR / promedio). Es indicativa: con datos observados el precio
+// sube cuando hay más demanda, así que el número mezcla precio y demanda (ver avisos).
+// ponytail: ADR y ocupación del mes; con las fotos del calendario de Stays (plan 050) se puede medir por noche ofrecida.
+const CAMBIO_MINIMO = 0.05; // con el ADR casi igual, cualquier ruido en la ocupación da elasticidades absurdas
+
+const mesAnterior = (mes: string, meses: number) => {
+  const [a, m] = mes.split('-').map(Number);
+  const t = a * 12 + m - 1 - meses;
+  return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`;
+};
+
+export function arco(antes: number, despues: number) {
+  const prom = (antes + despues) / 2;
+  return prom === 0 ? null : (despues - antes) / prom;
+}
+
+export function elasticidadDelMes(db: DatabaseSync, mes: string) {
+  const existe = (m: string) => db.prepare('SELECT 1 FROM periodo WHERE mes = ?').get(m) !== undefined;
+  const anual = mesAnterior(mes, 12);
+  const base = existe(anual) ? anual : existe(mesAnterior(mes, 1)) ? mesAnterior(mes, 1) : null;
+  const avisos = ['Indicativa: el precio se sube cuando se espera más demanda (temporada, feriados), así que este número mezcla precio y demanda. No decidir precios solo con él.'];
+  if (!base) {
+    return { base: null, tipo: null, deptos: {} as Record<string, number>, mediana: null, validos: 0, confianza: 'sin datos', avisos: [...avisos, 'No hay un mes anterior cargado para comparar.'] };
+  }
+  const tipo = base === anual ? 'anual' : 'mensual';
+  const conMetricas = (m: string) => new Map(kpisDelMes(db, m).deptos.map((d) => [d.codigo, metricas(d)]));
+  const ahora = conMetricas(mes);
+  const antes = conMetricas(base);
+  const deptos: Record<string, number> = {};
+  let precioQuieto = 0;
+  for (const [codigo, x] of ahora) {
+    const y = antes.get(codigo);
+    if (!y || x.adr == null || y.adr == null || x.ocupacion == null || y.ocupacion == null) continue;
+    const dp = arco(y.adr, x.adr);
+    const dq = arco(y.ocupacion, x.ocupacion);
+    if (dp == null || dq == null) continue;
+    if (Math.abs(dp) < CAMBIO_MINIMO) { precioQuieto++; continue; }
+    deptos[codigo] = Math.round((dq / dp) * 100) / 100;
+  }
+  const valores = Object.values(deptos);
+  const positivos = valores.filter((v) => v > 0).length;
+  if (tipo === 'mensual') avisos.push(`Compara contra ${base}, el mes anterior: dos meses distintos tienen distinta demanda. Con un año de datos se compara contra el mismo mes del año anterior.`);
+  if (valores.length === 0) avisos.push(`Ningún depto cambió el ADR un ${CAMBIO_MINIMO * 100} % o más: no hay con qué calcularla.`);
+  else if (valores.length < 5) avisos.push(`Solo ${valores.length} depto(s) cambiaron el ADR un ${CAMBIO_MINIMO * 100} % o más: con tan pocos, el número es muy inestable.`);
+  if (precioQuieto) avisos.push(`${precioQuieto} depto(s) quedan afuera porque su ADR casi no cambió.`);
+  if (positivos) avisos.push(`En ${positivos} depto(s) la ocupación subió junto con el precio (valor positivo): ahí pesó la demanda, no el precio.`);
+  const sinDetalle = [mes, base].filter((m) => db.prepare(`
+    SELECT 1 FROM periodo p WHERE p.mes = ? AND p.estado = 'cerrado'
+      AND NOT EXISTS (SELECT 1 FROM liquidacion l JOIN liquidacion_reserva lr ON lr.liquidacion_id = l.id WHERE l.periodo_id = p.id)`).get(m));
+  if (sinDetalle.length) avisos.push(`${sinDetalle.join(' y ')} viene${sinDetalle.length > 1 ? 'n' : ''} del Excel, sin detalle de reservas: su ADR incluye las estadías del propietario.`);
+  if ([mes, base].some((m) => (db.prepare('SELECT estado FROM periodo WHERE mes = ?').get(m) as { estado: string }).estado === 'abierto')) {
+    avisos.push('Uno de los meses está abierto: los números todavía cambian.');
+  }
+  return {
+    base, tipo, deptos, mediana: valores.length ? (mediana(valores.map((v) => v * 100)) ?? 0) / 100 : null, validos: valores.length,
+    confianza: tipo === 'anual' && valores.length >= 5 ? 'baja' : 'muy baja', avisos,
+  };
+}

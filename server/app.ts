@@ -18,7 +18,7 @@ import { cerrarPeriodo, reabrirPeriodo } from './liquidacion/cierre.ts';
 import { desmarcarSaldadoFuera, excelTransferencias, listarTransferencias, pagarLiquidacion, saldarFuera, saldarFueraHasta } from './liquidacion/pagos.ts';
 import { hojaDepto } from './liquidacion/hoja.ts';
 import { historial } from './liquidacion/historial.ts';
-import { evolucion, resumenDelMes } from './resumen.ts';
+import { elasticidadDelMes, evolucion, resumenDelMes } from './resumen.ts';
 import { borrarEmisor, cargarCertificado, crearEmisor, editarEmisor, listarEmisores, probarEmisor, type AlmacenClaves } from './emisores.ts';
 import { ErrorArca } from './arca.ts';
 import { desvincular, importarMisComprobantes, listarMisComprobantes, vincular } from './misComprobantes.ts';
@@ -346,7 +346,10 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
 
   app.get('/api/auditoria', (req, res) => intentar(res, () => listarAuditoria(db, String(req.query.mes ?? ''))));
 
-  app.get('/api/resumen', (req, res) => intentar(res, () => resumenDelMes(db, String(req.query.mes ?? ''))));
+  app.get('/api/resumen', (req, res) => intentar(res, () => {
+    const mes = String(req.query.mes ?? '');
+    return { ...resumenDelMes(db, mes), elasticidad: elasticidadDelMes(db, mes) };
+  }));
   app.get('/api/resumen/evolucion', (_req, res) => { res.json(evolucion(db)); });
 
   app.post('/api/liquidacion/comparar', express.raw({ type: 'application/octet-stream', limit: '50mb' }), (req, res) => {

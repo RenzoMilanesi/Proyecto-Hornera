@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { DatabaseSync } from 'node:sqlite';
 import { abrirDb } from './db.ts';
-import { evolucion, metricas, resumenDelMes } from './resumen.ts';
+import { arco, elasticidadDelMes, evolucion, metricas, resumenDelMes } from './resumen.ts';
 
 const periodo = (db: DatabaseSync, mes: string, inicio: string, cierre: string, estado: string) => db.prepare(`
   INSERT INTO periodo(mes, fecha_inicio, fecha_cierre_reservas, fecha_corte_gastos, fecha_pago, usd_cotizacion, usd_descuento_pct,
@@ -85,4 +85,33 @@ test('métricas: la estadía del propietario no es noche vendida ni a la venta',
   assert.equal(m.revpar, (m.adr ?? 0) * (m.ocupacion ?? 0)); // RevPAR = ADR × ocupación
   assert.deepEqual(metricas({ noches_disponibles: 0, noches_ocupadas: 0, noches_propietario: 0, alojamiento: 0, valor_inicial: 0 }),
     { noches_venta: 0, noches_vendidas: 0, ocupacion: null, adr: null, revpar: null, neto_noche: null });
+});
+
+test('elasticidad: arco entre meses, deja afuera el precio quieto y avisa todo lo que la debilita', () => {
+  assert.equal(arco(0, 0), null);
+  assert.equal(arco(100, 110), 10 / 105);
+  const db = abrirDb(':memory:');
+  db.exec(`
+    INSERT INTO propietario(nombre) VALUES ('Propietario Uno');
+    INSERT INTO depto(codigo, nombre, propietario_id) VALUES ('AAA', 'Depto A', 1), ('BBB', 'Depto B', 1);`);
+  assert.equal(elasticidadDelMes(db, '2026-04').confianza, 'sin datos'); // sin períodos
+  const marzo = periodo(db, '2026-03', '2026-03-01', '2026-04-01', 'abierto').id;
+  const abril = periodo(db, '2026-04', '2026-04-01', '2026-05-01', 'abierto').id;
+  // AAA: ADR $10.000 → $11.000 y ocupación 20/30 → 15/30: (−1/6 ÷ 7/12) / (1/10.5) = −3.
+  liquidacion(db, marzo, 1, 20, 21000000, 1000000, 0);
+  liquidacion(db, abril, 1, 15, 17500000, 1000000, 0);
+  // BBB: el ADR casi no cambia ($10.000 → $10.200): queda afuera.
+  liquidacion(db, marzo, 2, 10, 10500000, 500000, 0);
+  liquidacion(db, abril, 2, 12, 12740000, 500000, 0);
+  db.exec(`UPDATE periodo SET estado = 'cerrado'`);
+
+  const e = elasticidadDelMes(db, '2026-04');
+  assert.equal(e.base, '2026-03');
+  assert.equal(e.tipo, 'mensual');
+  assert.deepEqual(e.deptos, { AAA: -3 });
+  assert.equal(e.mediana, -3);
+  assert.equal(e.confianza, 'muy baja');
+  for (const aviso of [/mezcla precio y demanda/, /el mes anterior/, /Solo 1 depto/, /1 depto\(s\) quedan afuera/, /viene.* del Excel/]) {
+    assert.ok(e.avisos.some((a) => aviso.test(a)), String(aviso));
+  }
 });

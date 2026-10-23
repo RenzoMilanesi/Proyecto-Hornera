@@ -58,6 +58,7 @@ en la LAN (fase 5d), que sigue a testear.
    (mediana de la cartera), neto por noche y honorario efectivo; las estadías del propietario no cuentan como noches vendidas
    ni a la venta, y el ADR va sin la tarifa por estadía. "Ingreso bruto" pasa a "Base de honorarios". Para medir elasticidad,
    primero juntar fotos diarias del calendario de Stays ([plan 050](plans/050-foto-calendario-stays.md)).
+   v0.38.0: elasticidad indicativa por depto y de la cartera, contra el mismo mes del año anterior o el anterior, con avisos y confianza.
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.
    - Terminales → "Nombre de esta PC" en el servidor (se guarda en `configuracion`); reemplaza al nombre de Windows en la auditoría.

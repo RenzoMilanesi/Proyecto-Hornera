@@ -1,10 +1,10 @@
 // Resumen interno (fase 6): KPIs del mes por depto, resultado de Hornera, saldos de cuentas y evolución.
 import { useEffect, useState } from 'react';
 import { Alert, Card, Col, Descriptions, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
-import type { evolucion, resumenDelMes } from '../server/resumen.ts';
+import type { elasticidadDelMes, evolucion, resumenDelMes } from '../server/resumen.ts';
 import { get, pesos } from './api.ts';
 
-type Resumen = ReturnType<typeof resumenDelMes>;
+type Resumen = ReturnType<typeof resumenDelMes> & { elasticidad: ReturnType<typeof elasticidadDelMes> };
 type KpiDepto = Resumen['deptos'][number];
 interface Cuenta { nombre: string; moneda: 'ARS' | 'USD'; saldo: number }
 type Mes = ReturnType<typeof evolucion>[number];
@@ -12,6 +12,7 @@ type Mes = ReturnType<typeof evolucion>[number];
 const derecha = { align: 'right' as const, onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }) };
 const pct = (x: number | null) => (x == null ? '' : `${Math.round(100 * x)} %`);
 const chico = { content: { fontSize: 20 } }; // seis tarjetas: la plata entra en un renglón
+const coef = (x: number | null | undefined) => (x == null ? '' : x.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
 const plata = (x: number | null) => (x == null ? '' : pesos(x));
 // Para ordenar: los null (sin noches) al final.
 const orden = (k: 'ocupacion' | 'adr' | 'revpar' | 'neto_noche') => (a: KpiDepto, b: KpiDepto) => (a[k] ?? -1) - (b[k] ?? -1);
@@ -39,6 +40,7 @@ export function Resumen() {
 
   const t = datos?.totales;
   const r = datos?.resultado;
+  const el = datos?.elasticidad;
   const totalCuentas = (moneda: 'ARS' | 'USD') => (datos?.cuentas as Cuenta[] | undefined)?.filter((c) => c.moneda === moneda).reduce((s, c) => s + c.saldo, 0) ?? 0;
 
   return (
@@ -107,7 +109,26 @@ export function Resumen() {
           { title: 'RevPAR', dataIndex: 'revpar', ...derecha, render: plata, sorter: orden('revpar'), defaultSortOrder: 'descend' },
           { title: 'Neto por noche', dataIndex: 'neto_noche', ...derecha, render: plata, sorter: orden('neto_noche') },
           { title: 'Honorarios', dataIndex: 'honorarios', ...derecha, render: (v: number) => pesos(v), sorter: (a, b) => a.honorarios - b.honorarios },
+          { title: 'Elasticidad', key: 'elasticidad', ...derecha, render: (_, d) => coef(el?.deptos[d.codigo]) },
         ]} />
+      </Card>
+
+      <Card size="small" title="Elasticidad precio (indicativa)">
+        {el && (
+          <Space orientation="vertical" style={{ width: '100%' }}>
+            <Space size="large" wrap>
+              <Statistic styles={chico} title="Mediana de los deptos" value={el.mediana == null ? '—' : coef(el.mediana)} />
+              <Statistic styles={chico} title="Deptos con dato" value={el.validos} />
+              <Statistic styles={chico} title="Compara contra" value={el.base ?? '—'} suffix={el.tipo === 'anual' ? '(un año antes)' : el.tipo === 'mensual' ? '(mes anterior)' : undefined} />
+              <Statistic styles={chico} title="Confianza" value={el.confianza} />
+            </Space>
+            <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+              Cuánto cambia la ocupación cuando cambia el ADR: −1,2 = si el ADR sube 10 %, la ocupación baja 12 %.
+              Entre 0 y −1, subir el precio aumenta el ingreso; por debajo de −1, lo baja.
+            </Typography.Paragraph>
+            <Alert type="warning" showIcon title="Antes de usar este número" description={<ul style={{ margin: 0, paddingLeft: 18 }}>{el.avisos.map((a) => <li key={a}>{a}</li>)}</ul>} />
+          </Space>
+        )}
       </Card>
 
       <Card size="small" title="Evolución mensual">
