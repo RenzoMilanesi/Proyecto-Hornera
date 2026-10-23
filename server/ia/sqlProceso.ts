@@ -6,6 +6,15 @@ import { DatabaseSync, constants as c } from 'node:sqlite';
 // Tablas que la IA nunca ve: el hash de los tokens de las terminales y la configuración (ticket de ARCA, etc.).
 export const OCULTAS = ['terminal', 'configuracion'];
 export const MAX_FILAS = 200;
+// raw_json y desglose_json de una reserva pesan KB: cada texto largo se corta (plan 064).
+export const MAX_CELDA = 2000;
+
+const cortar = (fila: Record<string, unknown>) => {
+  for (const [k, v] of Object.entries(fila)) {
+    if (typeof v === 'string' && v.length > MAX_CELDA) fila[k] = `${v.slice(0, MAX_CELDA)}… (cortado: ${v.length} caracteres)`;
+  }
+  return fila;
+};
 
 export interface PedidoSql { ruta: string; sql: string }
 export type RespuestaSql = { filas: unknown[]; aviso?: string } | { error: string };
@@ -23,7 +32,7 @@ export function correrSql({ ruta, sql }: PedidoSql): RespuestaSql {
     const filas: unknown[] = [];
     for (const fila of db.prepare(sql).iterate()) {
       if (filas.length === MAX_FILAS) return { filas, aviso: `Se muestran las primeras ${MAX_FILAS} filas: hay más.` };
-      filas.push(fila);
+      filas.push(cortar(fila));
     }
     return { filas };
   } catch (e) {

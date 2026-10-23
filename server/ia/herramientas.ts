@@ -123,7 +123,7 @@ export function herramientas(db: DatabaseSync): Herramienta[] {
   const sql = h('consulta_sql',
     `SELECT de solo lectura sobre la base SQLite, para lo que ninguna otra herramienta cubre. Máximo ${MAX_FILAS} filas y ${MAX_MS / 1000} s. `
     + `Plata en CENTAVOS (enteros), fechas YYYY-MM-DD, meses YYYY-MM. Para "reservas de un mes" usar la herramienta reservas: `
-    + `la regla del período no es trivial en SQL. Los movimientos anulados tienen estado = 'anulado' y no cuentan.\n\nTablas:\n${esquema(db)}`,
+    + `la regla del período no es trivial en SQL. Evitá SELECT * en reserva y pago (raw_json es grande): elegí columnas. Los movimientos anulados tienen estado = 'anulado' y no cuentan.\n\nTablas:\n${esquema(db)}`,
     { sql: { type: 'string', description: 'Una sola sentencia SELECT (o WITH … SELECT)' } },
     (d, e) => consultaSql(d, s(e.sql)));
   return [...HERRAMIENTAS, sql];

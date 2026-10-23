@@ -68,7 +68,7 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 061 | [Asistente con IA (Claude) para consultar la app: fase 1, solo lectura](061-asistente-ia.md) | P2 | L | — | EN CURSO (v0.42.3: pasos 0 a 4 y 7 hechos) |
 | 062 | [Una conversación del asistente se puede retomar después de actualizar la app](062-ia-historial-tras-actualizar.md) | P1 | S | — | HECHO (v0.42.4) |
 | 063 | [Una consulta SQL del asistente no puede congelar el servidor](063-ia-consulta-sql-worker.md) | P1 | M | — | HECHO (v0.42.5; falta probar en el .exe) |
-| 064 | [Lo que devuelve una herramienta del asistente tiene tope de tamaño](064-ia-tope-tamano-resultados.md) | P2 | S | — | TODO |
+| 064 | [Lo que devuelve una herramienta del asistente tiene tope de tamaño](064-ia-tope-tamano-resultados.md) | P2 | S | — | HECHO (v0.42.6) |
 | 065 | [El costo se ve también cuando contesta el modelo de respaldo](065-ia-precios-modelos-respaldo.md) | P3 | S | — | TODO |
 
 Planes 062–065: revisión `improve deep` de los pasos 0–4 del plan 061 (`fba59f6`, 2026-10-23), a hacer antes del paso 5. Descartado: `dbstat` (solo tamaños de páginas, no datos), `sqlite_dbpage` (no está compilado), `pragma_table_info` y `load_extension` (bloqueados por el authorizer, probado); claves de deptos guardadas en `conversacion_ia` (ya están en la misma base, en `depto_clave`); el esquema de `consulta_sql` se arma en cada pregunta (unas 60 consultas a `sqlite_master`, despreciable); tercera copia del patrón `safeStorage` en `electron/main.ts` (no vale abstraerlo).

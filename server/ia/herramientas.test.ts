@@ -32,6 +32,13 @@ test('consulta_sql: solo SELECT, sin las tablas ocultas y con tope de filas', as
   const muchas = await consultaSql(db, `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 500) SELECT i FROM n`);
   assert.equal(muchas.filas.length, MAX_FILAS);
   assert.match(muchas.aviso!, /primeras 200 filas/);
+
+  // Un texto largo (raw_json de Stays) se corta con aviso (plan 064).
+  db.exec(`INSERT INTO reserva(codigo, depto_id, llegada, salida, moneda, raw_json, sincronizada_en)
+           VALUES ('R1', 1, '2026-09-01', '2026-09-03', 'ARS', json_object('x', printf('%.5000c', 'a')), 'x')`);
+  const [larga] = (await consultaSql(db, `SELECT raw_json FROM reserva`)).filas as { raw_json: string }[];
+  assert.equal(larga.raw_json.length, 2000 + '… (cortado: 5008 caracteres)'.length);
+  assert.ok(larga.raw_json.endsWith('a… (cortado: 5008 caracteres)'));
 });
 
 test('consulta_sql: una consulta sin fin se corta y el servidor sigue atendiendo mientras tanto', async (t) => {

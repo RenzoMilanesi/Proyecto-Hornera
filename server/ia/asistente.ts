@@ -42,6 +42,12 @@ export const clienteAnthropic = (apiKey: string): ClienteIa => {
 };
 
 export const MAX_VUELTAS = 10;
+// Cada resultado queda en el historial y se reenvía en cada pregunta siguiente: tope con aviso al final (plan 064).
+export const MAX_RESULTADO = 100_000;
+
+const acotar = (texto: string) => texto.length <= MAX_RESULTADO ? texto
+  : `${texto.slice(0, MAX_RESULTADO)}
+[Resultado cortado: tenía ${texto.length} caracteres. Pedí menos datos (un depto, un mes, menos columnas).]`;
 
 // US$ por millón de tokens: entrada, salida y lectura de caché.
 // ponytail: precios a mano de 2026-10 (el número real está en la consola); la escritura de caché (1,25×) se cuenta como entrada.
@@ -163,7 +169,7 @@ export async function preguntar(db: DatabaseSync, cliente: ClienteIa, pc: string
           const r = await h.correr(db, b.input as Record<string, unknown>);
           const filas = Array.isArray(r) ? r.length : Array.isArray((r as { filas?: unknown[] })?.filas) ? (r as { filas: unknown[] }).filas.length : null;
           usadas.push({ id: b.id, nombre: b.name, entrada: b.input, filas });
-          resultados.push({ type: 'tool_result', tool_use_id: b.id, content: JSON.stringify(r) });
+          resultados.push({ type: 'tool_result', tool_use_id: b.id, content: acotar(JSON.stringify(r)) });
         } catch (e) {
           const error = e instanceof Error ? e.message : String(e);
           usadas.push({ id: b.id, nombre: b.name, entrada: b.input, filas: null, error });

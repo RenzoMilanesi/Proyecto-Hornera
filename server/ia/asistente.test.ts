@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import Anthropic from '@anthropic-ai/sdk';
 import { abrirDb } from '../db.ts';
-import { guardarConfigIa, MAX_VUELTAS, preguntar, type ClienteIa } from './asistente.ts';
+import { guardarConfigIa, MAX_RESULTADO, MAX_VUELTAS, preguntar, type ClienteIa } from './asistente.ts';
 
 type Bloque = Anthropic.Beta.BetaContentBlock;
 const usage = { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 1000, cache_creation_input_tokens: 0 };
@@ -90,4 +90,17 @@ test('asistente: el tope de vueltas corta y avisa; un rechazo o un error de la A
   await assert.rejects(preguntar(db, caido, 'PC Uno', { pregunta: 'x', pantalla: '', mes: '' }), /No hay conexión con Anthropic/);
   assert.equal((db.prepare('SELECT count(*) n FROM respuesta_ia').get() as { n: number }).n, antes);
   await assert.rejects(preguntar(db, caido, 'PC Uno', { pregunta: '  ', pantalla: '', mes: '' }), /Falta la pregunta/);
+});
+
+test('asistente: un resultado enorme llega cortado y con el aviso al final', async () => {
+  const db = base();
+  db.exec(`WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 100)
+           INSERT INTO depto(codigo, nombre, propietario_id) SELECT 'D' || i, printf('%.2000c', 'n'), 1 FROM n`);
+  const { cliente, pedidos } = falso([mensaje([herramienta('t1', 'listar_deptos', {})], 'tool_use'), mensaje([texto('Listo.')], 'end_turn')]);
+  await preguntar(db, cliente, 'PC Uno', { pregunta: '¿Qué deptos hay?', pantalla: '', mes: '' });
+  const [resultado] = pedidos[1].messages[2].content as Anthropic.Beta.BetaToolResultBlockParam[];
+  const contenido = resultado.content as string;
+  assert.ok(contenido.length < MAX_RESULTADO + 200);
+  assert.ok(contenido.endsWith('caracteres. Pedí menos datos (un depto, un mes, menos columnas).]'), contenido.slice(-150));
+  assert.match(contenido, /\n\[Resultado cortado: tenía \d+ caracteres\./);
 });
