@@ -1,6 +1,7 @@
 // Herramientas del asistente (plan 061): todas de solo lectura. Cada una reusa la función que está detrás de su ruta GET;
-// la IA nunca toca la base de otra forma. consulta_sql es la única libre, con tres cercos (ver consultaSql).
-import { DatabaseSync, constants as c } from 'node:sqlite';
+// la IA nunca toca la base de otra forma. consulta_sql es la única libre, con tres cercos (ver sqlProceso.ts).
+import { fork } from 'node:child_process';
+import type { DatabaseSync } from 'node:sqlite';
 import type Anthropic from '@anthropic-ai/sdk';
 import { liquidacionDelMes, listarCuentas, listarDeptos, listarPeriodos, listarPropietarios, reservasDelMes } from '../consultas.ts';
 import { hojaDepto } from '../liquidacion/hoja.ts';
@@ -13,16 +14,15 @@ import { ficha, vencimientos } from '../ficha.ts';
 import * as limpieza from '../limpieza.ts';
 import { listarComprobantes } from '../facturacion.ts';
 import { listarMisComprobantes } from '../misComprobantes.ts';
+import { MAX_FILAS, OCULTAS, type RespuestaSql } from './sqlProceso.ts';
 
 export interface Herramienta {
   definicion: Anthropic.Tool;
-  correr(db: DatabaseSync, entrada: Record<string, unknown>): unknown;
+  correr(db: DatabaseSync, entrada: Record<string, unknown>): unknown; // consulta_sql devuelve una promesa
 }
 
-// Tablas que la IA nunca ve: el hash de los tokens de las terminales y la configuración (ticket de ARCA, etc.).
-const OCULTAS = ['terminal', 'configuracion'];
-export const MAX_FILAS = 200;
-const MAX_MS = 5000;
+export { MAX_FILAS };
+export const MAX_MS = 5000;
 
 // ponytail: plata en centavos tal como sale de las funciones, con el aviso en cada descripción. Convertir a pesos por
 // nombre de campo es frágil (total = noches en un lado y plata en otro; cotizacion no es centavos); si la IA se equivoca
@@ -90,32 +90,24 @@ const HERRAMIENTAS: Herramienta[] = [
     { mes: MES }, (db, e) => listarMisComprobantes(db, s(e.mes))),
 ];
 
-// Una conexión aparte por consulta (abrirla cuesta milisegundos y no queda el archivo tomado).
-export function consultaSql(db: DatabaseSync, sql: string) {
+// Cada consulta en un proceso aparte, que se mata si pasa el tope de tiempo (plan 063): el servidor sigue atendiendo.
+export function consultaSql(db: DatabaseSync, sql: string, maxMs = MAX_MS) {
   const ruta = db.location();
   if (!ruta) throw new Error('consulta_sql necesita una base en archivo');
-  // Cerco 1: aunque el texto diga DELETE, SQLite no escribe en una conexión de solo lectura.
-  const lectora = new DatabaseSync(ruta, { readOnly: true });
-  try {
-    // Cerco 2: solo SELECT, lectura de columnas, funciones y CTE recursivas; nada de ATTACH, PRAGMA, etc., ni las tablas ocultas.
-    lectora.setAuthorizer((accion, a1) => {
-      if (accion === c.SQLITE_READ) return OCULTAS.includes(String(a1).toLowerCase()) ? c.SQLITE_DENY : c.SQLITE_OK;
-      return [c.SQLITE_SELECT, c.SQLITE_FUNCTION, c.SQLITE_RECURSIVE].includes(accion) ? c.SQLITE_OK : c.SQLITE_DENY;
-    });
-    // Cerco 3: tope de filas y de tiempo.
-    // ponytail: el tiempo se mira entre filas; una consulta que tarda en dar la primera fila no se corta (node:sqlite no tiene interrupt).
-    const filas: unknown[] = [];
-    const inicio = Date.now();
-    let aviso: string | null = null;
-    for (const fila of lectora.prepare(sql).iterate()) {
-      if (filas.length === MAX_FILAS) { aviso = `Se muestran las primeras ${MAX_FILAS} filas: hay más.`; break; }
-      if (Date.now() - inicio > MAX_MS) { aviso = `Se cortó a los ${MAX_MS / 1000} s con ${filas.length} filas.`; break; }
-      filas.push(fila);
-    }
-    return aviso ? { filas, aviso } : { filas };
-  } finally {
-    lectora.close();
-  }
+  return new Promise<{ filas: unknown[]; aviso?: string }>((ok, mal) => {
+    // En Electron, fork lanza electron.exe: sin ELECTRON_RUN_AS_NODE abriría otra app en vez de correr el script.
+    const hijo = fork(new URL('./sqlProceso.ts', import.meta.url), { serialization: 'advanced', stdio: 'ignore', env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } });
+    const fin = (f: () => void) => { clearTimeout(reloj); hijo.removeAllListeners(); f(); };
+    // Se responde recién cuando el proceso terminó: así no queda la base tomada ni un proceso suelto.
+    const reloj = setTimeout(() => fin(() => {
+      hijo.once('exit', () => mal(new Error(`La consulta tardó más de ${maxMs / 1000} s y se cortó: simplificala (menos tablas cruzadas, un WHERE, sin recursión sin fin).`)));
+      hijo.kill();
+    }), maxMs);
+    hijo.once('message', (r: RespuestaSql) => fin(() => ('error' in r ? mal(new Error(r.error)) : ok(r))));
+    hijo.once('error', (e) => fin(() => mal(e)));
+    hijo.once('exit', (codigo) => fin(() => mal(new Error(`La consulta terminó sin respuesta (código ${codigo}).`))));
+    hijo.send({ ruta, sql });
+  });
 }
 
 // Tablas y columnas de la base (sin las ocultas), para la descripción de consulta_sql. Siempre igual: no rompe el caché.

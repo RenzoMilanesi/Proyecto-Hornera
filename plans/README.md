@@ -67,7 +67,7 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 060 | [El manual explica el menú nuevo y la pantalla Resumen Hornera](060-manual-menu-hornera.md) | P2 | S | — | HECHO (v0.41.1: manual revisado completo) |
 | 061 | [Asistente con IA (Claude) para consultar la app: fase 1, solo lectura](061-asistente-ia.md) | P2 | L | — | EN CURSO (v0.42.3: pasos 0 a 4 y 7 hechos) |
 | 062 | [Una conversación del asistente se puede retomar después de actualizar la app](062-ia-historial-tras-actualizar.md) | P1 | S | — | HECHO (v0.42.4) |
-| 063 | [Una consulta SQL del asistente no puede congelar el servidor](063-ia-consulta-sql-worker.md) | P1 | M | — | TODO |
+| 063 | [Una consulta SQL del asistente no puede congelar el servidor](063-ia-consulta-sql-worker.md) | P1 | M | — | HECHO (v0.42.5; falta probar en el .exe) |
 | 064 | [Lo que devuelve una herramienta del asistente tiene tope de tamaño](064-ia-tope-tamano-resultados.md) | P2 | S | — | TODO |
 | 065 | [El costo se ve también cuando contesta el modelo de respaldo](065-ia-precios-modelos-respaldo.md) | P3 | S | — | TODO |
 

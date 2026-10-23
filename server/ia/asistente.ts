@@ -160,7 +160,7 @@ export async function preguntar(db: DatabaseSync, cliente: ClienteIa, pc: string
         const h = lista.find((x) => x.definicion.name === b.name);
         try {
           if (!h) throw new Error(`No existe la herramienta ${b.name}`);
-          const r = h.correr(db, b.input as Record<string, unknown>);
+          const r = await h.correr(db, b.input as Record<string, unknown>);
           const filas = Array.isArray(r) ? r.length : Array.isArray((r as { filas?: unknown[] })?.filas) ? (r as { filas: unknown[] }).filas.length : null;
           usadas.push({ id: b.id, nombre: b.name, entrada: b.input, filas });
           resultados.push({ type: 'tool_result', tool_use_id: b.id, content: JSON.stringify(r) });

@@ -93,3 +93,15 @@ sigue atendiendo mientras tanto.
 
 - Saca el `ponytail:` del corte entre filas. El tope de filas sigue en el Worker.
 - Cada consulta crea un Worker (~decenas de ms): aceptable para preguntas de a una.
+
+## Resultado (2026-10-23, v0.42.5)
+
+Se cumplió la condición de STOP del Worker: `terminate()` **no** corta una consulta en curso (el hilo queda trabado
+en SQLite, quema un núcleo y no deja cerrar el proceso). Se usó un **proceso aparte** (`child_process.fork` de
+`server/ia/sqlProceso.ts`), que sí se mata: ~70 ms por consulta. Detalles:
+- En Electron, `fork` lanza `electron.exe`: hace falta `ELECTRON_RUN_AS_NODE=1` en el `env` (sin eso abre otra app).
+  Probado desde el proceso principal real de Electron 44. Requiere que el fusible `RunAsNode` siga habilitado
+  (hoy no hay `electronFuses` configurado).
+- Al cortar, la promesa se rechaza recién en el `exit` del hijo: así no queda la base tomada.
+- **Sin probar**: el instalador (script dentro de `app.asar`). Verificarlo en la próxima prueba del `.exe`
+  (`GUIA-PRUEBAS.md`): una pregunta que use `consulta_sql`.

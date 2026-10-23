@@ -19,19 +19,31 @@ function base(t: TestContext) {
   return db;
 }
 
-test('consulta_sql: solo SELECT, sin las tablas ocultas y con tope de filas', (t) => {
+test('consulta_sql: solo SELECT, sin las tablas ocultas y con tope de filas', async (t) => {
   const db = base(t);
-  assert.deepEqual(JSON.parse(JSON.stringify(consultaSql(db, `SELECT codigo, nombre FROM depto`))), { filas: [{ codigo: 'AAA', nombre: 'Depto A' }] });
+  assert.deepEqual((await consultaSql(db, `SELECT codigo, nombre FROM depto`)).filas.map((f) => ({ ...(f as object) })), [{ codigo: 'AAA', nombre: 'Depto A' }]);
   for (const sql of [
     `DELETE FROM depto`, `UPDATE depto SET nombre = 'x'`, `INSERT INTO concepto(nombre) VALUES ('x')`,
     `ATTACH DATABASE 'otra.db' AS otra`, `PRAGMA table_info(depto)`, `DROP TABLE depto`,
     `SELECT * FROM terminal`, `SELECT valor FROM configuracion`, `SELECT * FROM (SELECT token_hash FROM TERMINAL)`,
-  ]) assert.throws(() => consultaSql(db, sql), /not authorized|prohibited|readonly/, sql);
+  ]) await assert.rejects(consultaSql(db, sql), /not authorized|prohibited|readonly/, sql);
   assert.equal((db.prepare('SELECT count(*) n FROM depto').get() as { n: number }).n, 1); // nada se borró
 
-  const muchas = consultaSql(db, `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 500) SELECT i FROM n`);
+  const muchas = await consultaSql(db, `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 500) SELECT i FROM n`);
   assert.equal(muchas.filas.length, MAX_FILAS);
   assert.match(muchas.aviso!, /primeras 200 filas/);
+});
+
+test('consulta_sql: una consulta sin fin se corta y el servidor sigue atendiendo mientras tanto', async (t) => {
+  let ticks = 0;
+  const reloj = setInterval(() => ticks++, 20);
+  t.after(() => clearInterval(reloj));
+  const db = base(t);
+  const inicio = Date.now();
+  await assert.rejects(consultaSql(db, `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n) SELECT count(*) FROM n`, 500),
+    /tardó más de 0.5 s y se cortó/);
+  assert.ok(Date.now() - inicio < 3000);
+  assert.ok(ticks >= 5, `el hilo principal quedó libre (ticks: ${ticks})`);
 });
 
 test('herramientas: la descripción del SQL no nombra las tablas ocultas y un depto desconocido se explica', (t) => {
