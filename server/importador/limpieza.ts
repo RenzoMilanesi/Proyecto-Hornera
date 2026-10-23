@@ -21,6 +21,16 @@ const clave = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().t
 const texto = (v: unknown) => (v == null ? '' : String(v).trim());
 const ddmm = (f: string) => `${f.slice(8, 10)}/${f.slice(5, 7)}`;
 
+// Fecha escrita a mano como texto ("29/9/25", "31/07/0225"): día/mes/año, año de 2 dígitos = 20xx. Lo que no se
+// entiende da null (aviso); lo que se entiende y es anterior al corte se descarta sin avisar, como el resto.
+function fechaTexto(s: string): string | null {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/.exec(s);
+  if (!m) return null;
+  const [d, mes, a] = [Number(m[1]), Number(m[2]), m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])];
+  const iso = `${String(a).padStart(4, '0')}-${String(mes).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  return mes >= 1 && mes <= 12 && d >= 1 && new Date(`${iso}T00:00:00Z`).getUTCDate() === d ? iso : null;
+}
+
 // "Horas" viene como hora del día (fracción de día; a veces con días delante que no cuentan) o como texto "2:30".
 function minutos(v: unknown): number | null {
   if (v === '' || v == null) return 0;
@@ -53,8 +63,8 @@ export function importarHoras(db: DatabaseSync, archivo: Buffer): ReporteHoras {
     const operaria = texto(f.operaria).toUpperCase();
     const crudo = texto(f.depto).toUpperCase().replace(/\s+/g, '');
     if (f.fecha === '' && !operaria && !crudo) continue; // renglón vacío
-    if (typeof f.fecha !== 'number') { r.avisos.push(`Fila ${fila}: fecha inválida (${texto(f.fecha) || 'vacía'}), no se importa.`); continue; }
-    const fecha = fechaSerial(f.fecha);
+    const fecha = typeof f.fecha === 'number' ? fechaSerial(f.fecha) : fechaTexto(texto(f.fecha));
+    if (!fecha) { r.avisos.push(`Fila ${fila}: fecha inválida (${texto(f.fecha) || 'vacía'}), no se importa.`); continue; }
     if (fecha < LIMPIEZA_DESDE) { r.anteriores++; continue; }
     if (!operaria) { r.avisos.push(`Fila ${fila}: sin operaria, no se importa.`); continue; }
     const codigo = ALIAS[crudo] ?? crudo;

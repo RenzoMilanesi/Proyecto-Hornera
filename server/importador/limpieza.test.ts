@@ -39,7 +39,10 @@ test('importar: tipo vacío = Limpieza, alias de deptos, INT = empresa, corte, d
     ['', serial('2026-09-10'), '', 'COTI', 'BEA', '', 'Check-Out'],               // alias, sin horas
     ['', serial('2026-09-11'), '', 'INT', 'CAMI', hora(15), ''],
     ['', serial('2026-09-11'), '', 'INT', 'CAMI', hora(15), ''],                  // duplicada
-    ['', '29/9/25', '', 'OVL', 'ANA', hora(2), 'Limpieza'],                       // fecha en texto
+    ['', '29/9/25', '', 'OVL', 'ANA', hora(2), 'Limpieza'],                       // fecha en texto, vieja: sin aviso
+    ['', '31/07/0225', '', 'OVL', '', hora(2), 'Limpieza'],                       // año mal tipeado y sin operaria, viejo: sin aviso
+    ['', '14/9/26', '', 'OVL', 'ANA', hora(1), 'Limpieza'],                       // fecha en texto, nueva: entra
+    ['', 'ayer', '', 'OVL', 'ANA', hora(2), 'Limpieza'],                          // no se entiende: aviso
     ['', serial('2026-09-12'), '', 'XYZ', 'ANA', hora(2), 'Limpieza'],            // depto que no existe
     ['', serial('2026-09-12'), '', 'OVL', '', hora(2), 'Limpieza'],               // sin operaria
     ['', serial('2026-09-13'), '', 'OVL', 'BEA', 1 + hora(1.5), 'Cambio Blanqueria'], // días delante: no cuentan
@@ -49,11 +52,12 @@ test('importar: tipo vacío = Limpieza, alias de deptos, INT = empresa, corte, d
     { fecha: '2026-09-10', depto: 'COT', operaria: 'BEA', tipo: 'Check-Out', minutos: 0 },
     { fecha: '2026-09-11', depto: 'INT', operaria: 'CAMI', tipo: 'Limpieza', minutos: 900 },
     { fecha: '2026-09-13', depto: 'OVL', operaria: 'BEA', tipo: 'Cambio Blanqueria', minutos: 90 },
+    { fecha: '2026-09-14', depto: 'OVL', operaria: 'ANA', tipo: 'Limpieza', minutos: 60 },
   ]);
-  assert.deepEqual([r.importadas, r.duplicadas, r.anteriores], [4, 1, 1]);
+  assert.deepEqual([r.importadas, r.duplicadas, r.anteriores], [5, 1, 3]);
   assert.equal(r.avisos.length, 4);
   assert.match(r.avisos.join('\n'), /Fila 6: repetida/);
-  assert.match(r.avisos.join('\n'), /Fila 7: fecha inválida \(29\/9\/25\)/);
+  assert.match(r.avisos.join('\n'), /Fila 10: fecha inválida \(ayer\)/);
   assert.match(r.avisos.join('\n'), /"XYZ" no existe/);
 });
 
