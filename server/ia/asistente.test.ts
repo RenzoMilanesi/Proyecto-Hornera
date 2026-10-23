@@ -51,6 +51,9 @@ test('asistente: dos herramientas en una vuelta van en un solo mensaje; se guard
   assert.equal(pedidos[0].model, 'claude-sonnet-5-5');
   assert.deepEqual(pedidos[0].output_config, { effort: 'medium' });
   assert.equal(pedidos[0].fallbacks, 'default');
+  // Una conversación vieja se retoma aunque la app haya cambiado el manual o las herramientas (plan 062).
+  assert.deepEqual(pedidos[0].thinking, { type: 'adaptive', block_binding: { prefix_mismatch_behavior: 'drop_block' } });
+  assert.deepEqual(pedidos[0].betas, ['thinking-binding-controls-2026-08-01', 'server-side-fallback-2026-07-01']);
   assert.deepEqual((pedidos[0].system as Anthropic.Beta.BetaTextBlockParam[])[1].cache_control, { type: 'ephemeral' });
   assert.ok(pedidos[0].tools!.every((t) => (t as Anthropic.Beta.BetaTool).strict === true));
 
@@ -69,6 +72,7 @@ test('asistente: retomar agrega al final; otra PC no la ve; Haiku va sin respald
   assert.equal(pedidos[1].messages.length, 3); // pregunta, respuesta, pregunta nueva
   assert.deepEqual(pedidos[1].messages[0], pedidos[0].messages[0]); // lo viejo, intacto
   assert.equal(pedidos[0].fallbacks, undefined);
+  assert.deepEqual(pedidos[0].betas, ['thinking-binding-controls-2026-08-01']);
   await assert.rejects(preguntar(db, cliente, 'PC Dos', { conversacion_id, pregunta: 'Espío', pantalla: '', mes: '' }), /No existe la conversación/);
 });
 

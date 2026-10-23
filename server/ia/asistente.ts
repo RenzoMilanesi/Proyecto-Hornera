@@ -130,7 +130,9 @@ export async function preguntar(db: DatabaseSync, cliente: ClienteIa, pc: string
       respuesta = await cliente.create({
         model: configurado,
         max_tokens: 16000,
-        thinking: { type: 'adaptive' },
+        // Cada versión de la app cambia el manual, las reglas o las herramientas, y la API ata cada bloque de thinking a ese
+        // prefijo: sin drop_block, retomar una conversación vieja daría 400 (plan 062).
+        thinking: { type: 'adaptive', block_binding: { prefix_mismatch_behavior: 'drop_block' } },
         output_config: { effort: esfuerzo as 'low' | 'medium' | 'high' },
         tool_choice: { type: 'auto' }, // los modelos 5.5 rechazan any/tool
         cache_control: { type: 'ephemeral' }, // la conversación también se reusa en la pregunta siguiente
@@ -138,7 +140,9 @@ export async function preguntar(db: DatabaseSync, cliente: ClienteIa, pc: string
         system,
         messages: mensajes,
         // Si un clasificador rechaza la pregunta, la API la reintenta en otro modelo (Haiku no lo soporta).
-        ...(configurado === 'claude-haiku-5-5' ? {} : { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const }),
+        ...(configurado === 'claude-haiku-5-5'
+          ? { betas: ['thinking-binding-controls-2026-08-01'] }
+          : { betas: ['thinking-binding-controls-2026-08-01', 'server-side-fallback-2026-07-01'], fallbacks: 'default' as const }),
       });
       modelo = respuesta.model; // el que contestó de verdad, que puede no ser el configurado
       tokens.entrada += respuesta.usage.input_tokens + (respuesta.usage.cache_creation_input_tokens ?? 0);
