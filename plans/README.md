@@ -58,8 +58,13 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 051 | [Noches no disponibles a partir del calendario de Stays](051-bloqueos-desde-calendario.md) | P2 | M | 050 | TODO |
 | 052 | [PDF del propietario: ocupación que se entiende con sus renglones](052-ocupacion-pdf-legible.md) | P3 | S | — | TODO |
 | 053 | [Test: alojamiento y métricas de un mes cerrado con detalle](053-test-alojamiento-mes-cerrado.md) | P3 | S | — | TODO |
+| 054 | [Elasticidad: calcular solo con meses cerrados](054-elasticidad-solo-meses-cerrados.md) | P2 | S | — | TODO |
+| 055 | [DECISIONES: sacar la elasticidad de "Quedan afuera del sistema"](055-decisiones-elasticidad-contradiccion.md) | P3 | S | — | TODO |
+| 056 | [Test: elasticidad contra el mismo mes del año anterior](056-test-elasticidad-anual.md) | P3 | S | 054 | TODO |
 
 Planes 051–053: revisión `improve deep` de las métricas del glosario (`fcbdf9e`) y del plan 050, 2026-10-23. Corregido en el plan 050: la escritura iba en una transacción abierta mientras se esperaba a Stays (ahora baja todo y después escribe). Anotado en DECISIONES (sin plan): el ADR parte de lo cobrado neto de la comisión de MP/PayPal. Descartado: Evolución recalcula los saldos de cuentas por cada mes (pocos meses, no se nota); bloqueos y estadías del propietario contados dos veces (los bloqueos no se cargan); restar el propietario en meses del Excel (B26 también los incluye, lo confirma la regresión).
+
+Planes 054–056: revisión `improve deep` de la elasticidad (`4a42a69`), 2026-10-23. Descartado: el mes abierto se calcula dos veces por consulta (con 054 desaparece); pedir un mes inexistente no rompe (`resumenDelMes` falla antes con un error claro); `mesAnterior` cruza bien el cambio de año.
 
 Los planes 001 a 030 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 
