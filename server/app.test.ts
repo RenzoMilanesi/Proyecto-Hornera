@@ -147,6 +147,46 @@ test('asistente: la key se guarda y solo vuelven sus últimos 4; el modelo y el 
   }, { claveIa });
 });
 
+test('asistente: preguntar, una a la vez por conversación, y el historial de esta PC', async () => {
+  let soltar = () => {};
+  let pedidos = 0;
+  // Cliente falso: contesta "Respuesta N"; la segunda pregunta espera hasta soltar().
+  const clienteIa = {
+    create: async () => {
+      const n = ++pedidos;
+      if (n === 2) await new Promise<void>((ok) => { soltar = ok; });
+      return { id: 'm', type: 'message', role: 'assistant', model: 'claude-sonnet-5-5', content: [{ type: 'text', text: `Respuesta ${n}` }], stop_reason: 'end_turn',
+        usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } } as never;
+    },
+  };
+  await conApi(abrirDb(':memory:'), async (base) => {
+    assert.deepEqual(await (await fetch(`${base}/api/ia/estado`)).json(), { disponible: true });
+    const preguntar = (cuerpo: object) => fetch(`${base}/api/ia/preguntar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+    const r1 = await (await preguntar({ pregunta: '¿Cuántos deptos hay?', pantalla: 'Deptos', mes: '2026-09' })).json();
+    assert.equal(r1.texto, 'Respuesta 1');
+
+    const lenta = preguntar({ conversacion_id: r1.conversacion_id, pregunta: 'Otra' });
+    while (pedidos < 2) await new Promise((ok) => setTimeout(ok, 5));
+    assert.equal((await preguntar({ conversacion_id: r1.conversacion_id, pregunta: 'Y otra' })).status, 409);
+    soltar();
+    assert.equal((await (await lenta).json()).texto, 'Respuesta 2');
+
+    const lista = await (await fetch(`${base}/api/ia/conversaciones`)).json();
+    assert.deepEqual(lista.map((c: { titulo: string }) => c.titulo), ['¿Cuántos deptos hay?']);
+    const conv = await (await fetch(`${base}/api/ia/conversaciones/${r1.conversacion_id}`)).json();
+    assert.deepEqual(conv.turnos.map((t: { pregunta: string; texto: string; modelo: string }) => [t.pregunta, t.texto, t.modelo]),
+      [['¿Cuántos deptos hay?', 'Respuesta 1', 'claude-sonnet-5-5'], ['Otra', 'Respuesta 2', 'claude-sonnet-5-5']]);
+    assert.equal((await fetch(`${base}/api/ia/conversaciones/${r1.conversacion_id}`, { method: 'DELETE' })).status, 200);
+    assert.deepEqual(await (await fetch(`${base}/api/ia/conversaciones`)).json(), []);
+  }, { clienteIa });
+  // Sin key ni cliente: no disponible, y preguntar lo dice.
+  await conApi(abrirDb(':memory:'), async (base) => {
+    assert.equal((await (await fetch(`${base}/api/ia/estado`)).json()).disponible, false);
+    const r = await fetch(`${base}/api/ia/preguntar`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"pregunta":"Hola"}' });
+    assert.match((await r.json()).error, /Falta cargar la API key/);
+  });
+});
+
 test('"traer mes": uno por vez, y la clave solo viaja a una URL de Stays permitida', async (t) => {
   let pedidosAStays = 0;
   const staysLento = createServer((_req, res) => { pedidosAStays++; setTimeout(() => res.writeHead(401).end(), 300); }).listen(0);

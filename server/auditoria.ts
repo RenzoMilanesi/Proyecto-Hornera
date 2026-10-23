@@ -22,6 +22,7 @@ export function nombrarPc(db: DatabaseSync, nombre: unknown) {
   try {
     db.prepare(`INSERT INTO configuracion(clave, valor) VALUES ('pc.nombre', ?) ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor`).run(n);
     db.prepare('UPDATE auditoria SET pc = ? WHERE pc = ?').run(n, anterior);
+    db.prepare('UPDATE conversacion_ia SET pc = ? WHERE pc = ?').run(n, anterior); // el historial del asistente sigue siendo suyo
     db.exec('COMMIT');
   } catch (e) {
     db.exec('ROLLBACK');

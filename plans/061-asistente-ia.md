@@ -186,6 +186,9 @@ Runner):
   (solo las de la misma PC).
 - `GET /api/ia/estado` → `{ disponible, motivo? }` (sin key / sin conexión), para el panel.
 - Una pregunta a la vez por conversación (si llega otra mientras corre, 409).
+- **Hecho (2026-10-23, v0.43.0):** la PC es `pcActual` (terminal) o `nombrePc` (servidor); al renombrar la PC servidor
+  su historial la sigue. `GET /api/ia/conversaciones/:id` arma `turnos` (pregunta, texto, modelo, tokens, costo,
+  herramientas) emparejando cada pregunta con su fila de `respuesta_ia`. `estado` solo mira la key (`ponytail:`).
 
 ### 6. Interfaz (`src/Asistente.tsx`, nuevo; skill `modales`)
 - Botón fijo en el layout de `App.tsx` que abre un **Drawer** a la derecha; pasa pantalla y mes actuales.

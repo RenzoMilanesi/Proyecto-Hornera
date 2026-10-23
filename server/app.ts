@@ -12,7 +12,7 @@ import { crearClienteStays, URL_STAYS, type Credenciales } from './stays/cliente
 import { sincronizarMes } from './stays/sync.ts';
 import { SQL_EN_PERIODO } from './periodo.ts';
 import { compararConExcel } from './liquidacion/comparar.ts';
-import { auditar, listarAuditoria } from './auditoria.ts';
+import { auditar, listarAuditoria, nombrePc, pcActual } from './auditoria.ts';
 import { actualizarCotizacion, type Fetch } from './cotizacion.ts';
 import { anularMovimiento, crearMovimiento, editarMovimiento, listarMovimientos, transferir } from './movimientos.ts';
 import { cerrarPeriodo, reabrirPeriodo } from './liquidacion/cierre.ts';
@@ -28,7 +28,7 @@ import { datosDePago, datosFiscales, guardarDatosDePago, guardarDatosFiscales, p
 import { rutasBackup, type Sistema } from './backup.ts';
 import { agregar, borrar, editar, ficha, guardarNotas, vencimientos } from './ficha.ts';
 import { liquidacionDelMes, listarCuentas, listarDeptos, listarPeriodos, listarPropietarios, reservasDelMes } from './consultas.ts';
-import { configIa, guardarConfigIa, type AlmacenClaveIa } from './ia/asistente.ts';
+import { borrarConversacionIa, clienteAnthropic, configIa, conversacionesIa, conversacionIa, guardarConfigIa, preguntar, type AlmacenClaveIa, type ClienteIa } from './ia/asistente.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
 
 // Dónde viven las credenciales de Stays. En Electron, cifradas con safeStorage
@@ -101,9 +101,9 @@ function hostPermitido(host: string) {
   return h === '127.0.0.1' || h === 'localhost' || nombresDeEstaPc().includes(h);
 }
 
-export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf; fetchDolar?: Fetch; claves?: AlmacenClaves; fetchArca?: Fetch; desarrollo?: boolean; carpetaBackups?: string; sistema?: Sistema; claveIa?: AlmacenClaveIa } = {}) {
+export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf; fetchDolar?: Fetch; claves?: AlmacenClaves; fetchArca?: Fetch; desarrollo?: boolean; carpetaBackups?: string; sistema?: Sistema; claveIa?: AlmacenClaveIa; clienteIa?: ClienteIa } = {}) {
   const app = express();
-  const { credenciales, urlStays = URL_STAYS, pdf, fetchDolar = fetch, claves, fetchArca, desarrollo = false, carpetaBackups, sistema, claveIa } = opciones;
+  const { credenciales, urlStays = URL_STAYS, pdf, fetchDolar = fetch, claves, fetchArca, desarrollo = false, carpetaBackups, sistema, claveIa, clienteIa } = opciones;
   app.use((req, res, next) => {
     if (hostPermitido(req.headers.host ?? '')) return next();
     res.status(403).json({ error: 'Host no permitido' });
@@ -343,6 +343,32 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   }));
   app.get('/api/ia/configuracion', (_req, res) => { res.json(configIa(db)); });
   app.put('/api/ia/configuracion', soloLocal, (req, res) => intentar(res, () => guardarConfigIa(db, req.body)));
+  // Preguntar y el historial, también desde las terminales: cada PC ve solo sus conversaciones (la PC, como en la auditoría).
+  const pcIa = () => pcActual.getStore() ?? nombrePc(db);
+  const clienteActual = () => { const k = claveIa?.leer(); return clienteIa ?? (k ? clienteAnthropic(k) : null); };
+  // ponytail: "disponible" solo mira la key; sin internet o sin saldo se entera al preguntar (mensajeIa lo explica).
+  app.get('/api/ia/estado', (_req, res) => {
+    res.json(clienteActual() ? { disponible: true } : { disponible: false, motivo: 'Falta cargar la API key de Anthropic: se carga en la PC servidor, en Herramientas → Asistente.' });
+  });
+  const enCurso = new Set<number>(); // conversaciones con una pregunta corriendo
+  app.post('/api/ia/preguntar', async (req, res) => {
+    const b = req.body ?? {};
+    const id = b.conversacion_id == null ? null : Number(b.conversacion_id);
+    if (id != null && enCurso.has(id)) { res.status(409).json({ error: 'Esperá la respuesta anterior de esta conversación.' }); return; }
+    const cliente = clienteActual();
+    if (!cliente) { res.status(400).json({ error: 'Falta cargar la API key de Anthropic.' }); return; }
+    if (id != null) enCurso.add(id);
+    try {
+      res.json(await preguntar(db, cliente, pcIa(), { conversacion_id: id, pregunta: b.pregunta, pantalla: String(b.pantalla ?? ''), mes: String(b.mes ?? '') }));
+    } catch (e) {
+      res.status(400).json({ error: mensaje(e) });
+    } finally {
+      if (id != null) enCurso.delete(id);
+    }
+  });
+  app.get('/api/ia/conversaciones', (_req, res) => { res.json(conversacionesIa(db, pcIa())); });
+  app.get('/api/ia/conversaciones/:id', (req, res) => intentar(res, () => conversacionIa(db, pcIa(), Number(req.params.id))));
+  app.delete('/api/ia/conversaciones/:id', (req, res) => intentar(res, () => borrarConversacionIa(db, pcIa(), Number(req.params.id))));
 
   app.get('/api/movimientos', (req, res) => { res.json(listarMovimientos(db, String(req.query.mes ?? ''))); });
   // El origen lo pone solo el importador de gastos.

@@ -200,3 +200,38 @@ export async function preguntar(db: DatabaseSync, cliente: ClienteIa, pc: string
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(id, modelo, esfuerzo, tokens.entrada, tokens.cache, tokens.salida, JSON.stringify(usadas), ahora);
   return { conversacion_id: id, texto, modelo, esfuerzo, tokens, costo: costo(modelo, tokens), herramientas: usadas };
 }
+
+// ---- Historial (paso 5): lo que ve el panel. Cada pregunta guardada tiene su fila en respuesta_ia, en el mismo orden.
+
+export const conversacionesIa = (db: DatabaseSync, pc: string) =>
+  db.prepare('SELECT id, titulo, actualizada_en FROM conversacion_ia WHERE pc = ? ORDER BY actualizada_en DESC').all(pc);
+
+export function conversacionIa(db: DatabaseSync, pc: string, id: number) {
+  const conv = db.prepare('SELECT id, titulo, mensajes_json FROM conversacion_ia WHERE id = ? AND pc = ?').get(id, pc) as { id: number; titulo: string; mensajes_json: string } | undefined;
+  if (!conv) throw new Error('No existe la conversación');
+  // Una pregunta es un mensaje del usuario con texto (los resultados de herramientas vienen como bloques); la respuesta, el
+  // texto del último mensaje del asistente antes de la pregunta siguiente.
+  const turnos: { pregunta: string; texto: string }[] = [];
+  for (const m of JSON.parse(conv.mensajes_json) as Anthropic.Beta.BetaMessageParam[]) {
+    if (m.role === 'user' && typeof m.content === 'string') turnos.push({ pregunta: m.content.replace(/^\[[^\]]*\]\n\n/, ''), texto: '' });
+    else if (m.role === 'assistant' && Array.isArray(m.content)) {
+      const t = m.content.filter((b) => b.type === 'text').map((b) => (b as { text: string }).text).join('\n\n').trim();
+      if (t) turnos[turnos.length - 1].texto = t;
+    }
+  }
+  const respuestas = db.prepare('SELECT modelo, esfuerzo, tokens_entrada, tokens_cache, tokens_salida, herramientas_json FROM respuesta_ia WHERE conversacion_id = ? ORDER BY id').all(id) as
+    { modelo: string; esfuerzo: string; tokens_entrada: number; tokens_cache: number; tokens_salida: number; herramientas_json: string }[];
+  return {
+    id: conv.id, titulo: conv.titulo,
+    turnos: turnos.map((t, i) => {
+      const r = respuestas[i];
+      if (!r) return t;
+      const tokens = { entrada: r.tokens_entrada, cache: r.tokens_cache, salida: r.tokens_salida };
+      return { ...t, modelo: r.modelo, esfuerzo: r.esfuerzo, tokens, costo: costo(r.modelo, tokens), herramientas: JSON.parse(r.herramientas_json) as Usada[] };
+    }),
+  };
+}
+
+export function borrarConversacionIa(db: DatabaseSync, pc: string, id: number) {
+  if (!db.prepare('DELETE FROM conversacion_ia WHERE id = ? AND pc = ?').run(id, pc).changes) throw new Error('No existe la conversación');
+}

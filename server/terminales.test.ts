@@ -50,6 +50,12 @@ test('una terminal necesita emparejarse; el código sirve una vez y se revoca', 
     assert.equal((await conCookie('ia/clave', { method: 'PUT', headers: json, body: '{"clave":"sk-ant-x"}' })).status, 403);
     assert.equal((await conCookie('ia/configuracion', { method: 'PUT', headers: json, body: '{"modelo":"claude-opus-5-5"}' })).status, 403);
     assert.equal((await conCookie('ia/configuracion')).status, 200);
+    // Las conversaciones del asistente de otra PC no se ven ni se borran.
+    db.exec(`INSERT INTO conversacion_ia(pc, titulo, mensajes_json, creada_en, actualizada_en) VALUES ('Servidor', 'Ajena', '[]', 'x', 'x')`);
+    assert.deepEqual(await (await conCookie('ia/conversaciones')).json(), []);
+    assert.equal((await conCookie('ia/conversaciones/1')).status, 400);
+    assert.equal((await conCookie('ia/conversaciones/1', { method: 'DELETE' })).status, 400);
+    assert.equal((db.prepare('SELECT count(*) n FROM conversacion_ia').get() as { n: number }).n, 1);
 
     // La auditoría registra el nombre de la terminal.
     await conCookie('cuentas', { method: 'POST', headers: json, body: JSON.stringify({ nombre: 'Caja', moneda: 'ARS' }) });
