@@ -1,12 +1,11 @@
-// Resumen interno (fase 6): KPIs del mes por depto, resultado de Hornera, saldos de cuentas y evolución.
+// Resumen interno (fase 6): KPIs del mes por depto y evolución. Lo de Hornera misma está en ResumenHornera.tsx.
 import { useEffect, useState } from 'react';
-import { Alert, Card, Col, Descriptions, Row, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from 'antd';
+import { Alert, Card, Col, Row, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from 'antd';
 import type { elasticidadDelMes, evolucion, resumenDelMes } from '../server/resumen.ts';
 import { get, pesos } from './api.ts';
 
 type Resumen = ReturnType<typeof resumenDelMes> & { elasticidad: ReturnType<typeof elasticidadDelMes> };
 type KpiDepto = Resumen['deptos'][number];
-interface Cuenta { nombre: string; moneda: 'ARS' | 'USD'; saldo: number }
 type Mes = ReturnType<typeof evolucion>[number];
 
 const derecha = { align: 'right' as const, onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }) };
@@ -45,7 +44,6 @@ export function Resumen() {
   const t = datos?.totales;
   const r = datos?.resultado;
   const el = datos?.elasticidad;
-  const totalCuentas = (moneda: 'ARS' | 'USD') => (datos?.cuentas as Cuenta[] | undefined)?.filter((c) => c.moneda === moneda).reduce((s, c) => s + c.saldo, 0) ?? 0;
 
   return (
     <Space orientation="vertical" size="large" style={{ width: '100%' }}>
@@ -65,37 +63,8 @@ export function Resumen() {
         <Col span={4}><Card size="small"><Statistic styles={chico} value={t ? plata(t.revpar_mediana) || '—' : '—'} title={ayuda('RevPAR (mediana)',
           'Ingreso por noche a la venta: lo que pagaron los huéspedes por las noches ÷ noches a la venta (las del mes menos las bloqueadas y las del propietario). Es ADR × ocupación. Se calcula por depto y se muestra la mediana, así un depto muy grande o muy chico no la mueve.')} /></Card></Col>
         <Col span={4}><Card size="small"><Statistic styles={chico} title="Bruto" value={t ? pesos(t.bruto) : '—'} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic title="Resultado Hornera" value={r ? pesos(r.total_ars) : '—'}
-          styles={{ content: { ...chico.content, color: r && r.total_ars < 0 ? '#B42318' : undefined } }} /></Card></Col>
-      </Row>
-
-      <Row gutter={16}>
-        <Col span={12}>
-          <Card size="small" title="Resultado de Hornera">
-            {r && (
-              <Descriptions size="small" column={1} items={[
-                { label: 'Honorarios', children: <>{pesos(r.honorarios)}{t?.honorario_efectivo != null && <Typography.Text type="secondary"> · {(100 * t.honorario_efectivo).toLocaleString('es-AR', { maximumFractionDigits: 1 })} % del bruto</Typography.Text>}</> },
-                { label: 'Costos operativos cobrados', children: pesos(r.costos_operativos) },
-                { label: 'Ingresos y gastos de la empresa (INT)', children: <>{pesos(r.empresa.ars)}{r.empresa.usd ? ` · ${pesos(r.empresa.usd, 'USD')}` : ''}</> },
-                { label: <b>Resultado en pesos</b>, children: <b>{pesos(r.total_ars)}</b> },
-              ]} />
-            )}
-            <Typography.Text type="secondary">Los movimientos de la empresa en dólares se muestran aparte.</Typography.Text>
-          </Card>
-        </Col>
-        <Col span={12}>
-          <Card size="small" title="Saldos de cuentas (hoy)">
-            <Table<Cuenta> rowKey="nombre" size="small" pagination={false} dataSource={datos?.cuentas as Cuenta[] | undefined} columns={[
-              { title: 'Cuenta', dataIndex: 'nombre' },
-              { title: 'Saldo', dataIndex: 'saldo', ...derecha, render: (v: number, c) => <Typography.Text type={v < 0 ? 'danger' : undefined}>{pesos(v, c.moneda)}</Typography.Text> },
-            ]} summary={() => (
-              <Table.Summary.Row>
-                <Table.Summary.Cell index={0}><b>Total</b></Table.Summary.Cell>
-                <Table.Summary.Cell index={1} align="right"><b>{pesos(totalCuentas('ARS'))} · {pesos(totalCuentas('USD'), 'USD')}</b></Table.Summary.Cell>
-              </Table.Summary.Row>
-            )} />
-          </Card>
-        </Col>
+        <Col span={4}><Card size="small"><Statistic styles={chico} title="Honorarios" value={r ? pesos(r.honorarios) : '—'}
+          suffix={t?.honorario_efectivo != null && <Typography.Text type="secondary" style={{ fontSize: 13, marginLeft: 6 }}>{(100 * t.honorario_efectivo).toLocaleString('es-AR', { maximumFractionDigits: 1 })} %</Typography.Text>} /></Card></Col>
       </Row>
 
       <Card size="small" title="Por depto">
@@ -149,8 +118,6 @@ export function Resumen() {
             { title: 'ADR', dataIndex: 'adr', ...derecha, render: plata },
             { title: 'RevPAR', dataIndex: 'revpar', ...derecha, render: plata },
             { title: 'Bruto', dataIndex: 'bruto', ...derecha, render: (v: number | null) => (v == null ? '' : pesos(v)) },
-            { title: 'Honorarios', dataIndex: 'honorarios', ...derecha, render: (v: number | null) => (v == null ? '' : pesos(v)) },
-            { title: 'Resultado', dataIndex: 'resultado_ars', ...derecha, render: (v: number | null) => (v == null ? '' : pesos(v)) },
           ]} />
       </Card>
     </Space>

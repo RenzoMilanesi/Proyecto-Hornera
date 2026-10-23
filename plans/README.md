@@ -64,6 +64,9 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 057 | [Limpieza: importar las horas del Form y liquidar con división por chica](057-limpieza-horas-y-liquidaciones.md) | P1 | L | — | A TESTEAR |
 | 058 | [Lavandería: cada pago como gasto de la empresa](058-lavanderia.md) | P2 | S | 057 | TODO |
 | 059 | [El pago de una liquidación de limpieza no se edita desde Movimientos](059-pago-limpieza-no-editable.md) | P2 | S | 057 | A TESTEAR |
+| 060 | [El manual explica el menú nuevo y la pantalla Resumen Hornera](060-manual-menu-hornera.md) | P2 | S | — | TODO |
+
+Plan 060: revisión `improve deep` del grupo HORNERA y Resumen Hornera (definido con `grill-me` el 2026-10-23, sobre `dcc7481`). Descartado: el Disponible no descuenta vencimientos (no tienen importe cargado; la pantalla lo aclara); lo pendiente a propietarios mira solo el último mes cerrado (lo anterior ya se arrastró a ese saldo); NC de factura de crédito electrónica 203/208/213 (marcado `ponytail:` en `SQL_FACTURADO`, Hornera no las usa); evolución recalcula cada mes cerrado (pocos meses, como en el Resumen).
 
 Planes 051–053: revisión `improve deep` de las métricas del glosario (`fcbdf9e`) y del plan 050, 2026-10-23. Corregido en el plan 050: la escritura iba en una transacción abierta mientras se esperaba a Stays (ahora baja todo y después escribe). Anotado en DECISIONES (sin plan): el ADR parte de lo cobrado neto de la comisión de MP/PayPal. Descartado: Evolución recalcula los saldos de cuentas por cada mes (pocos meses, no se nota); bloqueos y estadías del propietario contados dos veces (los bloqueos no se cargan); restar el propietario en meses del Excel (B26 también los incluye, lo confirma la regresión).
 

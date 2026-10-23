@@ -9,7 +9,7 @@ interface Periodo { mes: string; estado: string }
 interface GastoAjeno { id: number; fecha: string; codigo: string; descripcion: string | null; importe: number; estado: string }
 interface Listado { gastos: GastoAjeno[]; totales: { porCodigo: Record<string, number>; amancay: number; lautaro: number } }
 
-const NOMBRES: Record<string, string> = {
+export const NOMBRES: Record<string, string> = {
   CAY: 'Amancay', LAU: 'Lautaro', 'CAY/LAU': 'Compartidos', CASEST: 'Casa del Estudiante', CASA: 'Casa',
 };
 const COLOR: Record<string, string> = { CAY: 'magenta', LAU: 'blue', 'CAY/LAU': 'purple', CASEST: 'gold', CASA: 'green' };

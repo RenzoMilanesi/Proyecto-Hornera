@@ -2,6 +2,10 @@
 // Mes cerrado: sale del snapshot (`liquidacion`). Mes abierto: del motor, como la pantalla Liquidación.
 import type { DatabaseSync } from 'node:sqlite';
 import { liquidacionGuardada, liquidarPeriodo } from './liquidacion/servicio.ts';
+import { listarTransferencias } from './liquidacion/pagos.ts';
+import { listarLiquidaciones } from './limpieza.ts';
+import { vencimientos } from './ficha.ts';
+import { SQL_DE_HORNERA } from './misComprobantes.ts';
 
 export interface KpiDepto {
   codigo: string;
@@ -97,7 +101,8 @@ export function evolucion(db: DatabaseSync) {
     const { totales: t, resultado } = resumenDelMes(db, mes);
     return {
       mes, noches_disponibles: t.noches_disponibles, noches_ocupadas: t.noches_ocupadas, ocupacion: t.ocupacion, adr: t.adr, revpar: t.revpar,
-      reservas: t.reservas, bruto: t.bruto, honorarios: resultado.honorarios, resultado_ars: resultado.total_ars,
+      reservas: t.reservas, bruto: t.bruto, honorarios: resultado.honorarios, costos_operativos: resultado.costos_operativos,
+      empresa_ars: resultado.empresa.ars, resultado_ars: resultado.total_ars, personales: personales(db, mes).reduce((s, p) => s + p.importe, 0),
     };
   });
   const historico = (db.prepare(`
@@ -105,9 +110,60 @@ export function evolucion(db: DatabaseSync) {
     WHERE h.mes NOT IN (SELECT mes FROM periodo WHERE estado = 'cerrado')
     GROUP BY h.mes`).all() as { mes: string; noches_ocupadas: number }[]).map((h) => ({
     mes: h.mes, noches_disponibles: null, noches_ocupadas: h.noches_ocupadas, ocupacion: null, adr: null, revpar: null,
-    reservas: null, bruto: null, honorarios: null, resultado_ars: null,
+    reservas: null, bruto: null, honorarios: null, costos_operativos: null, empresa_ars: null, resultado_ars: null, personales: null,
   }));
   return [...historico, ...cerrados].sort((a, b) => a.mes.localeCompare(b.mes));
+}
+
+// Gastos personales del mes (CAY, LAU, la casa...): se muestran, pero no son de Hornera ni entran en el resultado.
+const personales = (db: DatabaseSync, mes: string) => db.prepare(`
+  SELECT g.codigo, SUM(g.importe) AS importe FROM gasto_ajeno g JOIN periodo p ON p.id = g.periodo_id
+  WHERE p.mes = ? AND g.estado = 'vigente' GROUP BY g.codigo ORDER BY g.codigo`).all(mes) as { codigo: string; importe: number }[];
+
+// Lo facturado en ARCA por emisor: lo emitido desde la app más lo importado de Mis Comprobantes que no es de la app.
+// ponytail: NC A, B y C (3, 8, 13) restan; si algún emisor usa factura de crédito electrónica, sumar 203/208/213.
+const SQL_FACTURADO = `
+  SELECT emisor_id, fecha, CASE WHEN cbte_tipo IN (3, 8, 13) THEN -importe ELSE importe END AS importe
+  FROM comprobante WHERE estado = 'aprobado' AND ambiente = 'produccion'
+  UNION ALL
+  SELECT ca.emisor_id, ca.fecha, CASE WHEN ca.cbte_tipo IN (3, 8, 13) THEN -ABS(ca.importe) ELSE ca.importe END
+  FROM comprobante_arca ca WHERE NOT ${SQL_DE_HORNERA}`;
+
+// Resumen de Hornera misma (pedido 2026-10-23): resultado por concepto, personales aparte, lo que falta pagar,
+// lo disponible y lo facturado. Lo pendiente de limpieza y propietarios es de hoy; los vencimientos, del mes elegido.
+export function resumenHornera(db: DatabaseSync, mes: string, hoy?: string) {
+  const { estado, avisos, resultado, cuentas } = resumenDelMes(db, mes);
+  const conceptos = db.prepare(`
+    SELECT COALESCE(c.nombre, 'Sin concepto') AS concepto, SUM(m.importe_ars) AS ars, SUM(m.importe_usd) AS usd
+    FROM movimiento m JOIN periodo p ON p.id = m.periodo_id LEFT JOIN concepto c ON c.id = m.concepto_id
+    WHERE p.mes = ? AND m.depto_id IS NULL AND m.estado = 'vigente' AND m.tipo IN ('gasto', 'ingreso', 'ajuste')
+    GROUP BY 1 ORDER BY SUM(m.importe_ars)`).all(mes) as { concepto: string; ars: number; usd: number }[];
+
+  const limpieza = listarLiquidaciones(db).filter((l) => !l.pagada && l.total > 0)
+    .map(({ id, desde, hasta, total }) => ({ id, desde, hasta, total }));
+  // Del último mes cerrado: lo que se le debe a cada propietario (no los deptos de Hornera ni los saldos en contra).
+  const cerrado = db.prepare(`SELECT mes FROM periodo WHERE estado = 'cerrado' ORDER BY mes DESC LIMIT 1`).get() as { mes: string } | undefined;
+  const propietarios = (cerrado ? listarTransferencias(db, cerrado.mes) : [])
+    .filter((t) => !t.esHornera && !t.arrastradoA && t.pendiente > 0)
+    .map(({ codigo, propietario, moneda, pendiente }) => ({ codigo, propietario, moneda, pendiente }));
+
+  const saldos = cuentas as { nombre: string; moneda: 'ARS' | 'USD'; saldo: number }[];
+  const suma = (xs: number[]) => xs.reduce((s, x) => s + x, 0);
+  const disponible = (moneda: 'ARS' | 'USD') => suma(saldos.filter((c) => c.moneda === moneda).map((c) => c.saldo))
+    - suma(propietarios.filter((p) => p.moneda === moneda).map((p) => p.pendiente))
+    - (moneda === 'ARS' ? suma(limpieza.map((l) => l.total)) : 0);
+
+  const facturado = db.prepare(`
+    SELECT e.nombre AS emisor, COALESCE(SUM(CASE WHEN substr(f.fecha, 1, 7) = ? THEN f.importe END), 0) AS mes, SUM(f.importe) AS doce
+    FROM (${SQL_FACTURADO}) f JOIN emisor e ON e.id = f.emisor_id
+    WHERE substr(f.fecha, 1, 7) BETWEEN ? AND ? GROUP BY e.id ORDER BY e.nombre`).all(mes, mesAnterior(mes, 11), mes) as
+    { emisor: string; mes: number; doce: number }[];
+
+  return {
+    mes, estado, avisos, resultado, conceptos, personales: personales(db, mes),
+    pendiente: { vencimientos: vencimientos(db, mes, hoy).filter((v) => v.estado !== 'pagado'), limpieza, propietarios, mes_propietarios: cerrado?.mes ?? null },
+    cuentas: saldos, disponible: { ars: disponible('ARS'), usd: disponible('USD') }, facturado,
+  };
 }
 
 // Elasticidad precio de la ocupación por depto (pedido de Amancay, 2026-10-23): cuánto cambia la ocupación

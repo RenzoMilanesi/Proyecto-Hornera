@@ -93,7 +93,7 @@ function propietariosPorDoc(db: DatabaseSync) {
 }
 
 // Emitida desde Hornera: el mismo comprobante aprobado en producción (alias `ca`).
-const SQL_DE_HORNERA = `EXISTS (SELECT 1 FROM comprobante c WHERE c.emisor_id = ca.emisor_id AND c.cbte_tipo = ca.cbte_tipo
+export const SQL_DE_HORNERA = `EXISTS (SELECT 1 FROM comprobante c WHERE c.emisor_id = ca.emisor_id AND c.cbte_tipo = ca.cbte_tipo
   AND c.punto_venta = ca.punto_venta AND c.numero = ca.numero AND c.estado = 'aprobado' AND c.ambiente = 'produccion')`;
 
 const ultimoDiaDelMesSiguiente = (mes: string) => new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)) + 1, 0)).toISOString().slice(0, 10);

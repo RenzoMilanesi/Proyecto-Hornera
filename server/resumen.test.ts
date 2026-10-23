@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { DatabaseSync } from 'node:sqlite';
 import { abrirDb } from './db.ts';
-import { arco, elasticidadDelMes, evolucion, metricas, resumenDelMes } from './resumen.ts';
+import { arco, elasticidadDelMes, evolucion, metricas, resumenDelMes, resumenHornera } from './resumen.ts';
 
 const periodo = (db: DatabaseSync, mes: string, inicio: string, cierre: string, estado: string) => db.prepare(`
   INSERT INTO periodo(mes, fecha_inicio, fecha_cierre_reservas, fecha_corte_gastos, fecha_pago, usd_cotizacion, usd_descuento_pct,
@@ -72,10 +72,57 @@ test('evolución: meses cerrados con su resultado y, antes, solo las noches del 
   db.exec(`UPDATE periodo SET estado = 'cerrado' WHERE mes = '2026-04'`);
 
   assert.deepEqual(evolucion(db).map((f: any) => ({ ...f })), [
-    { mes: '2024-10', noches_disponibles: null, noches_ocupadas: 20, ocupacion: null, adr: null, revpar: null, reservas: null, bruto: null, honorarios: null, resultado_ars: null },
+    { mes: '2024-10', noches_disponibles: null, noches_ocupadas: 20, ocupacion: null, adr: null, revpar: null, reservas: null, bruto: null,
+      honorarios: null, costos_operativos: null, empresa_ars: null, resultado_ars: null, personales: null },
     // 2026-04 sale de la liquidación, no del histórico (99)
-    { mes: '2026-04', noches_disponibles: 30, noches_ocupadas: 20, ocupacion: 20 / 30, adr: 450000, revpar: 300000, reservas: 2, bruto: 10000000, honorarios: 2000000, resultado_ars: 2600000 },
+    { mes: '2026-04', noches_disponibles: 30, noches_ocupadas: 20, ocupacion: 20 / 30, adr: 450000, revpar: 300000, reservas: 2, bruto: 10000000,
+      honorarios: 2000000, costos_operativos: 1000000, empresa_ars: -400000, resultado_ars: 2600000, personales: 0 },
   ]);
+});
+
+test('resumen de Hornera: conceptos, personales aparte, lo que falta pagar, disponible y facturado sin contar dos veces', () => {
+  const db = abrirDb(':memory:');
+  db.exec(`
+    INSERT INTO propietario(nombre) VALUES ('Propietario Uno');
+    INSERT INTO propietario(nombre, es_hornera) VALUES ('Hornera', 1);
+    INSERT INTO depto(codigo, nombre, propietario_id) VALUES ('AAA', 'Depto A', 1), ('HOR', 'Depto de Hornera', 2);
+    INSERT INTO cuenta(nombre, moneda) VALUES ('Banco A', 'ARS');
+    INSERT INTO concepto(nombre) VALUES ('Limpieza'), ('Monotributo');
+    INSERT INTO emisor(nombre, razon_social, cuit, condicion_iva, punto_venta) VALUES ('Emisor Uno', 'Emisor Uno SRL', '20111111112', 'monotributista', 2);`);
+  const marzo = periodo(db, '2026-03', '2026-03-01', '2026-04-01', 'abierto').id;
+  const abril = periodo(db, '2026-04', '2026-04-01', '2026-05-01', 'abierto').id;
+  liquidacion(db, marzo, 1, 20, 10000000, 1000000, -2000000);
+  liquidacion(db, marzo, 2, 20, 10000000, 1000000, -2000000);
+  db.exec(`UPDATE liquidacion SET saldo_final_ars = 1000000`); // a AAA se le deben $10.000; a HOR también, pero es de Hornera
+  const mov = db.prepare(`INSERT INTO movimiento(periodo_id, fecha, depto_id, tipo, concepto_id, importe_ars, cuenta_id, creado_en)
+    VALUES (?, ?, ?, ?, ?, ?, 1, 'x') RETURNING id`);
+  mov.get(abril, '2026-04-01', null, 'saldo_inicial', null, 5000000);
+  const pago = mov.get(marzo, '2026-04-05', 1, 'liquidacion', null, -400000) as { id: number }; // pagó $4.000 de los $10.000
+  mov.get(abril, '2026-04-06', null, 'gasto', 1, -100000);
+  mov.get(abril, '2026-04-07', null, 'gasto', 2, -50000);
+  mov.get(abril, '2026-04-08', null, 'gasto', null, -20000);
+  db.exec(`
+    INSERT INTO gasto_ajeno(periodo_id, fecha, codigo, importe, creado_en) VALUES (${abril}, '2026-04-09', 'CAY', 30000, 'x'), (${abril}, '2026-04-10', 'CAY', 10000, 'x');
+    INSERT INTO liquidacion_limpieza(desde, hasta, precio_hora, plus_json, ajuste, creado_en) VALUES ('2026-04-01', '2026-04-15', 1, '{}', 70000, 'x');
+    INSERT INTO comprobante(periodo_id, depto_id, propietario_id, movimiento_id, emisor_id, cbte_tipo, punto_venta, numero, cae, cae_vencimiento,
+      fecha, serv_desde, serv_hasta, importe, receptor_json, estado, ambiente, creado_en)
+    VALUES (${marzo}, 1, 1, ${pago.id}, 1, 11, 2, 1, 'x', '2026-04-15', '2026-04-05', '2026-03-01', '2026-03-31', 80000, '{}', 'aprobado', 'produccion', 'x');
+    -- la misma factura importada de Mis Comprobantes (no suma de nuevo), una por fuera, su NC y una de hace más de un año
+    INSERT INTO comprobante_arca(emisor_id, fecha, cbte_tipo, punto_venta, numero, numero_hasta, importe, importado_en) VALUES
+      (1, '2026-04-05', 11, 2, 1, 1, 80000, 'x'), (1, '2026-04-20', 11, 1, 7, 7, 50000, 'x'),
+      (1, '2026-04-21', 13, 1, 1, 1, 50000, 'x'), (1, '2026-01-10', 11, 1, 3, 3, 20000, 'x'), (1, '2025-01-10', 11, 1, 2, 2, 999999, 'x');`);
+  db.exec(`UPDATE periodo SET estado = 'cerrado' WHERE mes = '2026-03'`);
+
+  const h = resumenHornera(db, '2026-04', '2026-04-23');
+  assert.equal(h.estado, 'abierto');
+  assert.deepEqual(h.conceptos.map((c) => [c.concepto, c.ars]), [['Limpieza', -100000], ['Monotributo', -50000], ['Sin concepto', -20000]]);
+  assert.deepEqual(h.personales.map((p) => [p.codigo, p.importe]), [['CAY', 40000]]);
+  assert.deepEqual(h.pendiente.limpieza.map((l) => l.total), [70000]);
+  assert.deepEqual(h.pendiente.propietarios, [{ codigo: 'AAA', propietario: 'Propietario Uno', moneda: 'ARS', pendiente: 600000 }]);
+  assert.equal(h.pendiente.mes_propietarios, '2026-03');
+  // Banco: 50.000 − 4.000 − 1.000 − 500 − 200 = 44.300; menos 6.000 a propietarios y 700 de limpieza
+  assert.deepEqual(h.disponible, { ars: 4430000 - 600000 - 70000, usd: 0 });
+  assert.deepEqual(h.facturado.map((f) => ({ ...f })), [{ emisor: 'Emisor Uno', mes: 80000, doce: 100000 }]);
 });
 
 test('métricas: la estadía del propietario no es noche vendida ni a la venta', () => {
