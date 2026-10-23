@@ -16,6 +16,12 @@
         display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; align-items: baseline; }
       .ficha > dt { color: #6E6259; margin: 0; }
       .ficha > dd { margin: 0; }
+      /* Asistente: la pregunta a la derecha, la respuesta a lo ancho; tablas de la IA con líneas. */
+      .burbuja-ia { padding: 8px 12px; border-radius: 8px; background: #FBF4EF; border: 1px solid #E6DED3; overflow-x: auto; }
+      .burbuja-ia-usuario { margin: 0 0 6px auto; width: fit-content; max-width: 85%; background: #F3E3D9; white-space: pre-wrap; }
+      .tabla-ia { border-collapse: collapse; margin: 0 0 8px; font-size: 13px; }
+      .tabla-ia th, .tabla-ia td { border: 1px solid #E6DED3; padding: 3px 8px; }
+      .tabla-ia th { background: #F6EEE7; }
       .detalle-abierto > td { background: #FBF4EF !important; box-shadow: inset 4px 0 0 #A8461F; }
       /* Subtotales y totales de las tablas del detalle (la cuenta, el total de reservas). */
       .subtotal > td { background: #F6EEE7 !important; }

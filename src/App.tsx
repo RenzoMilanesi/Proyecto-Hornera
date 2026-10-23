@@ -21,7 +21,7 @@ import { Emparejar } from './Emparejar.tsx';
 import { Emisores } from './Emisores.tsx';
 import { Auditoria } from './Auditoria.tsx';
 import { Vencimientos } from './Vencimientos.tsx';
-import { ConfigAsistente } from './Asistente.tsx';
+import { ConfigAsistente, mesVisto, PanelAsistente } from './Asistente.tsx';
 
 const secciones = {
   resumen: { grupo: '', titulo: 'Resumen', ayuda: 'Cómo viene el mes en los deptos: ocupación, tarifas y lo cobrado.', vista: <Resumen /> },
@@ -53,6 +53,7 @@ export function App() {
   const [version, setVersion] = useState('');
   const [local, setLocal] = useState(false);
   const [emparejar, setEmparejar] = useState(false);
+  const [asistente, setAsistente] = useState(false);
   useEffect(() => {
     // fetch directo: el 401 de una terminal sin emparejar se distingue de cualquier otro error.
     fetch('/api/estado').then(async (r) => {
@@ -80,6 +81,7 @@ export function App() {
     return g ? [{ type: 'group' as const, key: g, label: <span style={{ fontWeight: 600, letterSpacing: 0.5 }}>{g.toUpperCase()}</span>, children: hijos }] : hijos;
   });
   const actual = secciones[seccion];
+  mesVisto.valor = ''; // la pantalla con selector de mes lo vuelve a escribir al dibujarse
   return (
     <Layout style={{ minHeight: '100vh' }}>
       {/* sticky: el menú queda a mano al bajar por tablas largas */}
@@ -87,6 +89,7 @@ export function App() {
         <Typography.Title level={4} style={{ padding: '16px 24px', margin: 0, color: '#fff' }}>Hornera</Typography.Title>
         <Menu theme="dark" mode="inline" defaultOpenKeys={['sub-Propiedades']} selectedKeys={[seccion]} onClick={(e) => setSeccion(e.key as Seccion)} items={items} />
         {/* Lo abre electron/main.ts (setWindowOpenHandler) con la copia del manual de esta PC. */}
+        <Typography.Link onClick={() => setAsistente(true)} style={{ display: 'block', padding: '16px 24px 0', color: '#E8C9A8' }}>Asistente con IA</Typography.Link>
         <Typography.Link href="/manual.pdf" target="_blank" style={{ display: 'block', padding: '16px 24px 0', color: '#E8C9A8' }}>Manual de usuario</Typography.Link>
         <Typography.Text style={{ display: 'block', padding: '8px 24px 16px', color: '#B3A698' }}>v{version}</Typography.Text>
       </Layout.Sider>
@@ -95,6 +98,7 @@ export function App() {
         <Typography.Paragraph style={{ marginBottom: 20, color: '#4A3F37' }}>{actual.ayuda}</Typography.Paragraph>
         <div key={seccion}>{actual.vista}</div>{/* key: estado nuevo por sección */}
       </Layout.Content>
+      <PanelAsistente abierto={asistente} alCerrar={() => setAsistente(false)} pantalla={actual.titulo} />
     </Layout>
   );
 }

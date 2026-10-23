@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Alert, Button, Card, Input, InputNumber, Popconfirm, Select, Space, Table, Tag, Tooltip, Typography, Upload } from 'antd';
+import { mesVisto } from './Asistente.tsx';
 import type { TableColumnsType } from 'antd';
 import type { LiquidacionDepto, LiquidacionPeriodo } from '../server/liquidacion/servicio.ts';
 import { repartoCuenta, type CuentaLiquidacion } from '../server/liquidacion/motor.ts';
@@ -197,6 +198,7 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
 export function Liquidacion() {
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
   const [mes, setMes] = useState<string>();
+  mesVisto.valor = mes ?? ''; // para el asistente
   const [datos, setDatos] = useState<LiquidacionPeriodo>();
   const [error, setError] = useState<string>();
   const [cotizacion, setCotizacion] = useState<number | null>(null);

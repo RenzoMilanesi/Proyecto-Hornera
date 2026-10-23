@@ -2,6 +2,7 @@
 // Pagado = ya hay un gasto del depto con ese concepto en el mes, cargado en Movimientos.
 import { useEffect, useState } from 'react';
 import { Alert, Input, Segmented, Space, Table, Tag, Typography } from 'antd';
+import { mesVisto } from './Asistente.tsx';
 import { get } from './api.ts';
 
 interface Vencimiento { servicio_id: number; codigo: string; depto: string; concepto: string; cuenta: string | null; vence: string; estado: 'pagado' | 'pendiente' | 'vencido' }
@@ -10,6 +11,7 @@ const ESTADOS = { vencido: { label: 'Vencido', color: 'red' }, pendiente: { labe
 
 export function Vencimientos() {
   const [mes, setMes] = useState(() => new Date().toLocaleDateString('sv').slice(0, 7));
+  mesVisto.valor = mes ?? ''; // para el asistente
   const [filas, setFilas] = useState<Vencimiento[]>();
   const [error, setError] = useState<string>();
   const [ver, setVer] = useState<'faltan' | 'todos'>('faltan');

@@ -83,7 +83,8 @@ en la LAN (fase 5d), que sigue a testear.
    (consulta_sql con conexión de solo lectura, tablas ocultas y tope de 200 filas / 5 s). v0.42.3: el bucle con Claude
    (herramientas, manual con caché, respaldo por rechazo, tope de 10 vueltas, modelo y costo de cada respuesta). v0.42.4–7: planes 062–065 (conversaciones viejas, SQL en proceso aparte,
    tope de tamaño, costo del respaldo). v0.43.0: rutas para preguntar (también desde terminales, una a la vez por
-   conversación) y el historial de cada PC.
+   conversación) y el historial de cada PC. v0.44.0: el panel "Asistente con IA" (menú lateral, en todas las PCs):
+   conversaciones anteriores, tablas de la respuesta y, al pie, modelo, consultas, costo y "Cómo lo calculé".
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.
    - Terminales → "Nombre de esta PC" en el servidor (se guarda en `configuracion`); reemplaza al nombre de Windows en la auditoría.

@@ -198,6 +198,10 @@ Runner):
 - "Pensando…" mientras espera (sin streaming en la fase 1: `ponytail:` respuesta completa de una vez; streaming si
   las esperas molestan).
 - Sin key: el panel explica cómo cargarla (y que solo se hace desde la PC servidor).
+- **Hecho (2026-10-23, v0.44.0):** `PanelAsistente` en `src/Asistente.tsx`, abierto desde el link "Asistente con IA" del
+  menú lateral (no un botón flotante: no tapa tablas). Drawer sin máscara (se sigue viendo la pantalla). Markdown
+  mínimo propio (párrafos, listas, tablas, negrita), sin dependencias. El mes: cada pantalla con selector escribe
+  `mesVisto.valor` al dibujarse y `App` lo limpia (`ponytail:` objeto suelto, no contexto de React).
 
 ### 7. Empaquetado
 - **Hecho en el paso 4.** Sumar `manual/manual.html` a `build.files` en `package.json` (hoy no viaja en el instalador). Sin el archivo, el

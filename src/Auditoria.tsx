@@ -1,6 +1,7 @@
 // Herramientas → Auditoría: quién (qué PC) cambió qué en el mes, con lo que cambió (server/auditoria.ts).
 import { useEffect, useState } from 'react';
 import { Alert, Card, Input, Select, Space, Table, Tag, Typography } from 'antd';
+import { mesVisto } from './Asistente.tsx';
 import type { FilaAuditoria } from '../server/auditoria.ts';
 import { get } from './api.ts';
 
@@ -26,6 +27,7 @@ const unicos = (filas: FilaAuditoria[], f: (x: FilaAuditoria) => string) => [...
 
 export function Auditoria() {
   const [mes, setMes] = useState(() => new Date().toLocaleDateString('sv').slice(0, 7));
+  mesVisto.valor = mes ?? ''; // para el asistente
   const [filas, setFilas] = useState<FilaAuditoria[]>();
   const [pc, setPc] = useState<string>();
   const [tipo, setTipo] = useState<string>();

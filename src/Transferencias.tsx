@@ -2,6 +2,7 @@
 // (genera el movimiento "Liquidacion periodo") y la lista para el banco en Excel.
 import { useEffect, useState } from 'react';
 import { Alert, Button, Card, Checkbox, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography } from 'antd';
+import { mesVisto } from './Asistente.tsx';
 import type { TableColumnsType } from 'antd';
 import type { FacturaDePago, FacturaExterna, Transferencia } from '../server/liquidacion/pagos.ts';
 import type { FacturaExterna as Externa } from '../server/misComprobantes.ts';
@@ -284,6 +285,7 @@ export function EstadoFactura({ f, externa, anulado, alFacturar, alAnularFactura
 export function Transferencias() {
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
   const [mes, setMes] = useState<string>();
+  mesVisto.valor = mes ?? ''; // para el asistente
   const [filas, setFilas] = useState<Transferencia[]>();
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);
   const [pagando, setPagando] = useState<Transferencia>();

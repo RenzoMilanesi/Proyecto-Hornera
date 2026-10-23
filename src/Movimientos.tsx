@@ -2,6 +2,7 @@
 // directos, saldos iniciales y transferencias entre cuentas. No se borran: se anulan.
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, AutoComplete, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Radio, Select, Space, Switch, Table, Tag, Typography } from 'antd';
+import { mesVisto } from './Asistente.tsx';
 import type { TableColumnsType } from 'antd';
 import { entradaPlata, enviar, get, pesos, simbolo, useUnaVez } from './api.ts';
 
@@ -167,6 +168,7 @@ function FormTransferencia({ abierto, mes, cuentas, alCerrar }: { abierto: boole
 export function Movimientos() {
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
   const [mes, setMes] = useState<string>();
+  mesVisto.valor = mes ?? ''; // para el asistente
   const [movimientos, setMovimientos] = useState<Movimiento[]>();
   const [deptos, setDeptos] = useState<string[]>([]);
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);

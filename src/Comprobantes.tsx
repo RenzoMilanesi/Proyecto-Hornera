@@ -3,6 +3,7 @@
 // La vista "En ARCA" muestra lo importado de Mis Comprobantes, también lo hecho por fuera (plan 036).
 import { useEffect, useState } from 'react';
 import { Alert, Button, Card, Descriptions, Drawer, Input, Segmented, Select, Space, Table, Tag, Typography } from 'antd';
+import { mesVisto } from './Asistente.tsx';
 import type { TableColumnsType } from 'antd';
 import type { FilaComprobante } from '../server/facturacion.ts';
 import { descargarPdfComprobante, get, pesos } from './api.ts';
@@ -18,6 +19,7 @@ const json = (s: string | null) => {
 
 export function Comprobantes() {
   const [mes, setMes] = useState(() => new Date().toLocaleDateString('sv').slice(0, 7));
+  mesVisto.valor = mes ?? ''; // para el asistente
   const [vista, setVista] = useState<'hornera' | 'arca'>('hornera');
   const [lista, setLista] = useState<Lista>();
   const [emisor, setEmisor] = useState<number>();

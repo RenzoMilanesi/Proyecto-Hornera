@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, Button, Card, Descriptions, Form, Input, Space, Switch, Table, Tag, Typography } from 'antd';
+import { mesVisto } from './Asistente.tsx';
 import type { TableColumnsType } from 'antd';
 import { enviar, get, pesos } from './api.ts';
 import { AjustesReserva, type ReservaAjustable } from './AjustesReserva.tsx';
@@ -100,6 +101,7 @@ function Credenciales({ usuario, alGuardar }: { usuario: string | null; alGuarda
 export function Stays() {
   const [usuario, setUsuario] = useState<string | null>(null);
   const [mes, setMes] = useState(mesActual());
+  mesVisto.valor = mes ?? ''; // para el asistente
   const [trayendo, setTrayendo] = useState(false);
   const [reporte, setReporte] = useState<Reporte>();
   const [error, setError] = useState<string>();

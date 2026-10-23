@@ -2,6 +2,7 @@
 // lo disponible, lo facturado por emisor y la evolución. El Resumen de arriba es de deptos y reservas.
 import { useEffect, useState } from 'react';
 import { Alert, Card, Col, Descriptions, Empty, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { mesVisto } from './Asistente.tsx';
 import type { evolucion, resumenHornera } from '../server/resumen.ts';
 import { get, pesos } from './api.ts';
 import { NOMBRES } from './GastosAjenos.tsx';
@@ -19,6 +20,7 @@ const subtitulo = (t: string) => <Typography.Text strong style={{ display: 'bloc
 export function ResumenHornera() {
   const [meses, setMeses] = useState<{ mes: string; estado: string }[]>([]);
   const [mes, setMes] = useState<string>();
+  mesVisto.valor = mes ?? ''; // para el asistente
   const [datos, setDatos] = useState<Datos>();
   const [historia, setHistoria] = useState<Mes[]>();
   const [error, setError] = useState<string>();

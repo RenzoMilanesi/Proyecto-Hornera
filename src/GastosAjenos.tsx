@@ -2,6 +2,7 @@
 // cuentas ni en el resultado. Los compartidos (CAY/LAU) se parten mitad y mitad entre Amancay y Lautaro.
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Card, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Statistic, Switch, Table, Tag, Typography } from 'antd';
+import { mesVisto } from './Asistente.tsx';
 import type { TableColumnsType } from 'antd';
 import { entradaPlata, enviar, get, pesos, useUnaVez } from './api.ts';
 
@@ -88,6 +89,7 @@ function FormGastoAjeno({ abierto, mes, editando, alCerrar }: {
 export function GastosAjenos() {
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
   const [mes, setMes] = useState<string>();
+  mesVisto.valor = mes ?? ''; // para el asistente
   const [listado, setListado] = useState<Listado>();
   const [codigo, setCodigo] = useState<string>();
   const [verAnulados, setVerAnulados] = useState(false);

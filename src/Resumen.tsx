@@ -1,6 +1,7 @@
 // Resumen interno (fase 6): KPIs del mes por depto y evolución. Lo de Hornera misma está en ResumenHornera.tsx.
 import { useEffect, useState } from 'react';
 import { Alert, Card, Col, Row, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from 'antd';
+import { mesVisto } from './Asistente.tsx';
 import type { elasticidadDelMes, evolucion, resumenDelMes } from '../server/resumen.ts';
 import { get, pesos } from './api.ts';
 
@@ -23,6 +24,7 @@ const orden = (k: 'ocupacion' | 'adr' | 'revpar' | 'neto_noche') => (a: KpiDepto
 export function Resumen() {
   const [meses, setMeses] = useState<{ mes: string; estado: string }[]>([]);
   const [mes, setMes] = useState<string>();
+  mesVisto.valor = mes ?? ''; // para el asistente
   const [datos, setDatos] = useState<Resumen>();
   const [historia, setHistoria] = useState<Mes[]>();
   const [error, setError] = useState<string>();
