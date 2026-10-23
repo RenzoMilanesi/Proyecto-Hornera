@@ -53,6 +53,9 @@ romper nada.
   (o un `console.log` temporal en `main.ts`). Si no está, ver el plan B en el paso 3.
 - Dependencia nueva: `@anthropic-ai/sdk` (única; justifica: tipos, reintentos, errores tipados). No sumar `zod`:
   las herramientas van con JSON Schema a mano.
+- **Hecho (2026-10-23):** Electron 44.7 trae Node 24.21 con `setAuthorizer` y `constants`; probado que niega
+  `SELECT` sobre una tabla excluida, `DELETE` y `PRAGMA` (el plan B del paso 3 no hace falta).
+  `@anthropic-ai/sdk@^1.2.0` en `dependencies`, importa bien; no suma avisos al `npm audit`.
 
 ### 1. Esquema (migración siguiente a la última de `MIGRACIONES`)
 ```sql

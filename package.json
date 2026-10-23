@@ -1,6 +1,6 @@
 {
   "name": "hornera",
-  "version": "0.41.1",
+  "version": "0.41.2",
   "description": "HORNERA â€” liquidaciÃ³n mensual a propietarios",
   "private": true,
   "type": "module",
@@ -19,6 +19,7 @@
     "dist": "npm run typecheck && npm test && vite build && electron-builder --win"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.2.0",
     "express": "^5.3.0",
     "node-forge": "^1.4.0",
     "qrcode": "^1.5.4",
@@ -58,7 +59,10 @@
       "!server/liquidacion/abril-en-base.ts"
     ],
     "extraResources": [
-      { "from": "manual/Manual de usuario Hornera.pdf", "to": "manual.pdf" }
+      {
+        "from": "manual/Manual de usuario Hornera.pdf",
+        "to": "manual.pdf"
+      }
     ],
     "win": {
       "target": "nsis",
