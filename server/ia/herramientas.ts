@@ -35,8 +35,9 @@ const DEPTO = { type: 'string', description: 'Código del depto, p. ej. ALM (de 
 const objeto = (props: Record<string, object> = {}) =>
   ({ type: 'object' as const, properties: props, required: Object.keys(props), additionalProperties: false });
 
+// strict solo con parámetros: sin ellos no hay nada que validar, y la API acepta como mucho 20 herramientas strict.
 const h = (name: string, description: string, props: Record<string, object>, correr: Herramienta['correr']): Herramienta =>
-  ({ definicion: { name, description, input_schema: objeto(props), strict: true }, correr });
+  ({ definicion: { name, description, input_schema: objeto(props), ...(Object.keys(props).length ? { strict: true } : {}) }, correr });
 
 function idDepto(db: DatabaseSync, codigo: unknown) {
   const d = db.prepare('SELECT id FROM depto WHERE upper(codigo) = upper(?)').get(String(codigo)) as { id: number } | undefined;

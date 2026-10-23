@@ -55,7 +55,10 @@ test('asistente: dos herramientas en una vuelta van en un solo mensaje; se guard
   assert.deepEqual(pedidos[0].thinking, { type: 'adaptive', block_binding: { prefix_mismatch_behavior: 'drop_block' } });
   assert.deepEqual(pedidos[0].betas, ['thinking-binding-controls-2026-08-01', 'server-side-fallback-2026-07-01']);
   assert.deepEqual((pedidos[0].system as Anthropic.Beta.BetaTextBlockParam[])[1].cache_control, { type: 'ephemeral' });
-  assert.ok(pedidos[0].tools!.every((t) => (t as Anthropic.Beta.BetaTool).strict === true));
+  // strict en las que tienen parámetros, y nunca más de 20 (la API rechaza la pregunta entera).
+  const tools = pedidos[0].tools as Anthropic.Beta.BetaTool[];
+  assert.ok(tools.every((t) => t.strict === (Object.keys(t.input_schema.properties ?? {}).length > 0 || undefined)));
+  assert.ok(tools.filter((t) => t.strict).length <= 20);
 
   const fila = db.prepare('SELECT * FROM respuesta_ia').get() as Record<string, unknown>;
   assert.deepEqual([fila.modelo, fila.esfuerzo, fila.tokens_entrada], ['claude-sonnet-5', 'medium', 200]);
