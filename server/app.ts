@@ -11,7 +11,6 @@ import * as limpieza from './limpieza.ts';
 import { crearClienteStays, URL_STAYS, type Credenciales } from './stays/cliente.ts';
 import { sincronizarMes } from './stays/sync.ts';
 import { SQL_EN_PERIODO } from './periodo.ts';
-import { liquidacionGuardada, liquidarPeriodo } from './liquidacion/servicio.ts';
 import { compararConExcel } from './liquidacion/comparar.ts';
 import { auditar, listarAuditoria } from './auditoria.ts';
 import { actualizarCotizacion, type Fetch } from './cotizacion.ts';
@@ -28,6 +27,7 @@ import { datosComprobante, detalleComprobante, emitir, ErrorRevisar, facturaVige
 import { datosDePago, datosFiscales, guardarDatosDePago, guardarDatosFiscales, padronDePropietario } from './propietarios.ts';
 import { rutasBackup, type Sistema } from './backup.ts';
 import { agregar, borrar, editar, ficha, guardarNotas, vencimientos } from './ficha.ts';
+import { liquidacionDelMes, listarCuentas, listarDeptos, listarPeriodos, listarPropietarios, reservasDelMes } from './consultas.ts';
 import { configIa, guardarConfigIa, type AlmacenClaveIa } from './ia/asistente.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
 
@@ -125,21 +125,9 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     res.json({ version, local: esLocal(req) });
   });
 
-  app.get('/api/propietarios', (_req, res) => {
-    res.json(db.prepare(`
-      SELECT p.id, p.nombre, p.moneda_liquidacion, p.cbu IS NOT NULL AS tiene_cbu,
-             (SELECT group_concat(codigo, ', ') FROM depto WHERE propietario_id = p.id) AS deptos
-      FROM propietario p WHERE p.activo = 1 ORDER BY p.nombre`).all());
-  });
+  app.get('/api/propietarios', (_req, res) => { res.json(listarPropietarios(db)); });
 
-  app.get('/api/deptos', (_req, res) => {
-    res.json(db.prepare(`
-      SELECT d.id, d.codigo, d.nombre, d.direccion, d.estado, d.comision_pct, d.tarifa_base_override,
-             d.adicional_huesped_override, d.cm_fee_usd_override, p.nombre AS propietario,
-             COALESCE(d.fotos, '[]') AS fotos
-      FROM depto d JOIN propietario p ON p.id = d.propietario_id ORDER BY d.codigo`).all()
-      .map((d) => ({ ...d, fotos: JSON.parse(d.fotos as string) })));
-  });
+  app.get('/api/deptos', (_req, res) => { res.json(listarDeptos(db)); });
 
   // El archivo viaja como application/octet-stream: no es un tipo "simple" de CORS,
   // así que una página web ajena no puede mandarlo sin preflight.
@@ -226,28 +214,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   });
 
   // Reservas de un período con lo que entra a la liquidación (pagos liquidables, neto de comisión).
-  app.get('/api/reservas', (req, res) => {
-    const periodo = db.prepare('SELECT fecha_inicio, fecha_cierre_reservas FROM periodo WHERE mes = ?')
-      .get(String(req.query.mes ?? '')) as { fecha_inicio: string; fecha_cierre_reservas: string } | undefined;
-    if (!periodo) {
-      res.json([]);
-      return;
-    }
-    const { fecha_inicio: inicio, fecha_cierre_reservas: cierre } = periodo;
-    res.json(db.prepare(`
-      SELECT r.id, r.codigo, d.codigo AS depto, r.llegada, r.salida, r.huespedes, p.nombre AS plataforma,
-             r.estado_stays, r.ajuste_ars, r.ajuste_usd, r.ajuste_comision_ars, r.ajuste_comision_usd, r.observacion, r.excluida,
-             r.cancelada, r.hora_llegada, r.hora_salida, r.desglose_json,
-             COALESCE(SUM(CASE v.moneda WHEN 'ARS' THEN v.importe_neto END), 0) AS cobrado_ars,
-             COALESCE(SUM(CASE v.moneda WHEN 'USD' THEN v.importe_neto END), 0) AS cobrado_usd,
-             MAX(v.falta_comision) AS falta_comision
-      FROM reserva r
-      JOIN depto d ON d.id = r.depto_id
-      LEFT JOIN plataforma p ON p.id = r.plataforma_id
-      LEFT JOIN v_pago_liquidable v ON v.reserva_id = r.id
-      WHERE ${SQL_EN_PERIODO}
-      GROUP BY r.id ORDER BY d.codigo, r.llegada`).all({ inicio, cierre }));
-  });
+  app.get('/api/reservas', (req, res) => { res.json(reservasDelMes(db, String(req.query.mes ?? ''))); });
 
   // Ajustes manuales de una reserva (pestañas 🖊 del Excel). "Traer mes" no los pisa.
   app.put('/api/reservas/:id', (req, res) => {
@@ -281,12 +248,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   });
 
   // ---- Períodos y liquidación
-  app.get('/api/periodos', (_req, res) => {
-    // provisoria: de la API pero de un momento, no la del cierre (server/cotizacion.ts).
-    res.json(db.prepare(`SELECT mes, estado, usd_cotizacion, usd_cotizacion_fuente, usd_cotizacion_fecha, usd_descuento_pct, fecha_pago,
-        usd_cotizacion_fuente = 'api' AND usd_cotizacion_provisoria = 1 AS provisoria
-      FROM periodo ORDER BY mes DESC`).all());
-  });
+  app.get('/api/periodos', (_req, res) => { res.json(listarPeriodos(db)); });
 
   // Volver a pedir la cotización a la API, aunque esté cargada a mano.
   app.post('/api/periodos/:mes/cotizacion/traer', async (req, res) => {
@@ -336,16 +298,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   app.delete('/api/ficha/:lista/:id', (req, res) => intentar(res, () => { borrar(db, req.params.lista, Number(req.params.id)); return { ok: true }; }));
   app.get('/api/vencimientos', (req, res) => intentar(res, () => vencimientos(db, String(req.query.mes ?? ''))));
 
-  app.get('/api/liquidacion', (req, res) => {
-    try {
-      // Un mes cerrado se muestra como se guardó al cerrar, no recalculado con los datos de hoy.
-      const mes = String(req.query.mes ?? '');
-      const cerrado = (db.prepare('SELECT estado FROM periodo WHERE mes = ?').get(mes) as { estado: string } | undefined)?.estado === 'cerrado';
-      res.json(cerrado ? liquidacionGuardada(db, mes) : liquidarPeriodo(db, mes));
-    } catch (e) {
-      res.status(400).json({ error: mensaje(e) });
-    }
-  });
+  app.get('/api/liquidacion', (req, res) => intentar(res, () => liquidacionDelMes(db, String(req.query.mes ?? ''))));
 
   app.get('/api/auditoria', (req, res) => intentar(res, () => listarAuditoria(db, String(req.query.mes ?? ''))));
 
@@ -428,9 +381,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   });
 
   // ---- Cuentas y medios de pago de Stays
-  app.get('/api/cuentas', (_req, res) => {
-    res.json(db.prepare('SELECT cuenta_id AS id, nombre, moneda, activo, saldo, saldo_desde FROM v_saldo_cuenta ORDER BY activo DESC, nombre').all());
-  });
+  app.get('/api/cuentas', (_req, res) => { res.json(listarCuentas(db)); });
   app.post('/api/cuentas', (req, res) => intentar(res, () => {
     const { nombre, moneda } = req.body ?? {};
     if (typeof nombre !== 'string' || !nombre.trim() || (moneda !== 'ARS' && moneda !== 'USD')) throw new Error('Faltan el nombre o la moneda (ARS o USD).');

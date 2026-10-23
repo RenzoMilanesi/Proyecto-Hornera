@@ -138,6 +138,17 @@ que ya está detrás de la ruta GET** (sin duplicar lógica de negocio). Devuelv
   avisa: plata en **centavos**, fechas ISO, y que para "reservas de un mes" use la herramienta `reservas` (la regla
   del período no es trivial en SQL).
 - Errores de SQL → `tool_result` con `is_error: true` y el mensaje de SQLite, para que la IA corrija.
+- **Hecho (2026-10-23), con cuatro cambios:**
+  - **Plata en centavos, no en pesos.** Convertir por nombre de campo resultó frágil (`total` son noches en
+    `hoja.noches` y plata en limpieza; `plus.valor` son minutos o pesos según el modo; `cotizacion` no es centavos).
+    Cada descripción avisa "enteros en CENTAVOS, dividí por 100". Revisar en la validación (paso 9): si la IA divide
+    mal, cada función declara sus campos de plata.
+  - `consulta_sql` abre la conexión de solo lectura **en cada consulta** y la cierra (no una vez: dejaba el archivo
+    tomado en Windows). El esquema de la descripción se arma de `sqlite_master` sin las tablas ocultas.
+  - El SQL de las rutas GET de deptos, propietarios, períodos, cuentas, reservas y liquidación pasó a
+    `server/consultas.ts`; la ruta y la herramienta llaman a la misma función.
+  - Se sumó `cuentas` (saldos); `gastos_ajenos` se llama `gastos_personales` (como en el menú); `hoja_depto` sin el QR
+    de las facturas (35 KB de SVG); `reservas` sin `desglose_json`. Los deptos se piden por código, no por id.
 
 ### 4. El bucle (`server/ia/asistente.ts`, nuevo)
 Leer antes `claude-api` → `typescript/claude-api/README.md` y `tool-use.md`. Bucle manual (no hace falta el Tool
