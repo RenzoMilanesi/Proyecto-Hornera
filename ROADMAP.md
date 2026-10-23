@@ -59,6 +59,11 @@ en la LAN (fase 5d), que sigue a testear.
    ni a la venta, y el ADR va sin la tarifa por estadía. "Ingreso bruto" pasa a "Base de honorarios". Para medir elasticidad,
    primero juntar fotos diarias del calendario de Stays ([plan 050](plans/050-foto-calendario-stays.md)).
    v0.38.0: elasticidad indicativa por depto y de la cartera, contra el mismo mes del año anterior o el anterior, con avisos y confianza.
+11. **Limpieza** — **A testear** (v0.39.0; 2026-10-23; [plan 057](plans/057-limpieza-horas-y-liquidaciones.md) y [059](plans/059-pago-limpieza-no-editable.md)):
+   Mes → "Limpieza" importa las horas del Google Form (desde el 10/09/2026), liquida a la coordinadora por período de fechas
+   libres con horas y plata de cada chica, y al marcar pagada crea el gasto de Hornera (concepto Limpieza). Plus por tipo de
+   tarea editable (horas o pesos) y horas por chica, depto y mes como información. Falta: probar con el Excel real, cargar los
+   períodos 10/09–22/09 y 23/09–07/10 con lo pagado (ajuste) y la lavandería ([plan 058](plans/058-lavanderia.md)).
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.
    - Terminales → "Nombre de esta PC" en el servidor (se guarda en `configuracion`); reemplaza al nombre de Windows en la auditoría.

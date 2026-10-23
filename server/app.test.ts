@@ -163,7 +163,7 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
   // ni los datos nuevos de la reserva (6 → 7) ni el dueño de la liquidación (7 → 8)
   // ni la fecha de la cotización del período (8 → 9) ni la facturación ARCA (9 → 10)
   // ni lo importado de Mis Comprobantes (10 → 11) ni el origen de los gastos importados (11 → 12) ni la moneda de la liquidación (12 → 13)
-  // ni la marca de saldado por fuera (16 → 17) ni los gastos ajenos (17 → 18) ni la ficha del depto (18 → 19).
+  // ni la marca de saldado por fuera (16 → 17) ni los gastos ajenos (17 → 18) ni la ficha del depto (18 → 19) ni la limpieza (19 → 20).
   const actual = readFileSync(new URL('../schema.sql', import.meta.url), 'utf8');
   const v1 = actual
     .replace(/^\s*(-- Datos para facturarle|-- que vienen del Excel en texto libre|fiscal_).*\r?\n/gm, '')
@@ -185,6 +185,7 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
     .replace(/^\s*moneda .*-- en la que liquidaba el dueño al cerrar\r?\n/m, '')
     .replace(/^\s*(-- Saldado por fuera|saldado_fuera(_nota)? ).*\r?\n/gm, '')
     .replace(/CREATE TABLE gasto_ajeno \([^;]*;|CREATE INDEX ix_ajeno_periodo[^;]*;|CREATE TRIGGER tr_ajeno_[\s\S]*?END;/g, '')
+    .replace(/CREATE TABLE (tarea_limpieza|liquidacion_limpieza|liquidacion_limpieza_operaria) \([^;]*;|CREATE INDEX ix_(tarea_limpieza|liq_limpieza)_[^;]*;|CREATE TRIGGER tr_(liq_limpieza_pisa|mov_anulado_libera_liq_limpieza)[\s\S]*?END;/g, '')
     .replace(/saldo_final_ars\s+INTEGER NOT NULL,\s*\r?\n\s*saldo_final_usd\s+INTEGER NOT NULL,/, 'saldo_final INTEGER NOT NULL,');
   assert.notEqual(v1, actual);
   const ruta = join(temporal(t), 'v1.db');

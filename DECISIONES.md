@@ -106,6 +106,23 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
   cambio, si la PC se rompe se recuperan. Todas las PCs las ven y editan. La auditoría no guarda el valor. Sin adjuntos
   por ahora (engordarían las 60 copias).
 
+## Limpieza (`server/limpieza.ts`, `server/importador/limpieza.ts`, pantalla "Limpieza"; plan 057)
+- **Objetivo (2026-10-23):** centralizar los gastos de Hornera. Las horas las siguen cargando las chicas en el Google
+  Form (hoja "Horas Cargadas" del Excel "HORAS LIMPIEZA"); la app lo importa. Las liquidaciones se hacen en la app.
+- **Se le paga todo a la coordinadora**, que reparte; la app muestra horas y plata de cada chica. Total del período =
+  suma de lo de cada chica (redondeado por chica) + un ajuste opcional con nota, que no se reparte.
+- **Control interno:** el pago es un gasto de la empresa (concepto Limpieza) en el mes de la fecha de pago; no toca las
+  liquidaciones de los deptos. Anular ese movimiento deja la liquidación pendiente otra vez.
+- **Desde el 10/09/2026**, sin historial (el período anterior ya estaba cargado a mano). Los períodos son de fechas
+  libres y no se pisan. Los dos primeros (10/09–22/09 y 23/09–07/10) se cargan con lo que se pagó de verdad: la
+  diferencia por horas INT duplicadas va como ajuste.
+- **Plus por tipo de tarea**, editable: horas (se pagan al precio del período) o pesos fijos por tarea. Al inicio:
+  Check-In +1 h, Cambio Blanqueria +1 h, Check-Out +0,5 h. Cada liquidación copia las reglas al crearse.
+- **Importación:** tipo vacío = Limpieza; `COTI` = `COT`, `MAIPU` = `MAPU`; `INT` = la empresa. Filas idénticas
+  son duplicados (se cuentan una vez, con aviso). El Form no tiene id por fila: cada importación reemplaza las tareas que
+  no están en un período pagado; lo pagado queda como se pagó y, si el Excel cambió, avisa.
+- Las horas por chica, depto y mes son solo información.
+
 ## Técnico
 - **Desktop** como Roble: Electron + React/Vite + Express + SQLite. Proyecto nuevo, se copia de Roble solo lo que sirva.
 - **SQLite con `node:sqlite`** (incluido en Node/Electron) en vez de `better-sqlite3`: sin módulo nativo ni `electron-rebuild`. Electron corre los `.ts` directo (type stripping); solo Vite compila la interfaz. `tsc` se usa únicamente para chequear tipos.

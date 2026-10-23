@@ -6,6 +6,8 @@ import type { DatabaseSync } from 'node:sqlite';
 import { importarExcel } from './importador/excel.ts';
 import { importarGastos } from './importador/gastos.ts';
 import { anularGastoAjeno, crearGastoAjeno, editarGastoAjeno, listarGastosAjenos } from './gastosAjenos.ts';
+import { importarHoras } from './importador/limpieza.ts';
+import * as limpieza from './limpieza.ts';
 import { crearClienteStays, URL_STAYS, type Credenciales } from './stays/cliente.ts';
 import { sincronizarMes } from './stays/sync.ts';
 import { SQL_EN_PERIODO } from './periodo.ts';
@@ -386,6 +388,23 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   app.post('/api/gastos-ajenos', (req, res) => intentar(res, () => ({ id: crearGastoAjeno(db, { ...req.body, origen: null }) })));
   app.put('/api/gastos-ajenos/:id', (req, res) => intentar(res, () => editarGastoAjeno(db, Number(req.params.id), req.body ?? {})));
   app.post('/api/gastos-ajenos/:id/anular', (req, res) => intentar(res, () => { anularGastoAjeno(db, Number(req.params.id)); return { ok: true }; }));
+
+  // Limpieza (plan 057): horas del Form, liquidaciones a la coordinadora y reglas del plus.
+  app.post('/api/importar/limpieza', express.raw({ type: 'application/octet-stream', limit: '50mb' }), (req, res) => {
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+      res.status(400).json({ error: 'Falta el archivo .xlsx' });
+      return;
+    }
+    intentar(res, () => importarHoras(db, req.body));
+  });
+  app.get('/api/limpieza/liquidaciones', (_req, res) => { res.json(limpieza.listarLiquidaciones(db)); });
+  app.get('/api/limpieza/liquidaciones/:id', (req, res) => intentar(res, () => limpieza.verLiquidacion(db, Number(req.params.id))));
+  app.post('/api/limpieza/liquidaciones', (req, res) => intentar(res, () => ({ id: limpieza.crearLiquidacion(db, req.body ?? {}) })));
+  app.put('/api/limpieza/liquidaciones/:id', (req, res) => intentar(res, () => limpieza.editarLiquidacion(db, Number(req.params.id), req.body ?? {})));
+  app.post('/api/limpieza/liquidaciones/:id/pagar', (req, res) => intentar(res, () => limpieza.pagarLiquidacion(db, Number(req.params.id), req.body ?? {})));
+  app.get('/api/limpieza/horas', (req, res) => intentar(res, () => limpieza.horas(db, String(req.query.desde ?? ''), String(req.query.hasta ?? ''))));
+  app.get('/api/limpieza/plus', (_req, res) => { res.json(limpieza.leerPlus(db)); });
+  app.put('/api/limpieza/plus', (req, res) => intentar(res, () => limpieza.guardarPlus(db, req.body)));
   app.post('/api/transferencias', (req, res) => intentar(res, () => ({ id: transferir(db, req.body ?? {}) })));
   app.get('/api/conceptos', (_req, res) => {
     res.json(db.prepare('SELECT id, nombre FROM concepto WHERE activo = 1 ORDER BY nombre').all());

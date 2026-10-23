@@ -150,4 +150,23 @@ falla(`INSERT INTO depto_servicio(depto_id, concepto_id, dia, cada_meses, mes_de
 falla(`INSERT INTO depto_servicio(depto_id, concepto_id, paga) VALUES (1, 1, 'inquilino')`, 'CHECK');
 falla(`INSERT INTO depto_clave(depto_id) VALUES (1)`, 'NOT NULL');
 
+// Limpieza: los períodos no se pisan, el plus es JSON y anular el pago deja la liquidación pendiente
+const liqLimp = (desde, hasta, plus = '{}') => `INSERT INTO liquidacion_limpieza(desde, hasta, precio_hora, plus_json, creado_en)
+  VALUES ('${desde}', '${hasta}', 700000, '${plus}', 'x')`;
+run(liqLimp('2026-09-10', '2026-09-22'));
+falla(liqLimp('2026-09-22', '2026-10-07'), 'se pisa');
+falla(liqLimp('2026-09-25', '2026-09-23'), 'CHECK');
+falla(liqLimp('2026-09-23', '2026-10-07', 'no es json'), 'CHECK');
+run(liqLimp('2026-09-23', '2026-10-07'));
+falla(`UPDATE liquidacion_limpieza SET hasta = '2026-09-24' WHERE desde = '2026-09-10'`, 'se pisa');
+run(`UPDATE periodo SET estado = 'abierto' WHERE id = 1`);
+run(mov('tipo, importe_ars', `'gasto', -1000`));
+const pagoLimp = db.prepare(`SELECT max(id) id FROM movimiento`).get().id;
+run(`UPDATE liquidacion_limpieza SET movimiento_id = ${pagoLimp} WHERE desde = '2026-09-10'`);
+run(`INSERT INTO liquidacion_limpieza_operaria VALUES (1, 'ANA', 3, 360, 1000)`);
+run(`UPDATE movimiento SET estado = 'anulado' WHERE id = ${pagoLimp}`);
+assert.equal(db.prepare(`SELECT movimiento_id m FROM liquidacion_limpieza WHERE id = 1`).get().m, null);
+assert.equal(db.prepare(`SELECT count(*) n FROM liquidacion_limpieza_operaria`).get().n, 0);
+falla(`INSERT INTO tarea_limpieza(fecha, operaria, tipo, minutos) VALUES ('2026-09-10', '', 'Limpieza', 60)`, 'CHECK');
+
 console.log('schema OK');

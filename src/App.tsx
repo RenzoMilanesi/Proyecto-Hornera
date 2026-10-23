@@ -6,6 +6,7 @@ import { Stays } from './Stays.tsx';
 import { Liquidacion } from './Liquidacion.tsx';
 import { Movimientos } from './Movimientos.tsx';
 import { GastosAjenos } from './GastosAjenos.tsx';
+import { Limpieza } from './Limpieza.tsx';
 import { Cuentas } from './Cuentas.tsx';
 import { Transferencias } from './Transferencias.tsx';
 import { Terminales } from './Terminales.tsx';
@@ -28,6 +29,7 @@ const secciones = {
   comprobantes: { grupo: 'Mes', titulo: 'Comprobantes', ayuda: 'Facturas y notas de crédito emitidas en ARCA, por mes de emisión.', vista: <Comprobantes /> },
   movimientos: { grupo: 'Mes', titulo: 'Movimientos', ayuda: 'Gastos, ingresos, adelantos y transferencias entre cuentas. No se borran: se anulan.', vista: <Movimientos /> },
   gastosAjenos: { grupo: 'Mes', titulo: 'Gastos personales', ayuda: 'Gastos de Amancay, Lautaro, la Casa del Estudiante y la casa. No son de Hornera: no entran en liquidaciones ni en el resultado.', vista: <GastosAjenos /> },
+  limpieza: { grupo: 'Mes', titulo: 'Limpieza', ayuda: 'Horas que cargan las chicas en el Form y lo que se le paga a la coordinadora por período, con lo de cada una. Es un gasto de Hornera.', vista: <Limpieza /> },
   vencimientos: { grupo: 'Mes', titulo: 'Vencimientos', ayuda: 'Impuestos y servicios que paga Hornera y vencen en el mes: qué falta pagar.', vista: <Vencimientos /> },
   deptos: { grupo: 'Datos', titulo: 'Deptos', ayuda: 'Los deptos que administra Hornera, con su dueño y estado. En Ficha: servicios, claves, contactos y notas.', vista: <Deptos /> },
   propietarios: { grupo: 'Datos', titulo: 'Propietarios', ayuda: 'Dueños de los deptos y en qué moneda se les liquida.', vista: <Propietarios /> },

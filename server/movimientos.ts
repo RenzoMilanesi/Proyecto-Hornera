@@ -78,6 +78,7 @@ function validar(db: DatabaseSync, d: DatosMovimiento) {
 }
 
 function enTransaccion<T>(db: DatabaseSync, fn: () => T): T {
+  if (db.isTransaction) return fn(); // dentro de otra (pagar una liquidación de limpieza): la de afuera confirma o deshace
   db.exec('BEGIN');
   try {
     const r = fn();
@@ -110,6 +111,9 @@ export function editarMovimiento(db: DatabaseSync, id: number, d: DatosMovimient
     if (antes.estado !== 'vigente') throw new Error('El movimiento está anulado.');
     if (antes.tipo === 'liquidacion' || antes.tipo === 'transferencia') {
       throw new Error('Los pagos de liquidación y las transferencias no se editan: se anulan y se vuelven a cargar.');
+    }
+    if (db.prepare('SELECT 1 FROM liquidacion_limpieza WHERE movimiento_id = ?').get(id)) {
+      throw new Error('Es el pago de una liquidación de limpieza: no se edita. Anulalo y volvé a marcarla pagada en Limpieza.');
     }
     periodoAbierto(db, (db.prepare('SELECT mes FROM periodo WHERE id = ?').get(antes.periodo_id) as { mes: string }).mes);
     const v = validar(db, d);

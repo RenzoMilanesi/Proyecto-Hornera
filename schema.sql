@@ -385,6 +385,62 @@ BEGIN
     SELECT RAISE(ABORT, 'periodo cerrado: reabrirlo para modificar gastos ajenos');
 END;
 
+-- Limpieza (plan 057): tareas importadas del Google Form "Horas Cargadas" y lo liquidado a la coordinadora.
+-- Control interno de la empresa: no tocan las liquidaciones de los deptos.
+CREATE TABLE tarea_limpieza (
+    id           INTEGER PRIMARY KEY,
+    fecha        TEXT    NOT NULL CHECK (date(fecha) IS fecha),
+    depto_id     INTEGER REFERENCES depto(id) ON DELETE RESTRICT ON UPDATE CASCADE,  -- NULL = empresa (INT)
+    operaria     TEXT    NOT NULL CHECK (operaria <> ''),
+    tipo         TEXT    NOT NULL,                      -- Limpieza, Check-In, Check-Out, Cambio Blanqueria, Oficina...
+    minutos      INTEGER NOT NULL CHECK (minutos >= 0), -- duración cargada, sin el plus
+    fila_excel   INTEGER
+) STRICT;
+CREATE INDEX ix_tarea_limpieza_fecha ON tarea_limpieza(fecha);
+
+-- Período liquidado: fechas libres, sin pisarse. Las reglas del plus se copian al crearlo.
+CREATE TABLE liquidacion_limpieza (
+    id             INTEGER PRIMARY KEY,
+    desde          TEXT    NOT NULL CHECK (date(desde) IS desde),
+    hasta          TEXT    NOT NULL CHECK (date(hasta) IS hasta AND hasta >= desde),
+    precio_hora    INTEGER NOT NULL CHECK (precio_hora > 0),        -- centavos
+    plus_json      TEXT    NOT NULL CHECK (json_valid(plus_json)),  -- {"Check-Out":{"modo":"horas","valor":30},...}
+    ajuste         INTEGER NOT NULL DEFAULT 0,                      -- centavos, con signo: suma al total, no a las chicas
+    ajuste_nota    TEXT,
+    movimiento_id  INTEGER REFERENCES movimiento(id) ON DELETE SET NULL ON UPDATE CASCADE, -- el pago (NULL = pendiente)
+    creado_en      TEXT    NOT NULL
+) STRICT;
+CREATE INDEX ix_liq_limpieza_mov ON liquidacion_limpieza(movimiento_id);
+CREATE TRIGGER tr_liq_limpieza_pisa_ins BEFORE INSERT ON liquidacion_limpieza
+WHEN EXISTS (SELECT 1 FROM liquidacion_limpieza WHERE desde <= NEW.hasta AND hasta >= NEW.desde)
+BEGIN
+    SELECT RAISE(ABORT, 'el periodo se pisa con otro');
+END;
+CREATE TRIGGER tr_liq_limpieza_pisa_upd BEFORE UPDATE OF desde, hasta ON liquidacion_limpieza
+WHEN EXISTS (SELECT 1 FROM liquidacion_limpieza WHERE id <> NEW.id AND desde <= NEW.hasta AND hasta >= NEW.desde)
+BEGIN
+    SELECT RAISE(ABORT, 'el periodo se pisa con otro');
+END;
+
+-- Foto por chica al pagar: lo pagado no cambia aunque después se reimporte el Excel.
+CREATE TABLE liquidacion_limpieza_operaria (
+    liquidacion_limpieza_id INTEGER NOT NULL REFERENCES liquidacion_limpieza(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    operaria   TEXT    NOT NULL,
+    tareas     INTEGER NOT NULL,
+    minutos    INTEGER NOT NULL,   -- duración + plus en horas
+    importe    INTEGER NOT NULL,   -- centavos
+    PRIMARY KEY (liquidacion_limpieza_id, operaria)
+) STRICT, WITHOUT ROWID;
+
+-- Anular el pago deja la liquidación pendiente otra vez (como tr_mov_anulado_libera_liq).
+CREATE TRIGGER tr_mov_anulado_libera_liq_limpieza AFTER UPDATE OF estado ON movimiento
+WHEN NEW.estado = 'anulado'
+BEGIN
+    DELETE FROM liquidacion_limpieza_operaria
+     WHERE liquidacion_limpieza_id IN (SELECT id FROM liquidacion_limpieza WHERE movimiento_id = NEW.id);
+    UPDATE liquidacion_limpieza SET movimiento_id = NULL WHERE movimiento_id = NEW.id;
+END;
+
 -- Período cerrado = congelado. Única excepción: tipo 'liquidacion', porque el
 -- pago al propietario se hace después del cierre (fecha_pago) y se imputa al
 -- período que liquida. El saldo_anterior del mes siguiente es entonces
