@@ -86,6 +86,8 @@ CREATE TABLE respuesta_ia (
 ```
 - `schema.check.mjs`: `mensajes_json` inválido falla; borrar la conversación borra sus respuestas.
 - Borrar conversación: ruta `DELETE` (es dato propio del asistente, no del negocio; no hace falta auditoría).
+- **Hecho (2026-10-23):** migración 20 → 21 (esquema 21), con un índice más `ix_respuesta_ia_conversacion` para el
+  borrado en cascada. `schema.check.mjs` y el test de migración desde el esquema 1, al día.
 
 ### 2. Configuración y key
 - **API key** en `safeStorage`, archivo `anthropic.key` en `userData`, copiando `almacenCredenciales()` de

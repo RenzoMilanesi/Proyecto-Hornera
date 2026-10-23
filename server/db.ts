@@ -286,6 +286,32 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
         WHERE liquidacion_limpieza_id IN (SELECT id FROM liquidacion_limpieza WHERE movimiento_id = NEW.id);
        UPDATE liquidacion_limpieza SET movimiento_id = NULL WHERE movimiento_id = NEW.id;
    END;`,
+  // 20 → 21: conversaciones con el asistente de IA (plan 061).
+  `-- Conversaciones con el asistente (plan 061), una lista por PC. mensajes_json es el historial tal cual se
+   -- manda a la API (bloques completos, incluidos los de thinking): solo se agrega al final, nunca se edita.
+   CREATE TABLE conversacion_ia (
+       id             INTEGER PRIMARY KEY,
+       pc             TEXT    NOT NULL,                 -- como auditoria.pc: la PC es el usuario
+       titulo         TEXT    NOT NULL,                 -- primeras palabras de la primera pregunta
+       mensajes_json  TEXT    NOT NULL CHECK (json_valid(mensajes_json)),
+       creada_en      TEXT    NOT NULL,
+       actualizada_en TEXT    NOT NULL
+   ) STRICT;
+   CREATE INDEX ix_conversacion_ia_pc ON conversacion_ia(pc, actualizada_en);
+   
+   -- Una fila por respuesta: qué modelo contestó y cuánto costó, para mostrarlo y comparar modelos.
+   CREATE TABLE respuesta_ia (
+       id                INTEGER PRIMARY KEY,
+       conversacion_id   INTEGER NOT NULL REFERENCES conversacion_ia(id) ON DELETE CASCADE,
+       modelo            TEXT    NOT NULL,               -- response.model (el que contestó de verdad)
+       esfuerzo          TEXT    NOT NULL,
+       tokens_entrada    INTEGER NOT NULL,               -- suma de las vueltas del bucle de herramientas
+       tokens_cache      INTEGER NOT NULL,               -- cache_read_input_tokens
+       tokens_salida     INTEGER NOT NULL,
+       herramientas_json TEXT    NOT NULL CHECK (json_valid(herramientas_json)), -- [{nombre, entrada, filas}]
+       creada_en         TEXT    NOT NULL
+   ) STRICT;
+   CREATE INDEX ix_respuesta_ia_conversacion ON respuesta_ia(conversacion_id);`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

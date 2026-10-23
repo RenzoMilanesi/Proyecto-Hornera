@@ -169,4 +169,17 @@ assert.equal(db.prepare(`SELECT movimiento_id m FROM liquidacion_limpieza WHERE 
 assert.equal(db.prepare(`SELECT count(*) n FROM liquidacion_limpieza_operaria`).get().n, 0);
 falla(`INSERT INTO tarea_limpieza(fecha, operaria, tipo, minutos) VALUES ('2026-09-10', '', 'Limpieza', 60)`, 'CHECK');
 
+// Asistente de IA: el historial es JSON y borrar la conversación borra sus respuestas
+const conv = (json) => `INSERT INTO conversacion_ia(pc, titulo, mensajes_json, creada_en, actualizada_en)
+  VALUES ('Lautaro', 'cuánto se liquidó', '${json}', 'x', 'x')`;
+falla(conv('no es json'), 'CHECK');
+run(conv('[]'));
+const convId = db.prepare(`SELECT max(id) id FROM conversacion_ia`).get().id;
+const resp = (json) => `INSERT INTO respuesta_ia(conversacion_id, modelo, esfuerzo, tokens_entrada, tokens_cache, tokens_salida,
+  herramientas_json, creada_en) VALUES (${convId}, 'claude-sonnet-5-5', 'medium', 10, 0, 5, '${json}', 'x')`;
+falla(resp('no es json'), 'CHECK');
+run(resp('[]'));
+run(`DELETE FROM conversacion_ia WHERE id = ${convId}`);
+assert.equal(db.prepare(`SELECT count(*) n FROM respuesta_ia`).get().n, 0);
+
 console.log('schema OK');
