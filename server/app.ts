@@ -26,7 +26,7 @@ import { ErrorArca } from './arca.ts';
 import { desvincular, importarMisComprobantes, listarMisComprobantes, vincular } from './misComprobantes.ts';
 import { datosComprobante, detalleComprobante, emitir, ErrorRevisar, facturaVigente, listarComprobantes, notaCredito, propuesta } from './facturacion.ts';
 import { datosDePago, datosFiscales, guardarDatosDePago, guardarDatosFiscales, padronDePropietario } from './propietarios.ts';
-import { rutasBackup } from './backup.ts';
+import { rutasBackup, type Sistema } from './backup.ts';
 import { agregar, borrar, editar, ficha, guardarNotas, vencimientos } from './ficha.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
 
@@ -100,9 +100,9 @@ function hostPermitido(host: string) {
   return h === '127.0.0.1' || h === 'localhost' || nombresDeEstaPc().includes(h);
 }
 
-export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf; fetchDolar?: Fetch; claves?: AlmacenClaves; fetchArca?: Fetch; desarrollo?: boolean; carpetaBackups?: string } = {}) {
+export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf; fetchDolar?: Fetch; claves?: AlmacenClaves; fetchArca?: Fetch; desarrollo?: boolean; carpetaBackups?: string; sistema?: Sistema } = {}) {
   const app = express();
-  const { credenciales, urlStays = URL_STAYS, pdf, fetchDolar = fetch, claves, fetchArca, desarrollo = false, carpetaBackups } = opciones;
+  const { credenciales, urlStays = URL_STAYS, pdf, fetchDolar = fetch, claves, fetchArca, desarrollo = false, carpetaBackups, sistema } = opciones;
   app.use((req, res, next) => {
     if (hostPermitido(req.headers.host ?? '')) return next();
     res.status(403).json({ error: 'Host no permitido' });
@@ -117,7 +117,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   app.use(express.json());
   app.use('/api', autorizar(db));
   rutasTerminales(app, db);
-  if (carpetaBackups) rutasBackup(app, db, carpetaBackups);
+  if (carpetaBackups) rutasBackup(app, db, carpetaBackups, sistema);
 
   // local: la ventana es la de la PC servidor (ahí se ve "Terminales").
   app.get('/api/estado', (req, res) => {

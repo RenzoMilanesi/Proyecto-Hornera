@@ -9,7 +9,7 @@ import type { AddressInfo } from 'node:net';
 import { DatabaseSync } from 'node:sqlite';
 import { abrirDb, VERSION_ESQUEMA } from './db.ts';
 import { crearApp } from './app.ts';
-import { carpetaBackups, elegirCarpeta, hacerBackup, respaldar, ultimasCopias, MAX_BACKUPS } from './backup.ts';
+import { aplicarRestauracion, carpetaBackups, elegirCarpeta, hacerBackup, prepararBaseVacia, prepararRestauracion, respaldar, ultimasCopias, MAX_BACKUPS } from './backup.ts';
 
 // Carpeta temporal que se borra al terminar el test.
 function temporal(t: TestContext) {
@@ -329,6 +329,54 @@ test('copias de seguridad por la API: carpeta en uso, elegir otra y hacer una co
     assert.equal(e.copias.length, 2); // la de prueba y la de "hacer una copia ahora"
   }, { carpetaBackups: porDefecto });
   await conApi(db, async (base) => assert.equal((await fetch(`${base}/api/backup`)).status, 404)); // sin carpeta, no hay rutas
+});
+
+test('restaurar una copia y borrar toda la base: copia previa, se aplica al reiniciar', async (t) => {
+  const tmp = temporal(t);
+  const rutaDb = join(tmp, 'hornera.db');
+  const porDefecto = join(tmp, 'backups');
+  const propietarios = () => { const d = abrirDb(rutaDb); try { return d.prepare('SELECT nombre FROM propietario').all().map((f) => f.nombre); } finally { d.close(); } };
+  let db = abrirDb(rutaDb);
+  db.exec(`INSERT INTO propietario(nombre) VALUES ('Propietario Uno');
+           INSERT INTO configuracion(clave, valor) VALUES ('pdf.carpeta', 'x'), ('arca.ta.wsfe.x', 'T');
+           INSERT INTO terminal(nombre, token_hash, creada_en) VALUES ('PC-2', 'h', '2026-01-01')`);
+  const copia = hacerBackup(db, join(tmp, 'drive'));
+  db.exec(`INSERT INTO propietario(nombre) VALUES ('Propietario Dos')`);
+
+  // Lo que no es una base de Hornera no se deja pendiente.
+  const ajena = join(tmp, 'ajena.db');
+  new DatabaseSync(ajena).close();
+  writeFileSync(join(tmp, 'texto.db'), 'hola');
+  for (const f of [ajena, join(tmp, 'texto.db')]) assert.throws(() => prepararRestauracion(f, rutaDb), /no se puede restaurar/);
+  aplicarRestauracion(rutaDb); // nada pendiente: no hace nada
+
+  let reinicios = 0;
+  let elegido: string | undefined = copia;
+  const sistema = { rutaDb, elegirArchivo: async () => elegido, guardarComo: async () => undefined, reiniciar: () => { reinicios++; } };
+  const post = async (base: string, ruta: string, body = {}) => (await fetch(`${base}/api/backup/${ruta}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+  await conApi(db, async (base) => {
+    elegido = undefined;
+    assert.deepEqual(await post(base, 'restaurar'), { cancelado: true });
+    elegido = copia;
+    assert.match((await post(base, 'restaurar')).copia, /backups[\\/]antes-de-reemplazar-.*\.db$/); // copia de la actual, fuera de la rotación
+    assert.deepEqual(ultimasCopias(porDefecto), []);
+    assert.match((await post(base, 'borrar-todo', { confirmacion: 'borrar' })).error, /BORRAR/);
+    await new Promise((ok) => setTimeout(ok, 600));
+  }, { carpetaBackups: porDefecto, sistema });
+  assert.equal(reinicios, 1);
+  db.close();
+  aplicarRestauracion(rutaDb);
+  assert.deepEqual(propietarios(), ['Propietario Uno']);
+
+  db = abrirDb(rutaDb);
+  prepararBaseVacia(db, rutaDb);
+  db.close();
+  aplicarRestauracion(rutaDb);
+  db = abrirDb(rutaDb);
+  assert.deepEqual(db.prepare('SELECT nombre FROM propietario').all(), []);
+  assert.deepEqual(db.prepare('SELECT clave FROM configuracion ORDER BY clave').all().map((f) => f.clave), ['pdf.carpeta']); // el ticket de la copia restaurada ya no estaba
+  assert.equal(db.prepare('SELECT count(*) n FROM terminal').get()!.n, 1);
+  db.close();
 });
 
 test('ajustes de una reserva y cotización del período: validan y quedan en la auditoría', () => {

@@ -48,6 +48,15 @@ copia aparte que no toque los datos de verdad:
 2. Cerrar la app y mirar `%APPDATA%\Hornera\backups`: tiene que haber un archivo
    `hornera-<fecha>.db` nuevo.
 3. Abajo a la izquierda se ve la versión (p. ej. `v0.8.1`): es la que hay que anotar al reportar.
+4. *Herramientas → Copias de seguridad* (en la carpeta de prueba): **Guardar una copia en…** → guardar en
+   el Escritorio; tiene que aparecer el `.db`.
+5. Cargar un propietario inventado. **Restaurar desde una copia…** → elegir una copia de antes de
+   cargarlo: la app se cierra, se vuelve a abrir y el propietario ya no está. En la carpeta de las copias
+   tiene que haber un `antes-de-reemplazar-<fecha>.db`; restaurarlo vuelve a traer el propietario.
+6. Restaurar un archivo que no sea de Hornera (cualquier `.db` ajeno o un `.txt` renombrado): avisa que
+   no se puede y no cambia nada.
+7. **Borrar toda la base**: el botón no se habilita hasta escribir `BORRAR`. Después la app se reinicia
+   vacía, pero la carpeta de las copias elegida y las terminales siguen igual.
 
 ## 2. Importar el Excel (fase 3)
 1. **Importar Excel** → elegir el export del Google Sheet de abril (`2026-04.xlsx`).
@@ -203,6 +212,8 @@ Anotar para cada cosa rara:
 - Si es una diferencia con el Excel: depto, mes, campo y los dos valores.
 - Una captura ayuda. **No mandarla por canales públicos**: muestra datos de propietarios y montos.
 
-Si algo sale muy mal, los datos se recuperan de `%APPDATA%\Hornera\backups`: con la app cerrada,
-copiar el backup que corresponda sobre `%APPDATA%\Hornera\hornera.db` (guardar antes una copia de
-ese archivo) y borrar `hornera.db-wal` y `hornera.db-shm` si están.
+Si algo sale muy mal, los datos se recuperan con *Herramientas → Copias de seguridad →
+**Restaurar desde una copia…*** (las copias están en `%APPDATA%\Hornera\backups` o en la carpeta elegida).
+Si la app no llega a abrir: con la app cerrada, copiar el backup que corresponda sobre
+`%APPDATA%\Hornera\hornera.db` (guardar antes una copia de ese archivo) y borrar `hornera.db-wal` y
+`hornera.db-shm` si están.

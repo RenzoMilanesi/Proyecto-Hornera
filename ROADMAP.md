@@ -64,6 +64,10 @@ en la LAN (fase 5d), que sigue a testear.
    libres con horas y plata de cada chica, y al marcar pagada crea el gasto de Hornera (concepto Limpieza). Plus por tipo de
    tarea editable (horas o pesos) y horas por chica, depto y mes como información. Falta: probar con el Excel real, cargar los
    períodos 10/09–22/09 y 23/09–07/10 con lo pagado (ajuste) y la lavandería ([plan 058](plans/058-lavanderia.md)).
+12. **Restaurar y borrar la base** — **A testear** (v0.40.0; 2026-10-23; idea tomada de Roble): Herramientas → Copias de seguridad
+   suma "Guardar una copia en…" (pendrive), "Restaurar desde una copia…" y "Borrar toda la base" (escribiendo BORRAR; conserva
+   la configuración de la PC y las terminales). Las dos últimas hacen antes una copia `antes-de-reemplazar` que no rota y
+   reinician la app; la base nueva se arma y migra al lado y se aplica al arrancar, nunca con la base abierta.
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.
    - Terminales → "Nombre de esta PC" en el servidor (se guarda en `configuracion`); reemplaza al nombre de Windows en la auditoría.

@@ -684,14 +684,22 @@ de Google Drive u OneDrive, que se sincroniza sola. Se hace en la PC servidor (e
   <li>Las copias que ya existían quedan donde estaban. <b>Volver a la de siempre</b> deja de usar la carpeta elegida.</li>
 </ol>
 <p><b>Hacer una copia ahora</b> fuerza una copia en el momento; abajo se ven las últimas cinco, con fecha y tamaño.
-Si la carpeta elegida deja de andar (Drive desconectado), la copia igual se hace en la de siempre y la app avisa.</p>
+Si la carpeta elegida deja de andar (Drive desconectado), la copia igual se hace en la de siempre y la app avisa.
+<b>Guardar una copia en…</b> abre la ventana de Windows para guardar una copia donde se quiera, por ejemplo un pendrive.</p>
 <h2>Recuperar una copia</h2>
 <ol class="pasos">
-  <li>Cerrar Hornera.</li>
-  <li>En <code>%APPDATA%\Hornera</code>, guardar aparte una copia del archivo <code>hornera.db</code> actual.</li>
-  <li>Copiar la copia de seguridad elegida de <code>backups</code> sobre <code>hornera.db</code> (renombrándola).</li>
-  <li>Borrar <code>hornera.db-wal</code> y <code>hornera.db-shm</code> si están, y abrir Hornera.</li>
+  <li>En <i>Herramientas → Copias de seguridad</i>, tocar <b>Restaurar desde una copia…</b> y confirmar.</li>
+  <li>Elegir el archivo <code>.db</code> (la ventana abre en la carpeta de las copias). Si no es una copia de Hornera, avisa y no cambia nada.</li>
+  <li>Hornera hace una copia de la base actual (<code>antes-de-reemplazar-&lt;fecha&gt;.db</code>, en la carpeta de las copias; esta no se borra sola),
+    se cierra y se vuelve a abrir con la copia elegida. Las terminales se reconectan solas.</li>
 </ol>
+<p>Si algo salió mal, se vuelve atrás restaurando la <code>antes-de-reemplazar</code>. Una copia de una versión anterior de Hornera se actualiza sola al restaurarla.
+Si Hornera no llega a abrir: con la app cerrada, copiar la copia elegida sobre <code>%APPDATA%\Hornera\hornera.db</code>
+(guardando antes aparte la actual) y borrar <code>hornera.db-wal</code> y <code>hornera.db-shm</code> si están.</p>
+<h2>Borrar toda la base</h2>
+<p>Para empezar de cero: abajo de todo, escribir <b>BORRAR</b> y tocar <b>Borrar toda la base</b>. Se borran propietarios, deptos, reservas,
+liquidaciones, cuentas, comprobantes, todo. Se conservan la configuración de esta PC (carpeta de las copias, Stays) y las terminales.
+Antes se hace una copia <code>antes-de-reemplazar</code> de la base, igual que al restaurar, y la app se reinicia.</p>
 <div class="tip"><b>Probar sin miedo</b>Para practicar sin tocar los datos de verdad: copiar el acceso directo, renombrarlo "Hornera (prueba)" y, en
 <i>Propiedades → Destino</i>, agregar al final <code>--user-data-dir=C:\HorneraPrueba</code>. Esa copia usa su propia base. Las dos no
 pueden estar abiertas a la vez.</div>

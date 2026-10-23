@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { abrirDb } from '../server/db.ts';
 import { crearApp, type AlmacenCredenciales, type GeneradorPdf } from '../server/app.ts';
 import type { AlmacenClaves } from '../server/emisores.ts';
-import { respaldar } from '../server/backup.ts';
+import { aplicarRestauracion, respaldar, type Sistema } from '../server/backup.ts';
 
 const PUERTO = 4310;
 // Escucha en la red para las terminales; desde otra PC la API exige emparejar (server/terminales.ts).
@@ -130,9 +130,18 @@ function generadorPdf(origen: string): GeneradorPdf {
 }
 
 async function iniciarServidor() {
-  const db = abrirDb(join(app.getPath('userData'), 'hornera.db'));
+  const rutaDb = join(app.getPath('userData'), 'hornera.db');
+  aplicarRestauracion(rutaDb); // restaurar o borrar todo, pedido antes de reiniciar
+  const db = abrirDb(rutaDb);
   const carpetaBackups = join(app.getPath('userData'), 'backups');
-  const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales(), claves: almacenClaves(), pdf: generadorPdf(ORIGEN_LOCAL), desarrollo: !app.isPackaged, carpetaBackups });
+  const filtros = [{ name: 'Base de Hornera', extensions: ['db'] }];
+  const sistema: Sistema = {
+    rutaDb,
+    elegirArchivo: async (carpeta) => (await dialog.showOpenDialog({ title: 'Elegir la copia a restaurar', defaultPath: carpeta, filters: filtros, properties: ['openFile'] })).filePaths[0],
+    guardarComo: async (nombre) => (await dialog.showSaveDialog({ title: 'Guardar una copia de la base', defaultPath: join(app.getPath('documents'), nombre), filters: filtros })).filePath || undefined,
+    reiniciar: () => { app.relaunch(); app.quit(); },
+  };
+  const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales(), claves: almacenClaves(), pdf: generadorPdf(ORIGEN_LOCAL), desarrollo: !app.isPackaged, carpetaBackups, sistema });
   const http = createServer(api);
 
   if (app.isPackaged) {
