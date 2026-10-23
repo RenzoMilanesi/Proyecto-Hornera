@@ -65,7 +65,7 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 058 | [Lavandería: cada pago como gasto de la empresa](058-lavanderia.md) | P2 | S | 057 | TODO |
 | 059 | [El pago de una liquidación de limpieza no se edita desde Movimientos](059-pago-limpieza-no-editable.md) | P2 | S | 057 | A TESTEAR |
 | 060 | [El manual explica el menú nuevo y la pantalla Resumen Hornera](060-manual-menu-hornera.md) | P2 | S | — | HECHO (v0.41.1: manual revisado completo) |
-| 061 | [Asistente con IA (Claude) para consultar la app: fase 1, solo lectura](061-asistente-ia.md) | P2 | L | — | EN CURSO (v0.42.0: pasos 0 y 1 hechos) |
+| 061 | [Asistente con IA (Claude) para consultar la app: fase 1, solo lectura](061-asistente-ia.md) | P2 | L | — | EN CURSO (v0.42.1: pasos 0 a 2 hechos) |
 
 Plan 061: definido con `grill-me` el 2026-10-23 (sobre `7baa8c5`). La fase 2 (acciones con confirmación) va en un plan aparte, después de probar la fase 1.
 

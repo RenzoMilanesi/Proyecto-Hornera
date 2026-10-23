@@ -127,6 +127,26 @@ test('credenciales de Stays: se guardan, la clave no vuelve y sin ellas no se si
   }, { credenciales });
 });
 
+test('asistente: la key se guarda y solo vuelven sus últimos 4; el modelo y el esfuerzo, de una lista cerrada', () => {
+  let guardada: string | null = null;
+  const claveIa = { leer: () => guardada, guardar: (c: string) => { guardada = c; } };
+  return conApi(abrirDb(':memory:'), async (base) => {
+    const json = { 'Content-Type': 'application/json' };
+    const put = (ruta: string, cuerpo: unknown) => fetch(`${base}/api/ia/${ruta}`, { method: 'PUT', headers: json, body: JSON.stringify(cuerpo) });
+    assert.deepEqual(await (await fetch(`${base}/api/ia/clave`)).json(), { final: null });
+    assert.equal((await put('clave', { clave: 'otra-cosa' })).status, 400);
+    assert.deepEqual(await (await put('clave', { clave: ' sk-ant-api03-ficticia-WXYZ ' })).json(), { final: 'WXYZ' });
+    assert.equal(guardada, 'sk-ant-api03-ficticia-WXYZ');
+    assert.deepEqual(await (await fetch(`${base}/api/ia/clave`)).json(), { final: 'WXYZ' });
+
+    assert.deepEqual(await (await fetch(`${base}/api/ia/configuracion`)).json(), { modelo: 'claude-sonnet-5-5', esfuerzo: 'medium' });
+    assert.equal((await put('configuracion', { modelo: 'gpt-5' })).status, 400);
+    assert.equal((await put('configuracion', { esfuerzo: 'max' })).status, 400);
+    assert.deepEqual(await (await put('configuracion', { modelo: 'claude-opus-5-5' })).json(), { modelo: 'claude-opus-5-5', esfuerzo: 'medium' });
+    assert.deepEqual(await (await put('configuracion', { esfuerzo: 'high' })).json(), { modelo: 'claude-opus-5-5', esfuerzo: 'high' });
+  }, { claveIa });
+});
+
 test('"traer mes": uno por vez, y la clave solo viaja a una URL de Stays permitida', async (t) => {
   let pedidosAStays = 0;
   const staysLento = createServer((_req, res) => { pedidosAStays++; setTimeout(() => res.writeHead(401).end(), 300); }).listen(0);

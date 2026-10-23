@@ -8,6 +8,7 @@ import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { abrirDb } from '../server/db.ts';
 import { crearApp, type AlmacenCredenciales, type GeneradorPdf } from '../server/app.ts';
+import type { AlmacenClaveIa } from '../server/ia/asistente.ts';
 import type { AlmacenClaves } from '../server/emisores.ts';
 import { aplicarRestauracion, respaldar, type Sistema } from '../server/backup.ts';
 
@@ -105,6 +106,26 @@ function almacenClaves(): AlmacenClaves {
   };
 }
 
+// API key de Anthropic del asistente (plan 061), cifrada igual que la de Stays: fuera de la base y de los backups.
+function almacenClaveIa(): AlmacenClaveIa {
+  const ruta = join(app.getPath('userData'), 'anthropic.key');
+  return {
+    leer() {
+      if (!existsSync(ruta)) return null;
+      try {
+        return safeStorage.decryptString(readFileSync(ruta));
+      } catch (e) {
+        console.error('No se pudo leer la API key de Anthropic:', e);
+        return null;
+      }
+    },
+    guardar(clave) {
+      if (!safeStorage.isEncryptionAvailable()) throw new Error('Windows no permite cifrar la clave en esta PC.');
+      writeFileSync(ruta, safeStorage.encryptString(clave));
+    },
+  };
+}
+
 // PDF de la hoja de un depto: la vista imprimible de la app en una ventana oculta + printToPDF.
 // La vista marca document.body.dataset.listo ('1' o el mensaje de error) cuando terminó de cargar.
 function generadorPdf(origen: string): GeneradorPdf {
@@ -141,7 +162,7 @@ async function iniciarServidor() {
     guardarComo: async (nombre) => (await dialog.showSaveDialog({ title: 'Guardar una copia de la base', defaultPath: join(app.getPath('documents'), nombre), filters: filtros })).filePath || undefined,
     reiniciar: () => { app.relaunch(); app.quit(); },
   };
-  const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales(), claves: almacenClaves(), pdf: generadorPdf(ORIGEN_LOCAL), desarrollo: !app.isPackaged, carpetaBackups, sistema });
+  const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales(), claves: almacenClaves(), pdf: generadorPdf(ORIGEN_LOCAL), desarrollo: !app.isPackaged, carpetaBackups, sistema, claveIa: almacenClaveIa() });
   const http = createServer(api);
 
   if (app.isPackaged) {

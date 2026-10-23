@@ -28,6 +28,7 @@ import { datosComprobante, detalleComprobante, emitir, ErrorRevisar, facturaVige
 import { datosDePago, datosFiscales, guardarDatosDePago, guardarDatosFiscales, padronDePropietario } from './propietarios.ts';
 import { rutasBackup, type Sistema } from './backup.ts';
 import { agregar, borrar, editar, ficha, guardarNotas, vencimientos } from './ficha.ts';
+import { configIa, guardarConfigIa, type AlmacenClaveIa } from './ia/asistente.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
 
 // Dónde viven las credenciales de Stays. En Electron, cifradas con safeStorage
@@ -100,9 +101,9 @@ function hostPermitido(host: string) {
   return h === '127.0.0.1' || h === 'localhost' || nombresDeEstaPc().includes(h);
 }
 
-export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf; fetchDolar?: Fetch; claves?: AlmacenClaves; fetchArca?: Fetch; desarrollo?: boolean; carpetaBackups?: string; sistema?: Sistema } = {}) {
+export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf; fetchDolar?: Fetch; claves?: AlmacenClaves; fetchArca?: Fetch; desarrollo?: boolean; carpetaBackups?: string; sistema?: Sistema; claveIa?: AlmacenClaveIa } = {}) {
   const app = express();
-  const { credenciales, urlStays = URL_STAYS, pdf, fetchDolar = fetch, claves, fetchArca, desarrollo = false, carpetaBackups, sistema } = opciones;
+  const { credenciales, urlStays = URL_STAYS, pdf, fetchDolar = fetch, claves, fetchArca, desarrollo = false, carpetaBackups, sistema, claveIa } = opciones;
   app.use((req, res, next) => {
     if (hostPermitido(req.headers.host ?? '')) return next();
     res.status(403).json({ error: 'Host no permitido' });
@@ -375,6 +376,21 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
       res.status(400).json({ error: mensaje(e) });
     }
   };
+  // ---- Asistente con IA (plan 061). La key solo se carga y se ve (los últimos 4) en la PC servidor.
+  app.get('/api/ia/clave', soloLocal, (_req, res) => {
+    const clave = claveIa?.leer();
+    res.json({ final: clave ? clave.slice(-4) : null });
+  });
+  app.put('/api/ia/clave', soloLocal, (req, res) => intentar(res, () => {
+    const clave = typeof req.body?.clave === 'string' ? req.body.clave.trim() : '';
+    if (!clave.startsWith('sk-ant-')) throw new Error('Eso no parece una API key de Anthropic (empieza con sk-ant-)');
+    if (!claveIa) throw new Error('Esta instalación no puede guardar la key');
+    claveIa.guardar(clave);
+    return { final: clave.slice(-4) };
+  }));
+  app.get('/api/ia/configuracion', (_req, res) => { res.json(configIa(db)); });
+  app.put('/api/ia/configuracion', soloLocal, (req, res) => intentar(res, () => guardarConfigIa(db, req.body)));
+
   app.get('/api/movimientos', (req, res) => { res.json(listarMovimientos(db, String(req.query.mes ?? ''))); });
   // El origen lo pone solo el importador de gastos.
   app.post('/api/movimientos', (req, res) => intentar(res, () => ({ id: crearMovimiento(db, { ...req.body, origen: null }) })));

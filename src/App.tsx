@@ -21,6 +21,7 @@ import { Emparejar } from './Emparejar.tsx';
 import { Emisores } from './Emisores.tsx';
 import { Auditoria } from './Auditoria.tsx';
 import { Vencimientos } from './Vencimientos.tsx';
+import { ConfigAsistente } from './Asistente.tsx';
 
 const secciones = {
   resumen: { grupo: '', titulo: 'Resumen', ayuda: 'Cómo viene el mes en los deptos: ocupación, tarifas y lo cobrado.', vista: <Resumen /> },
@@ -41,10 +42,11 @@ const secciones = {
   importar: { grupo: 'Herramientas', titulo: 'Importar Excel', ayuda: 'Carga un mes desde el Google Sheet de liquidaciones, o los gastos varios del mes abierto.', vista: <Importar /> },
   auditoria: { grupo: 'Herramientas', titulo: 'Auditoría', ayuda: 'Quién cambió qué en el mes: cada PC, con lo que cambió.', vista: <Auditoria /> },
   terminales: { grupo: 'Herramientas', titulo: 'Terminales', ayuda: 'Otras PCs de la oficina conectadas a esta.', vista: <Terminales /> }, // solo en la PC servidor
+  asistente: { grupo: 'Herramientas', titulo: 'Asistente', ayuda: 'API key de Anthropic y modelo del asistente con IA.', vista: <ConfigAsistente /> }, // solo en la PC servidor
   copias: { grupo: 'Herramientas', titulo: 'Copias de seguridad', ayuda: 'Dónde se guardan las copias de la base y las últimas que se hicieron.', vista: <Copias /> }, // solo en la PC servidor
 };
 type Seccion = keyof typeof secciones;
-const SOLO_SERVIDOR = ['terminales', 'copias'];
+const SOLO_SERVIDOR = ['terminales', 'copias', 'asistente'];
 
 export function App() {
   const [seccion, setSeccion] = useState<Seccion>('resumen');

@@ -78,7 +78,8 @@ en la LAN (fase 5d), que sigue a testear.
    facturas hechas por fuera, nombre de la PC) con capturas nuevas; Auditoría legible para limpieza; pestañas de Limpieza: Horas primero.
 14. **Asistente con IA** — **En curso** (v0.42.0; definido con grill-me el 2026-10-23; [plan 061](plans/061-asistente-ia.md)): panel
    lateral que contesta preguntas sobre los datos, el uso de la app y análisis con Claude, solo lectura (la IA llama herramientas
-   del servidor, ninguna escribe). v0.42.0: tablas de conversaciones y respuestas (esquema 21).
+   del servidor, ninguna escribe). v0.42.0: tablas de conversaciones y respuestas (esquema 21). v0.42.1: Herramientas →
+   Asistente (solo servidor): API key cifrada en la PC, modelo y esfuerzo.
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.
    - Terminales → "Nombre de esta PC" en el servidor (se guarda en `configuracion`); reemplaza al nombre de Windows en la auditoría.

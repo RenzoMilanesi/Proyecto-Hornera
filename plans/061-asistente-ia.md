@@ -99,6 +99,10 @@ CREATE TABLE respuesta_ia (
   `medium`, `high`. Rechazar cualquier otro valor.
 - Pantalla: una sección "Asistente" donde ya se configura Stays (key, modelo, esfuerzo, link a la consola para el
   tope de gasto).
+- **Hecho (2026-10-23):** la pantalla quedó como sección propia Herramientas → Asistente, solo en la PC servidor
+  (como Terminales y Copias), no dentro de Stays. Claves `ia.modelo` / `ia.esfuerzo` (con punto, como `stays.url`).
+  El `GET /api/ia/configuracion` sí responde a las terminales (el panel muestra el modelo); el `PUT`, `soloLocal`.
+  La lista cerrada y la lectura de la configuración viven en `server/ia/asistente.ts` (el bucle del paso 4 va ahí).
 
 ### 3. Herramientas (`server/ia/herramientas.ts`, nuevo)
 Cada herramienta = `{ name, description, input_schema, strict: true, correr(db, entrada) }` y **reusa la función

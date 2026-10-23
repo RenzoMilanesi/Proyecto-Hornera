@@ -45,6 +45,11 @@ test('una terminal necesita emparejarse; el código sirve una vez y se revoca', 
     // Aun emparejada, no administra terminales ni carga la clave de Stays.
     assert.equal((await conCookie('terminales')).status, 403);
     assert.equal((await conCookie('stays/credenciales', { method: 'PUT', headers: json, body: '{"usuario":"u","clave":"c"}' })).status, 403);
+    // Ni la key ni el modelo del asistente: la key no viaja por la red y el gasto lo decide el servidor.
+    assert.equal((await conCookie('ia/clave')).status, 403);
+    assert.equal((await conCookie('ia/clave', { method: 'PUT', headers: json, body: '{"clave":"sk-ant-x"}' })).status, 403);
+    assert.equal((await conCookie('ia/configuracion', { method: 'PUT', headers: json, body: '{"modelo":"claude-opus-5-5"}' })).status, 403);
+    assert.equal((await conCookie('ia/configuracion')).status, 200);
 
     // La auditoría registra el nombre de la terminal.
     await conCookie('cuentas', { method: 'POST', headers: json, body: JSON.stringify({ nombre: 'Caja', moneda: 'ARS' }) });
