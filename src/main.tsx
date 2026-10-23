@@ -30,7 +30,8 @@ const tema: ThemeConfig = {
   },
   components: {
     Layout: { siderBg: marron },
-    Menu: { darkItemBg: marron, darkItemColor: '#E9E1D8', darkItemSelectedBg: '#A8461F', darkItemHoverBg: '#3A2E26', darkGroupTitleColor: '#E8B48F' },
+    Menu: { darkItemBg: marron, darkItemColor: '#E9E1D8', darkItemSelectedBg: '#A8461F', darkItemHoverBg: '#3A2E26', darkGroupTitleColor: '#E8B48F',
+      darkSubMenuItemBg: '#221A15' }, // desplegable (Propiedades): un marrón apenas más oscuro, no el negro azulado de antd
     Table: { headerBg: '#FBF8F4' },
     Modal: { titleFontSize: 18 },
   },

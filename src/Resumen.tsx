@@ -63,7 +63,8 @@ export function Resumen() {
         <Col span={4}><Card size="small"><Statistic styles={chico} value={t ? plata(t.revpar_mediana) || '—' : '—'} title={ayuda('RevPAR (mediana)',
           'Ingreso por noche a la venta: lo que pagaron los huéspedes por las noches ÷ noches a la venta (las del mes menos las bloqueadas y las del propietario). Es ADR × ocupación. Se calcula por depto y se muestra la mediana, así un depto muy grande o muy chico no la mueve.')} /></Card></Col>
         <Col span={4}><Card size="small"><Statistic styles={chico} title="Bruto" value={t ? pesos(t.bruto) : '—'} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic styles={chico} title="Honorarios" value={r ? pesos(r.honorarios) : '—'}
+        <Col span={4}><Card size="small"><Statistic styles={chico} title={ayuda('Honorarios',
+          'Lo que cobra Hornera: la comisión de cada depto (hoy 20 %) sobre la base de honorarios = bruto − costos operativos (tarifa por estadía) − comisiones de plataformas y del channel manager. Se calcula por depto y se redondea hacia abajo a la centena de pesos. Un depto sin ingresos que paga el fee del channel manager da honorarios negativos. El % es sobre el bruto.')} value={r ? pesos(r.honorarios) : '—'}
           suffix={t?.honorario_efectivo != null && <Typography.Text type="secondary" style={{ fontSize: 13, marginLeft: 6 }}>{(100 * t.honorario_efectivo).toLocaleString('es-AR', { maximumFractionDigits: 1 })} %</Typography.Text>} /></Card></Col>
       </Row>
 

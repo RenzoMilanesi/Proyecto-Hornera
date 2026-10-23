@@ -111,6 +111,30 @@ const pasos = {
   async importar() {
     await tam(1440, 800); await ir('Importar Excel'); await foto('importar');
   },
+  async resumenHornera() {
+    await tam(1440, 1700); await ir('Resumen Hornera'); await esperar(800); await foto('resumen-hornera');
+  },
+  async limpieza() {
+    await tam(1440, 800); await ir('Limpieza');
+    await js(`(() => { const i = document.querySelector('input[type=date]'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+      set.call(i, '2026-09-01'); i.dispatchEvent(new Event('input', { bubbles: true })); })()`); await esperar(900);
+    await foto('limpieza-horas');
+    await click('Liquidaciones', '.ant-tabs-tab'); await foto('limpieza-liquidaciones');
+    await click('Ver'); await tam(1440, 900); await esperar(800); await foto('limpieza-detalle', '.ant-drawer-section, .ant-drawer-content-wrapper'); await js(`document.querySelector('.ant-drawer-close')?.click()`); await esperar(600);
+  },
+  async comprobantes() {
+    await tam(1440, 700); await ir('Comprobantes'); await esperar(800); await foto('comprobantes');
+    await click('En ARCA', '.ant-segmented-item-label'); await esperar(800); await foto('comprobantes-arca');
+  },
+  async vencimientos() {
+    await tam(1440, 600); await ir('Vencimientos'); await click('~Todos', '.ant-segmented-item-label'); await foto('vencimientos');
+  },
+  async gastosPersonales() {
+    await tam(1440, 800); await ir('Gastos personales'); await esperar(600); await foto('gastos-personales');
+  },
+  async auditoria() {
+    await tam(1440, 900); await ir('Auditoría'); await esperar(800); await foto('auditoria');
+  },
   async terminales() {
     await tam(1440, 800); await ir('Terminales'); await click('Generar código');
     // El nombre real de esta PC no va al manual.

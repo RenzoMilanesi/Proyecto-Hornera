@@ -147,7 +147,7 @@ function VariablesDepto({ depto, alCerrar }: { depto?: Depto; alCerrar: (guardad
       )}
       <Form form={form} layout="vertical">
         <Typography.Text strong>Comisión</Typography.Text>
-        <Typography.Paragraph type="secondary" style={{ margin: '0 0 8px' }}>Lo que cobra Hornera sobre el ingreso bruto del depto.</Typography.Paragraph>
+        <Typography.Paragraph type="secondary" style={{ margin: '0 0 8px' }}>Lo que cobra Hornera sobre la base de honorarios del depto: el bruto menos costos operativos y comisiones.</Typography.Paragraph>
         <Row gutter={12}>
           <Col span={12}>
             <Form.Item name="comision_pct" label="Comisión de Hornera" rules={[{ required: true, message: 'Falta la comisión' }]}>

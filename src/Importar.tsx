@@ -109,7 +109,7 @@ function GastosVarios() {
       <Typography.Paragraph type="secondary">
         El Excel de comprobantes de gastos. Entran los del mes abierto como movimientos: con depto se le descuentan
         al propietario; INT y los códigos que no son deptos, a Hornera. CAY, LAU, CAY/LAU, CASEST y CASA no son de Hornera:
-        se guardan en Mes → Gastos personales. Se puede volver a importar:
+        se guardan en Hornera → Gastos personales. Se puede volver a importar:
         lo que ya está no se duplica.
       </Typography.Paragraph>
       <Upload.Dragger accept=".xlsx" showUploadList={false} disabled={cargando}

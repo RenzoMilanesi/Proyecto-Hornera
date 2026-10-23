@@ -1,4 +1,4 @@
-// Mes → Vencimientos (plan 049): lo que vence en el mes de los servicios que paga Hornera (server/ficha.ts).
+// Hornera → Vencimientos (plan 049): lo que vence en el mes de los servicios que paga Hornera (server/ficha.ts).
 // Pagado = ya hay un gasto del depto con ese concepto en el mes, cargado en Movimientos.
 import { useEffect, useState } from 'react';
 import { Alert, Input, Segmented, Space, Table, Tag, Typography } from 'antd';

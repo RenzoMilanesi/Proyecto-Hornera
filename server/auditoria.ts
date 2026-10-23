@@ -42,6 +42,8 @@ const TIPOS: Record<string, string> = {
   medio_pago: 'Medio de pago', emisor: 'Emisor', propietario: 'Propietario', comprobante: 'Factura',
   comprobante_arca: 'Comprobante de ARCA', stays: 'Traer mes de Stays', excel: 'Excel mensual', gastos: 'Gastos varios',
   gasto_ajeno: 'Gasto personal', liquidacion: 'Saldado por fuera', terminal: 'Terminal', depto_clave: 'Clave del depto',
+  depto_servicio: 'Servicio del depto', depto_contacto: 'Contacto del depto', liquidacion_limpieza: 'Limpieza',
+  tarea_limpieza: 'Horas de limpieza', configuracion: 'Configuración',
 };
 const ACCIONES: Record<Accion, string> = {
   alta: 'Alta', modificacion: 'Modificación', anulacion: 'Anulación', cierre: 'Cierre', reapertura: 'Reapertura', importacion: 'Importación',
@@ -55,6 +57,8 @@ const CAMPOS: Record<string, string> = {
   propietario_id: 'Propietario', codigo: 'Código', descripcion: 'Descripción', periodoCreado: 'Mes nuevo', deptosNuevos: 'Deptos nuevos',
   eliminadas: 'Borradas', medios: 'Medios de pago', comision_cobro_usd_pct: 'Comisión de cobro', moneda_liquidacion: 'Liquida en',
   cbu: 'CBU/CVU', mails: 'Mails', saldado_fuera: 'Saldado el', direccion: 'Dirección', razon_social: 'Razón social', doc_nro: 'Documento', condicion_iva: 'Condición IVA',
+  precio_hora: 'Precio por hora', plus_json: 'Plus', 'limpieza.plus': 'Reglas del plus', ajuste_nota: 'Nota del ajuste',
+  movimiento_id: 'Pago', porOperaria: 'Por chica', operaria: 'Chica',
 };
 // En altas e importaciones no se muestra el mes (ya está en el filtro de la pantalla).
 const SIN_MOSTRAR = new Set(['mes', 'periodo_id']);
@@ -64,7 +68,7 @@ const vacio = (v: unknown) => v === null || v === undefined || v === '' || v ===
 
 const plata = (c: number, usd: boolean) =>
   `${usd ? 'US$' : '$'} ${(c / 100).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const PLATA = /importe|ajuste|tarifa|costo|servicio|cargo|adicional|prestamo|gestion|mantenimiento|cm_fee/;
+const PLATA = /importe|ajuste|tarifa|costo|servicio|cargo|adicional|prestamo|gestion|mantenimiento|cm_fee|precio|^total$/;
 const etiqueta = (k: string) => CAMPOS[k] ?? (k.charAt(0).toUpperCase() + k.slice(1)).replaceAll('_', ' ');
 
 type Nombres = Record<string, Map<number, string>>;
@@ -73,6 +77,9 @@ function valor(k: string, v: unknown, n: Nombres): string {
   if (typeof v === 'boolean') return v ? 'Sí' : 'No';
   if (Array.isArray(v)) return v.map((x) => valor(k, x, n)).join(', ');
   if (typeof v === 'object') return Object.entries(v).map(([k2, v2]) => `${etiqueta(k2)}: ${valor(k2, v2, n)}`).join(', ');
+  if (k.endsWith('_json') && typeof v === 'string') {
+    try { return valor(k.slice(0, -5), JSON.parse(v), n); } catch { return v; } // un texto que no es JSON se muestra tal cual
+  }
   if (typeof v !== 'number') return String(v);
   if (n[k]) return n[k].get(v) ?? `#${v}`;
   if (k.endsWith('_pct')) return `${(v * 100).toLocaleString('es-AR', { maximumFractionDigits: 2 })} %`;
@@ -123,6 +130,7 @@ export function listarAuditoria(db: DatabaseSync, mes: string): FilaAuditoria[] 
         JOIN periodo p ON p.id = l.periodo_id WHERE l.id = a.registro_id)
       WHEN 'depto_clave' THEN (SELECT d.codigo || ' · ' || k.nombre FROM depto_clave k JOIN depto d ON d.id = k.depto_id WHERE k.id = a.registro_id)
       WHEN 'terminal' THEN (SELECT nombre FROM terminal WHERE id = a.registro_id)
+      WHEN 'liquidacion_limpieza' THEN (SELECT strftime('%d/%m', desde) || '–' || strftime('%d/%m/%Y', hasta) FROM liquidacion_limpieza WHERE id = a.registro_id)
     END AS referencia
     FROM auditoria a WHERE a.fecha >= ? AND a.fecha < date(?, '+1 month') ORDER BY a.id DESC`)
     .all(`${mes}-01`, `${mes}-01`) as { id: number; fecha: string; pc: string; tabla: string; accion: Accion; antes_json: string | null; despues_json: string | null; referencia: string | null }[];

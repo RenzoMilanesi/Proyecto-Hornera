@@ -389,8 +389,8 @@ export function Limpieza() {
         )}
       </Card>
       <Tabs items={[
-        { key: 'liquidaciones', label: 'Liquidaciones', children: <Liquidaciones version={version} recargar={recargar} /> },
         { key: 'horas', label: 'Horas', children: <VistaHoras version={version} /> },
+        { key: 'liquidaciones', label: 'Liquidaciones', children: <Liquidaciones version={version} recargar={recargar} /> },
         { key: 'reglas', label: 'Reglas del plus', children: <Reglas recargar={recargar} /> },
       ]} />
     </Space>

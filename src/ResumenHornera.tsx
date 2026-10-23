@@ -166,7 +166,7 @@ export function ResumenHornera() {
             { title: 'Mes', dataIndex: 'mes', width: 90 },
             { title: 'Honorarios', dataIndex: 'honorarios', ...derecha, render: plata },
             { title: 'Costos operativos', dataIndex: 'costos_operativos', ...derecha, render: plata },
-            { title: 'Gastos de la empresa', dataIndex: 'empresa_ars', ...derecha, render: plata },
+            { title: 'Ingresos − gastos empresa', dataIndex: 'empresa_ars', ...derecha, render: plata },
             { title: 'Resultado', dataIndex: 'resultado_ars', ...derecha, render: (v: number | null) => (v == null ? '' : <b>{pesos(v)}</b>) },
             { title: 'Gastos personales', dataIndex: 'personales', ...derecha, render: plata },
           ]} />

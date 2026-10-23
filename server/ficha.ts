@@ -1,5 +1,5 @@
 // Ficha del depto (plan 049): notas, servicios e impuestos con su vencimiento, claves y contactos.
-// Pantalla Mes → Vencimientos: lo que vence en un mes de los servicios que paga Hornera.
+// Pantalla Hornera → Vencimientos: lo que vence en un mes de los servicios que paga Hornera.
 import type { DatabaseSync } from 'node:sqlite';
 import { auditar } from './auditoria.ts';
 import { conceptoId } from './movimientos.ts';

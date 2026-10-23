@@ -193,7 +193,7 @@ export function FormFactura({ a, alCerrar }: { a?: AFacturar; alCerrar: (cambio:
       <Form form={form} layout="vertical" disabled={!!p && !p.ofrece}>
         <Space wrap align="start" size="middle">
           <Form.Item label="Emisor" name="emisor_id" rules={[{ required: true, message: 'Elegí quién factura' }]}
-            extra={!emisores.length && 'Ningún emisor tiene el certificado cargado (Datos → Emisores).'}>
+            extra={!emisores.length && 'Ningún emisor tiene el certificado cargado (Hornera → Emisores).'}>
             <Select style={{ width: 220 }} placeholder="Quién factura"
               options={emisores.map((e) => ({ value: e.id, label: e.ambiente === 'produccion' ? e.nombre : `${e.nombre} (homologación)` }))} />
           </Form.Item>

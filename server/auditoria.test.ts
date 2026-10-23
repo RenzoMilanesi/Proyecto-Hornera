@@ -81,6 +81,15 @@ test('altas e importaciones: sin ceros, vacíos ni el mes, y con el nombre del p
   assert.equal(stays.cambios, 'Reservas: 83 · Pagos: 221 · Avisos: 8');
 });
 
+test('limpieza: con su período, precio en pesos y el plus leído del JSON', () => {
+  const db = base();
+  db.exec(`INSERT INTO liquidacion_limpieza(desde, hasta, precio_hora, plus_json, creado_en) VALUES ('2026-05-01', '2026-05-15', 450000, '{}', 'x')`);
+  auditar(db, 'liquidacion_limpieza', 1, 'alta', null, { desde: '2026-05-01', precio_hora: 450000, plus_json: '{"Check-Out":{"modo":"horas","valor":30}}' });
+  const [f] = listarAuditoria(db, hoy());
+  assert.deepEqual([f.tipo, f.referencia, f.cambios],
+    ['Limpieza', '01/05–15/05/2026', 'Desde: 2026-05-01 · Precio por hora: $ 4.500,00 · Plus: Check-Out: Modo: horas, Valor: 30']);
+});
+
 test('saldado por fuera: con su depto y mes, y sin repetir el contexto', () => {
   const db = base();
   db.exec(`INSERT INTO liquidacion(periodo_id, depto_id, cambio, comision_pct, noches_disponibles, noches_ocupadas, cant_reservas, ingresos_ars,

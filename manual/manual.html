@@ -41,7 +41,7 @@
   .portada .marca { font-size: 44pt; font-weight: 600; color: var(--ladrillo); margin: 0; }
   .portada .sub { font-size: 17pt; margin: 2mm 0 10mm; }
   .portada .dato { color: var(--gris); }
-  .indice { columns: 2; column-gap: 10mm; padding-left: 5mm; }
+  .indice { columns: 2; column-gap: 10mm; padding-left: 8mm; }
   .indice li { break-inside: avoid; }
   .ciclo { display: flex; flex-wrap: wrap; gap: 2mm; margin: 3mm 0 5mm; }
   .ciclo div { flex: 1 1 30%; background: var(--crema); border: 1px solid var(--linea); border-radius: 4px; padding: 2mm 3mm; font-size: 9.5pt; }
@@ -54,8 +54,8 @@
 <section class="portada">
   <p class="marca">Hornera</p>
   <p class="sub">Manual de usuario</p>
-  <p>Liquidación mensual a propietarios, pagos, cuentas y facturación de honorarios.</p>
-  <p class="dato">Versión de la app: 0.23.1 · Octubre de 2026</p>
+  <p>Liquidación mensual a propietarios, pagos, cuentas, limpieza y facturación de honorarios.</p>
+  <p class="dato">Versión de la app: 0.41.1 · Octubre de 2026</p>
   <p class="dato">Todas las capturas usan datos inventados (propietarios, deptos, CUIT y montos de ejemplo).</p>
 </section>
 
@@ -66,16 +66,20 @@
   <li>Cómo se usa la app: lo básico</li>
   <li>El ciclo de cada mes, paso a paso</li>
   <li>Resumen</li>
+  <li>Resumen Hornera</li>
   <li>Liquidación</li>
   <li>Transferencias</li>
   <li>Historial</li>
-  <li>Movimientos</li>
+  <li>Movimientos y gastos personales</li>
+  <li>Limpieza</li>
+  <li>Comprobantes</li>
   <li>Deptos (ficha y vencimientos)</li>
   <li>Propietarios</li>
   <li>Cuentas</li>
   <li>Emisores (facturación ARCA)</li>
   <li>Stays</li>
   <li>Importar Excel</li>
+  <li>Auditoría</li>
   <li>Terminales: usar Hornera en otra PC</li>
   <li>Copias de seguridad y recuperación</li>
   <li>Problemas frecuentes</li>
@@ -95,8 +99,10 @@ cada cuenta de la empresa y se facturan los honorarios ante ARCA.</p>
   <tr><td>Calcular la liquidación</td><td>Saldo de cada depto: ingresos, costos, comisiones, honorarios y gastos (<span class="menu">Liquidación</span>)</td></tr>
   <tr><td>Cerrar el mes</td><td>La liquidación queda guardada y se generan los PDF para los propietarios</td></tr>
   <tr><td>Pagar a los propietarios</td><td>Se registra cada transferencia y se exporta la lista para el banco (<span class="menu">Transferencias</span>)</td></tr>
-  <tr><td>Facturar los honorarios</td><td>Factura C electrónica en ARCA, con su PDF y su código QR</td></tr>
-  <tr><td>Seguir los números</td><td>Ocupación, bruto, honorarios, resultado de Hornera y saldos de las cuentas (<span class="menu">Resumen</span>)</td></tr>
+  <tr><td>Facturar los honorarios</td><td>Factura C electrónica en ARCA, con su PDF y su código QR; lo facturado, mes a mes (<span class="menu">Comprobantes</span>)</td></tr>
+  <tr><td>Pagar la limpieza</td><td>Horas que cargan las chicas en el Form y lo que se le paga a la coordinadora (<span class="menu">Limpieza</span>)</td></tr>
+  <tr><td>Seguir los deptos</td><td>Ocupación, tarifas, bruto y honorarios de cada depto (<span class="menu">Resumen</span>)</td></tr>
+  <tr><td>Seguir la empresa</td><td>Resultado de Hornera, lo que falta pagar, saldos y lo disponible (<span class="menu">Resumen Hornera</span>)</td></tr>
 </table>
 <div class="nota"><b>Mientras se prueba</b>Hasta la versión 1.0 el Excel sigue siendo el que manda: Hornera se usa en paralelo y,
 si los números no coinciden, se anota la diferencia (ver "Problemas frecuentes").</div>
@@ -117,7 +123,7 @@ si los números no coinciden, se anota la diferencia (ver "Problemas frecuentes"
   <li><b>Servidor (los datos están acá):</b> la PC de la oficina, la que más tiempo está prendida. Ahí queda la base de datos.
     Si hay una sola PC, es esta opción.</li>
   <li><b>Terminal (se conecta a otra PC):</b> una segunda PC que usa los datos del servidor por la red de la oficina
-    (ver capítulo 16).</li>
+    (ver capítulo 20).</li>
 </ul>
 <p>Si Windows pregunta por el <b>firewall</b>, permitir el acceso en <b>redes privadas</b>: lo necesitan las terminales.</p>
 
@@ -138,15 +144,16 @@ en la PC servidor, aparte de la base. No viajan en las copias de seguridad: si s
   <figcaption>La ventana de Hornera: el menú a la izquierda y la pantalla elegida a la derecha.</figcaption>
 </figure>
 <h2>El menú</h2>
-<p>A la izquierda está el menú, agrupado en tres partes. Abajo de todo se ve la <b>versión</b> (por ejemplo <code>v0.23.1</code>):
+<p>A la izquierda está el menú, agrupado en tres partes. Abajo de todo se ve la <b>versión</b> (por ejemplo <code>v0.41.1</code>):
 es el dato a anotar si se reporta un problema.</p>
 <table>
-  <tr><th style="width:22%">Grupo</th><th style="width:30%">Pantallas</th><th>Para qué</th></tr>
-  <tr><td>—</td><td>Resumen</td><td>La primera pantalla: cómo viene el mes.</td></tr>
-  <tr><td><b>MES</b></td><td>Liquidación, Transferencias, Historial, Comprobantes, Movimientos, Gastos personales, Vencimientos</td><td>El trabajo de todos los meses.</td></tr>
-  <tr><td><b>DATOS</b></td><td>Deptos, Propietarios, Cuentas, Emisores</td><td>Los datos fijos: se cargan una vez y se corrigen cuando cambian.</td></tr>
-  <tr><td><b>HERRAMIENTAS</b></td><td>Stays, Importar Excel, Terminales</td><td>Traer datos de afuera y conectar otras PC.</td></tr>
+  <tr><th style="width:18%">Grupo</th><th style="width:40%">Pantallas</th><th>Para qué</th></tr>
+  <tr><td>—</td><td>Resumen</td><td>La primera pantalla: cómo vienen los deptos en el mes.</td></tr>
+  <tr><td><b>HORNERA</b></td><td>Resumen Hornera, Movimientos, Cuentas, Vencimientos, Limpieza, Comprobantes, Emisores, Gastos personales</td><td>La empresa misma: su plata, sus gastos, lo que paga y lo que factura.</td></tr>
+  <tr><td><b>DATOS</b></td><td>Deptos y el desplegable <b>Propiedades</b>: Liquidación, Transferencias, Historial y Propietarios</td><td>Los deptos, y lo que se le liquida y paga a cada dueño.</td></tr>
+  <tr><td><b>HERRAMIENTAS</b></td><td>Stays, Importar Excel, Auditoría, Terminales, Copias de seguridad</td><td>Traer datos de afuera, ver quién cambió qué y cuidar la base. Terminales y Copias solo aparecen en la PC servidor.</td></tr>
 </table>
+<p>El desplegable <b>Propiedades</b> arranca abierto; la flechita al lado de su nombre lo cierra o lo abre.</p>
 
 <h2>Ideas que conviene tener claras</h2>
 <ul>
@@ -156,11 +163,12 @@ es el dato a anotar si se reporta un problema.</p>
   <li><b>Pesos y dólares.</b> Cada importe tiene su parte en pesos (<code>$</code>) y en dólares (<code>US$</code>), como en el Excel.
     Cada propietario cobra en una moneda; la otra se convierte con el <b>dólar cripto al cierre</b> menos un descuento.</li>
   <li><b>Nada se borra.</b> Los movimientos y los pagos no se borran: se <b>anulan</b>. Quedan en la lista (con "Ver anulados")
-    y en el registro de cambios.</li>
+    y en la Auditoría.</li>
   <li><b>Buscadores y filtros.</b> Casi todas las listas tienen un buscador arriba y se pueden ordenar tocando el título
     de una columna (las que tienen flechitas).</li>
   <li><b>Filas que se despliegan.</b> El <span class="boton">+</span> a la izquierda de una fila muestra el detalle (las
     reservas de un depto, los pagos de una transferencia).</li>
+  <li><b>El ⓘ explica la cuenta.</b> Pasando el mouse por un título con <sup>ⓘ</sup> (ADR, RevPAR, Honorarios) aparece cómo se calcula.</li>
 </ul>
 
 <!-- ============================================================ -->
@@ -169,14 +177,16 @@ es el dato a anotar si se reporta un problema.</p>
 <div class="ciclo">
   <div><b>1 · Traer el mes</b><br>Stays → elegir el mes → Traer mes de Stays. Leer los avisos.</div>
   <div><b>2 · Revisar reservas</b><br>Stays → corregir con <i>Ajustes</i> lo que haga falta.</div>
-  <div><b>3 · Cargar gastos</b><br>Movimientos → Nuevo movimiento (luz, expensas, arreglos…).</div>
+  <div><b>3 · Cargar gastos</b><br>Importar Excel → Gastos varios, y Movimientos → Nuevo movimiento para lo que falte.</div>
   <div><b>4 · Cotización</b><br>Liquidación → dólar cripto al cierre (o Pedir a la API).</div>
   <div><b>5 · Revisar</b><br>Liquidación → desplegar cada depto; comparar con el Excel si hace falta.</div>
   <div><b>6 · Cerrar</b><br>Liquidación → Cerrar mes → PDF de todos los deptos.</div>
   <div><b>7 · Pagar</b><br>Transferencias → Exportar a Excel para el banco → Marcar pagado.</div>
   <div><b>8 · Facturar</b><br>Al marcar pagado se ofrece la factura de los honorarios.</div>
-  <div><b>9 · Controlar</b><br>Resumen y Cuentas: que los saldos den como el banco.</div>
+  <div><b>9 · Controlar</b><br>Resumen Hornera y Cuentas: que los saldos den como el banco.</div>
 </div>
+<div class="tip"><b>Además, durante el mes</b>Vencimientos: qué servicios e impuestos falta pagar. Limpieza: importar las horas del Form y
+liquidar a la coordinadora cada período. Comprobantes → En ARCA: importar lo facturado por fuera.</div>
 <div class="tip"><b>Orden de los meses</b>Los meses se cierran en orden: para cerrar octubre, septiembre tiene que estar cerrado.
 Y para reabrir septiembre, primero hay que reabrir octubre.</div>
 <div class="tip"><b>"Traer mes" se puede repetir</b>Volver a traer un mes de Stays actualiza reservas y pagos sin duplicar nada y sin
@@ -184,28 +194,58 @@ borrar los ajustes cargados a mano. Conviene hacerlo de nuevo justo antes de cer
 
 <!-- ============================================================ -->
 <h1>5. Resumen</h1>
-<p>Es la primera pantalla. Muestra cómo viene un mes: ocupación, plata y el resultado de Hornera. Arriba se elige el mes;
+<p>Es la primera pantalla. Muestra cómo vienen los deptos en un mes: ocupación, tarifas y lo cobrado. Arriba se elige el mes;
 de entrada muestra el último mes cerrado, que tiene los números firmes. Si se elige un mes abierto aparece el aviso
-<i>"mes abierto: los números todavía cambian"</i>.</p>
+<i>"mes abierto: los números todavía cambian"</i>. Lo de Hornera misma (resultado, cuentas, lo que falta pagar) está en
+<span class="menu">Resumen Hornera</span>.</p>
 <figure>
   <img src="img/resumen.png" style="max-width:88%">
   <figcaption>Resumen de un mes cerrado.</figcaption>
 </figure>
 <ul>
-  <li><b>Tarjetas de arriba:</b> ocupación, noches vendidas sobre noches a la venta, ADR, RevPAR (mediana de los deptos), bruto del mes y resultado de Hornera.
-    Las estadías del propietario y los bloqueos no cuentan como noches a la venta.</li>
-  <li><b>Resultado de Hornera:</b> honorarios + costos operativos cobrados + ingresos y gastos de la empresa (los movimientos
-    sin depto, el "INT" del Excel). Los movimientos de la empresa en dólares se muestran aparte.</li>
-  <li><b>Saldos de cuentas (hoy):</b> cuánto hay en cada cuenta en este momento, con el total en pesos y en dólares.</li>
+  <li><b>Tarjetas de arriba:</b> ocupación, noches vendidas sobre noches a la venta, ADR, RevPAR (mediana de los deptos), bruto del mes y
+    honorarios (con el % que representan sobre el bruto). Las estadías del propietario y los bloqueos no cuentan como noches a la venta.</li>
+  <li><b>Honorarios ≠ 20 % del bruto:</b> la comisión se cobra sobre la <b>base de honorarios</b> (bruto − costos operativos − comisiones de
+    plataformas y del channel manager), por depto y redondeada hacia abajo a la centena. Por eso suele dar alrededor del 15 % del bruto.</li>
   <li><b>Por depto:</b> ocupación, noches, reservas, bruto, ADR, RevPAR, neto por noche y honorarios de cada depto. Viene ordenado por RevPAR.
     Debajo, la <b>elasticidad precio</b> (indicativa) con sus avisos: cuántos deptos tienen dato, contra qué mes compara y la confianza.
     Se ordena tocando el título de la columna.</li>
-  <li><b>Evolución mensual:</b> los meses cerrados con sus barras. Los meses anteriores a Hornera solo tienen noches
+  <li><b>Evolución mensual:</b> los meses cerrados con noches, ocupación, ADR, RevPAR y bruto. Los meses anteriores a Hornera solo tienen noches
     ocupadas (vienen de la hoja OCUPACION del Excel).</li>
 </ul>
 
 <!-- ============================================================ -->
-<h1>6. Liquidación</h1>
+<h1>6. Resumen Hornera</h1>
+<p>La empresa misma: cuánto ganó Hornera en el mes, qué falta pagar y cuánto queda disponible. De entrada muestra el
+<b>mes en curso</b>, porque lo que falta pagar es de ahora; arriba se puede elegir otro mes.</p>
+<figure>
+  <img src="img/resumen-hornera.png" style="max-height:200mm">
+  <figcaption>Resumen Hornera del mes en curso.</figcaption>
+</figure>
+<ul>
+  <li><b>Tarjetas de arriba:</b> resultado del mes, honorarios, ingresos − gastos de la empresa, <b>Disponible</b> en pesos y en dólares
+    (en rojo si da negativo) y el total de gastos personales.</li>
+  <li><b>Resultado del mes:</b> honorarios + costos operativos cobrados + ingresos y gastos de la empresa (los movimientos sin depto, el "INT"
+    del Excel). Abajo, esos ingresos y gastos <b>por concepto</b>; los que no tienen concepto van como "Sin concepto". La limpieza
+    pagada aparece como concepto <i>Limpieza</i>.</li>
+  <li><b>Gastos personales del mes:</b> lo de Amancay, Lautaro, los compartidos y la casa. No son de Hornera: se muestran, pero no se
+    restan del resultado.</li>
+  <li><b>Lo que falta pagar:</b>
+    <ul>
+      <li><i>Vencimientos</i> del mes elegido que no están pagos (los vencidos, en rojo). Sin importe: la app no lo tiene cargado.</li>
+      <li><i>Limpieza sin pagar:</i> las liquidaciones a la coordinadora todavía pendientes, con su importe.</li>
+      <li><i>A propietarios:</i> lo que falta transferir del último mes cerrado. No cuenta los deptos de Hornera ni los saldos en contra.</li>
+    </ul></li>
+  <li><b>Saldos de cuentas (hoy)</b> y <b>Disponible</b> = saldos − limpieza sin pagar − lo que falta pagar a propietarios, separado en
+    pesos y en dólares.</li>
+  <li><b>Facturado por emisor:</b> lo que facturó cada emisor en el mes y en los <b>últimos 12 meses</b> (lo que mira el tope del
+    monotributo). Junta lo emitido desde la app y lo importado de Mis Comprobantes sin contarlo dos veces; las notas de crédito restan.
+    Para que esté completo, importar Mis Comprobantes de cada emisor (capítulo 12).</li>
+  <li><b>Evolución mensual:</b> los meses cerrados con honorarios, costos operativos, ingresos − gastos de la empresa, resultado y gastos personales.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h1>7. Liquidación</h1>
 <p>Es el corazón de la app: lo que le corresponde a cada propietario. Con el mes abierto se calcula en el momento con lo
 que haya cargado. Al cerrar el mes queda guardado.</p>
 
@@ -239,7 +279,8 @@ dice qué lo compone y, con el mes abierto, dónde se corrige:</p>
   <li><b>− Costos:</b> los costos operativos (la tarifa por reserva, prorrateada a las noches del mes; se cambian en
     <span class="boton">Variables del mes</span>) y las comisiones de plataformas y agentes (<span class="boton">Ajustar</span> en la reserva).</li>
   <li><b>Base de honorarios.</b></li>
-  <li><b>− Honorarios:</b> la comisión de Hornera sobre el ingreso bruto (se cambia en Deptos → Variables).</li>
+  <li><b>− Honorarios:</b> la comisión del depto sobre la base de honorarios, redondeada hacia abajo a la centena de pesos (se cambia
+    en Deptos → Variables). Un depto sin ingresos que paga el channel manager tiene base negativa, y sus honorarios también.</li>
   <li><b>Valor liquidación inicial.</b></li>
   <li><b>− Gastos Varios:</b> los gastos del depto y los adelantos al propietario del mes. <span class="boton">Agregar Nuevo Gasto</span>
     y <span class="boton">Editar</span> abren el mismo formulario que Movimientos, con el depto ya elegido.</li>
@@ -299,7 +340,7 @@ el PDF suma una página por cada factura.</p>
 </figure>
 
 <!-- ============================================================ -->
-<h1>7. Transferencias</h1>
+<h1>8. Transferencias</h1>
 <p>Qué se le paga a cada propietario de un <b>mes cerrado</b>, el registro de cada pago y la lista para el banco.
 Si no hay meses cerrados, la pantalla lo avisa: las transferencias salen al cerrar el mes en Liquidación.</p>
 <figure>
@@ -368,30 +409,34 @@ en partes, la parte proporcional).</p>
 </ol>
 <div class="nota"><b>Si ARCA no responde</b>Sin internet, o si ARCA rechaza la factura, el pago queda registrado igual y la factura queda
 <i>rechazada</i> con el motivo. Cuando se solucione, tocar <span class="boton">Reintentar</span> en la fila del pago.</div>
+<div class="nota"><b>Si ya se le facturó por fuera</b>Si en lo importado de Mis Comprobantes (capítulo 12) hay facturas a ese propietario
+hechas por fuera de Hornera, el formulario las muestra. Si una es de este pago, <span class="boton">Es esta</span> la vincula: el pago queda
+facturado y no se emite otra. Si no es ninguna, tildar <i>"No es ninguna de estas: emitir igual"</i>.</div>
 <div class="nota"><b>Si al propietario le faltan datos fiscales</b>No deja emitir y dice qué falta. Se completan en
-<span class="menu">Propietarios → Datos fiscales</span>.</div>
+<span class="menu">Propiedades → Propietarios → Datos fiscales</span>.</div>
 <figure>
   <div class="recorte"><img src="img/pdf-factura.png" style="width:150mm"></div>
   <figcaption>El PDF de la factura: emisor, receptor, período del servicio, importe, CAE y el QR de ARCA.</figcaption>
 </figure>
 
 <!-- ============================================================ -->
-<h1>8. Historial</h1>
-<p>Los pagos a un propietario mes a mes: lo liquidado, lo pagado y lo pendiente. Se elige un propietario (y, si tiene varios
-deptos, se puede filtrar uno). También se llega desde el botón <span class="boton">Historial</span> de Deptos o de Propietarios.</p>
+<h1>9. Historial</h1>
+<p>Los pagos a un propietario mes a mes: lo liquidado, lo pagado y lo pendiente. Se elige un propietario o un depto (y, si el
+propietario tiene varios deptos, se puede filtrar uno). También se llega desde el botón <span class="boton">Historial</span> de Deptos o de Propietarios.</p>
 <figure>
   <img src="img/historial.png">
   <figcaption>Historial de un propietario con dos deptos.</figcaption>
 </figure>
 <ul>
-  <li>Estados: <i>pagado</i>, <i>pendiente</i>, <i>saldado por fuera</i> y <i>en curso</i> (mes todavía abierto).</li>
+  <li>Estados: <i>pagado</i>, <i>parcial</i>, <i>pendiente</i>, <i>debe</i> (el propietario le debe a Hornera), <i>pasó a …</i> (el saldo
+    se arrastró al mes siguiente cerrado), <i>saldado por fuera</i> y <i>en curso</i> (mes todavía abierto).</li>
   <li>Desde acá también se puede <span class="boton">Marcar pagado</span>, marcar <span class="boton">Saldado por fuera</span>
     y anular un pago, igual que en Transferencias.</li>
   <li><b>Ver anulados</b> muestra también los pagos anulados.</li>
 </ul>
 
 <!-- ============================================================ -->
-<h1>9. Movimientos</h1>
+<h1>10. Movimientos y gastos personales</h1>
 <p>Reemplaza la hoja CORRIENTE: gastos, ingresos, adelantos y transferencias entre cuentas. Se elige el mes; con el mes
 cerrado la lista es de solo lectura. Se puede filtrar por depto, buscar por concepto, detalle o cuenta, y ver los anulados.</p>
 <figure>
@@ -425,7 +470,8 @@ cerrado la lista es de solo lectura. Se puede filtrar por depto, buscar por conc
 </table>
 <p>Los movimientos de tipo <i>Pago de liquidación</i> los genera Transferencias, y los de tipo <i>Transferencia</i>, el botón
 <span class="boton">Transferencia entre cuentas</span>.</p>
-<p><span class="boton">Editar</span> corrige un movimiento y <span class="boton">Anular</span> lo deja sin efecto (no suma, pero queda en la lista con "Ver anulados").</p>
+<p><span class="boton">Editar</span> corrige un movimiento y <span class="boton">Anular</span> lo deja sin efecto (no suma, pero queda en la lista con "Ver anulados").
+El pago de una liquidación de limpieza no se edita desde acá: se anula, y la liquidación vuelve a quedar pendiente en <span class="menu">Limpieza</span>.</p>
 
 <h2>Transferencia entre cuentas</h2>
 <figure class="chica">
@@ -437,9 +483,13 @@ moneda, el importe es el mismo. En una <b>compra o venta de dólares</b> (de una
 sale en pesos y lo que entra en dólares. Se registran dos movimientos, uno por cuenta.</p>
 
 <h2>Gastos personales</h2>
-<p>En <span class="menu">Gastos personales</span> están los gastos del Excel de gastos varios que <b>no son de Hornera</b>:
-no entran en las liquidaciones, en las cuentas ni en el resultado. Llegan solos al importar el Excel
+<p>En <span class="menu">Hornera → Gastos personales</span> están los gastos del Excel de gastos varios que <b>no son de Hornera</b>:
+no entran en las liquidaciones, en las cuentas ni en el resultado (Resumen Hornera los muestra aparte). Llegan solos al importar el Excel
 (<span class="menu">Herramientas → Importar Excel</span>), y también se pueden cargar con <span class="boton">Nuevo gasto</span>.</p>
+<figure>
+  <img src="img/gastos-personales.png">
+  <figcaption>Los gastos personales del mes, con lo que lleva cada uno arriba.</figcaption>
+</figure>
 <table>
   <tr><th style="width:24%">Código</th><th>De quién es</th></tr>
   <tr><td>CAY</td><td>Gastos personales de Amancay.</td></tr>
@@ -454,9 +504,85 @@ centavo, va a Amancay). <span class="boton">Editar</span> corrige el código, la
 cerrado, la lista es de solo lectura.</p>
 
 <!-- ============================================================ -->
-<h1>10. Deptos</h1>
+<h1>11. Limpieza</h1>
+<p>Las horas que las chicas cargan en el Google Form y lo que se le paga a la coordinadora, con lo que le toca a cada una.
+Es un control interno de Hornera: no toca las liquidaciones de los deptos. Tiene tres pestañas: <b>Horas</b>, <b>Liquidaciones</b> y <b>Reglas del plus</b>.</p>
+<h2>Importar las horas</h2>
+<ol class="pasos">
+  <li>Bajar la planilla "HORAS LIMPIEZA" del Form como .xlsx.</li>
+  <li><span class="boton">Importar horas (Excel del Form)</span> y elegir el archivo.</li>
+  <li>Leer el resumen: tareas importadas, las que están en períodos ya pagados (no se tocan), las repetidas, las anteriores al corte
+    (10/09/2026) y los avisos de las filas con problemas.</li>
+</ol>
+<p>Se puede importar las veces que haga falta: se reemplazan las tareas que no están en un período pagado. Las tareas sin depto o de la
+oficina van como <b>INT</b>.</p>
+<h2>Horas</h2>
+<figure>
+  <img src="img/limpieza-horas.png">
+  <figcaption>Horas por chica, por depto y por mes entre dos fechas.</figcaption>
+</figure>
+<p>Solo información: tareas y horas <b>por chica</b>, <b>por depto</b> y <b>por mes</b> entre las fechas elegidas. Las horas incluyen el plus en
+horas de las reglas actuales.</p>
+<h2>Liquidaciones a la coordinadora</h2>
+<figure>
+  <img src="img/limpieza-liquidaciones.png">
+  <figcaption>Una liquidación pagada y una pendiente.</figcaption>
+</figure>
+<ol class="pasos">
+  <li><span class="boton">Nueva liquidación</span>: el período (<b>desde</b> y <b>hasta</b>, inclusive; propone el día siguiente a la última) y el
+    <b>precio por hora</b>, el mismo para todas. Dos períodos no se pueden pisar.</li>
+  <li>Opcional: un <b>ajuste</b> (negativo para descontar) con su nota. Suma o resta al total, no se reparte entre las chicas.</li>
+  <li><span class="boton">Ver</span> abre el detalle: lo que le toca a cada chica (tareas, horas y plata), el total a la coordinadora y las horas por depto.</li>
+  <li><span class="boton">Marcar pagada</span>: fecha y cuenta de la que sale. Queda como <b>gasto de Hornera</b> (concepto Limpieza) en el mes de la
+    fecha, que tiene que estar abierto, y lo de cada chica queda guardado como estaba ese día.</li>
+</ol>
+<figure class="media">
+  <img src="img/limpieza-detalle.png">
+  <figcaption>El detalle de una liquidación: lo de cada chica y las horas por depto.</figcaption>
+</figure>
+<p>Mientras está pendiente se puede <span class="boton">Editar</span>. Para cambiar una pagada, anular su pago en <span class="menu">Movimientos</span>:
+vuelve a quedar pendiente. Si después de pagar cambia el Excel del Form, la liquidación muestra <i>"el Excel cambió"</i> pero lo pagado no se toca.</p>
+<h2>Reglas del plus</h2>
+<p>Lo que se suma por cada tarea de un tipo (Check-Out, Cambio Blanquería…): <b>horas</b>, que se pagan al precio del período, o un <b>monto fijo
+en pesos</b>. El tipo se escribe igual que en el Form. Las reglas valen para las liquidaciones que se crean desde ese momento; las ya creadas
+conservan las suyas.</p>
+
+<!-- ============================================================ -->
+<h1>12. Comprobantes</h1>
+<p>Lo facturado en ARCA, por mes de emisión. Arriba se elige la vista y el mes.</p>
+<h2>Desde Hornera</h2>
+<figure>
+  <img src="img/comprobantes.png">
+  <figcaption>Las facturas y notas de crédito emitidas desde la app en el mes.</figcaption>
+</figure>
+<ul>
+  <li>Las facturas y notas de crédito emitidas desde Hornera y los <b>rechazos</b> todavía pendientes. Arriba, el neto del mes de cada emisor.</li>
+  <li>Filtros por emisor, por tipo (facturas, notas de crédito, rechazados) y buscador por depto, propietario o número.</li>
+  <li>Marcas: <i>anulada por NC</i>, <i>anula FC</i>, <i>pago anulado</i> y <i>prueba</i> (homologación).</li>
+  <li>Botones: <span class="boton">PDF</span>, <span class="boton">Reintentar</span> (un rechazo), <span class="boton">Emitir nota de crédito</span>
+    (la factura de un pago anulado) y <span class="boton">Ver detalle</span>, con lo que se le pidió a ARCA y lo que respondió.</li>
+</ul>
+<h2>En ARCA (Mis Comprobantes)</h2>
+<figure>
+  <img src="img/comprobantes-arca.png">
+  <figcaption>Lo importado de Mis Comprobantes: una factura a un propietario hecha por fuera y una a otro receptor.</figcaption>
+</figure>
+<p>Todo lo que facturó cada emisor en ARCA, también lo hecho por fuera de Hornera (Comprobantes en Línea). Sirve para no facturar dos veces y
+para que <span class="menu">Resumen Hornera</span> muestre lo facturado completo.</p>
+<ol class="pasos">
+  <li>En ARCA, con la clave fiscal del emisor: <i>Mis Comprobantes → Emitidos</i>, elegir las fechas y exportar a CSV.</li>
+  <li><span class="boton">Importar de ARCA</span>: elegir el emisor y el archivo. Si el CSV es de otro CUIT, se rechaza. Repetir no duplica.</li>
+</ol>
+<p>La columna <b>En Hornera</b> dice qué es cada uno: <i>emitida desde Hornera</i>, <i>pago de …</i> (vinculada a un pago),
+<i>propietario, sin vincular</i> (factura a un propietario hecha por fuera: al facturar su pago, Hornera la ofrece para vincular),
+<i>propietario</i> (una NC o ND) u <i>otro receptor</i>. <span class="boton">Desvincular</span> deja el pago otra vez sin factura.</p>
+
+<!-- ============================================================ -->
+<h1>13. Deptos</h1>
 <p>Los deptos que administra Hornera, con su propietario, dirección, comisión y estado. Se cargan al importar el Excel y se
-completan con lo que trae Stays (dirección y fotos).</p>
+completan con lo que trae Stays (dirección y fotos). Arriba, el buscador y un filtro por estado: <i>Activo</i>, <i>Próximo</i>,
+<i>Potencial</i>, <i>Pausado</i> y <i>Finalizado</i>. Cada fila tiene <span class="boton">Ficha</span>, <span class="boton">Variables</span>
+y <span class="boton">Historial</span> (los pagos de ese depto mes a mes).</p>
 <figure>
   <img src="img/deptos.png">
   <figcaption>Lista de deptos, con buscador por código, nombre, dirección o propietario.</figcaption>
@@ -467,7 +593,7 @@ completan con lo que trae Stays (dirección y fotos).</p>
   <figcaption>Comisión y tarifas propias de un depto.</figcaption>
 </figure>
 <ul>
-  <li><b>Comisión de Hornera:</b> lo que cobra Hornera sobre el ingreso bruto del depto.</li>
+  <li><b>Comisión de Hornera:</b> el porcentaje que cobra Hornera sobre la base de honorarios del depto (el bruto menos costos y comisiones).</li>
   <li><b>Tarifas propias:</b> si el depto tiene una tarifa base, adicional por huésped o channel manager distintos. Vacías usan las del mes
     (<span class="menu">Liquidación → Variables del mes</span>).</li>
   <li>Se aplican a los meses abiertos; los cerrados quedan como se liquidaron.</li>
@@ -488,9 +614,13 @@ con el botón de arriba y se corrige con <span class="boton">Editar</span> o se 
 <div class="ojo"><b>Las claves no van cifradas</b>Quedan en la base como cualquier otro dato: las ven todas las PCs conectadas y viajan en
 las copias de seguridad. La <span class="menu">Auditoría</span> registra quién agregó, cambió o borró una clave, pero nunca guarda la clave.</div>
 <h2>Vencimientos</h2>
-<p>En <span class="menu">Mes → Vencimientos</span> está lo que vence en el mes de los servicios e impuestos que <b>paga Hornera</b>
+<p>En <span class="menu">Hornera → Vencimientos</span> está lo que vence en el mes de los servicios e impuestos que <b>paga Hornera</b>
 (los que paga el propietario quedan solo como dato en la ficha). Se elige el mes arriba; <span class="boton">Por pagar</span> muestra lo
-que falta y <span class="boton">Todos</span>, también lo ya pagado.</p>
+que falta y <span class="boton">Todos</span>, también lo ya pagado. Lo que falta pagar del mes también aparece en <span class="menu">Resumen Hornera</span>.</p>
+<figure>
+  <img src="img/vencimientos.png">
+  <figcaption>Los vencimientos del mes: uno pagado, uno vencido y uno pendiente.</figcaption>
+</figure>
 <table>
   <tr><th style="width:24%">Estado</th><th>Qué significa</th></tr>
   <tr><td>Pagado</td><td>Ya hay un gasto del depto con ese concepto y fecha en el mes, cargado en Movimientos (no se tilda a mano).</td></tr>
@@ -500,9 +630,10 @@ que falta y <span class="boton">Todos</span>, también lo ya pagado.</p>
 <p>Si un servicio vence el 31 y el mes tiene menos días, vence el último día del mes. Los deptos finalizados no aparecen.</p>
 
 <!-- ============================================================ -->
-<h1>11. Propietarios</h1>
-<p>Los dueños de los deptos, en qué moneda se les liquida y si falta el CBU. Desde acá se cargan sus <b>datos fiscales</b>,
-que hacen falta para facturarles los honorarios.</p>
+<h1>14. Propietarios</h1>
+<p>Está en <span class="menu">Datos → Propiedades → Propietarios</span>. Los dueños de los deptos, en qué moneda se les liquida y si falta
+el CBU. Desde acá se cargan sus <b>datos fiscales</b>, que hacen falta para facturarles los honorarios, y <span class="boton">Historial</span>
+muestra sus pagos mes a mes.</p>
 <figure>
   <img src="img/propietarios.png">
   <figcaption>Lista de propietarios con sus deptos y la moneda en que cobran.</figcaption>
@@ -529,7 +660,7 @@ que hacen falta para facturarles los honorarios.</p>
 </ol>
 
 <!-- ============================================================ -->
-<h1>12. Cuentas</h1>
+<h1>15. Cuentas</h1>
 <p>Las cuentas de la empresa (bancos, Mercado Pago, efectivo) con su saldo, y a qué cuenta entra cada medio de pago de Stays.</p>
 <figure>
   <img src="img/cuentas.png">
@@ -550,7 +681,7 @@ depto (Empresa) y con la cuenta, con el saldo real del banco a una fecha. Desde 
 comisión). Un medio sin cuenta asociada genera un aviso al traer el mes.</p>
 
 <!-- ============================================================ -->
-<h1>13. Emisores (facturación ARCA)</h1>
+<h1>16. Emisores (facturación ARCA)</h1>
 <p>Quién factura los honorarios ante ARCA: Lautaro o Amancay, cada uno con <b>su</b> CUIT, <b>su</b> punto de venta y <b>su</b> certificado.</p>
 <figure>
   <img src="img/emisores.png">
@@ -590,11 +721,17 @@ por mail ni dejar copias en pendrives: una vez cargado en Hornera, borrar las co
 </figure>
 <div class="nota"><b>Pasar a producción</b><span class="boton">Editar</span> → ambiente <b>Producción</b>. Al guardar se borra el certificado de
 homologación (el de un ambiente no sirve en el otro): cargar el de producción y tocar <span class="boton">Probar</span> antes de facturar.</div>
+<ul>
+  <li>Etiquetas del certificado: <i>sin certificado</i>, <i>vence en N días</i> (30 días antes), <i>vencido</i> y <i>falta la clave en esta PC</i>
+    (la clave privada quedó en otra PC: volver a cargar el certificado en el servidor).</li>
+  <li><span class="boton">Borrar</span> solo borra un emisor que nunca emitió. Si ya emitió, se lo da de baja desde <span class="boton">Editar</span>:
+    queda <i>de baja</i> y no se ofrece para facturar.</li>
+</ul>
 <div class="nota"><b>Vencimiento</b>El certificado vale 2 años. Emisores avisa 30 días antes. Para renovarlo, en ARCA usar
 <b>"Actualizar"</b> sobre el mismo alias: así no hay que volver a autorizar wsfe.</div>
 
 <!-- ============================================================ -->
-<h1>14. Stays</h1>
+<h1>17. Stays</h1>
 <p>Trae de Stays las reservas, los pagos y los medios de pago de un mes.</p>
 <figure>
   <img src="img/stays.png" style="max-width:88%">
@@ -611,8 +748,9 @@ La clave queda cifrada en esa PC y no se vuelve a mostrar; después se ve <i>"Co
     que la app no reconoce, deptos con otro dueño en Stays.</li>
   <li>Si en Stays hay un <b>depto nuevo</b> que la app no tiene, aparece un aviso con <span class="boton">Crear y traer</span>: lo da de alta
     con el dueño, la dirección y las fotos de Stays (20% de comisión, se cambia en Deptos → Variables) y trae sus reservas.</li>
-  <li>Revisar la lista de reservas: depto, fechas y horarios, huéspedes, plataforma y lo cobrado en pesos y dólares.
-    <b>Ver canceladas</b> muestra también las canceladas, que no se liquidan.</li>
+  <li>Revisar la lista de reservas: depto, fechas y horarios, huéspedes, plataforma y lo cobrado en pesos y dólares. El buscador filtra
+    por depto, reserva o plataforma. Las canceladas se ven atenuadas y no se liquidan; <b>Ver canceladas</b> las oculta o las muestra.
+    El <span class="boton">+</span> de una reserva muestra el desglose de precio que trae Stays.</li>
 </ol>
 <h2>Ajustes de una reserva</h2>
 <figure class="chica">
@@ -628,7 +766,7 @@ La clave queda cifrada en esa PC y no se vuelve a mostrar; después se ve <i>"Co
 <p>Los ajustes no se pierden al volver a traer el mes. En un mes cerrado no se pueden cambiar: hay que reabrirlo.</p>
 
 <!-- ============================================================ -->
-<h1>15. Importar Excel</h1>
+<h1>18. Importar Excel</h1>
 <p>Carga un mes desde el Google Sheet de liquidaciones (exportado como .xlsx): propietarios, deptos, saldos, movimientos e histórico.
 Se usa para arrancar con Hornera y para traer los meses anteriores.</p>
 <figure>
@@ -639,11 +777,38 @@ Se usa para arrancar con Hornera y para traer los meses anteriores.</p>
   <li>Al terminar dice qué período se importó, cuántas liquidaciones y los <b>avisos</b> (por ejemplo, deptos sin facturante que no se importan).</li>
   <li>Los meses anteriores se pueden importar en cualquier orden: no pisan los datos de un mes más nuevo.</li>
 </ul>
+<h2>Gastos varios</h2>
+<p>Abajo de la misma pantalla se importa el Excel de comprobantes de gastos ("Comprobantes Hornera"). Entran los gastos del <b>mes abierto</b>:</p>
+<table>
+  <tr><th style="width:30%">Código en el Excel</th><th>Adónde va</th></tr>
+  <tr><td>Un depto (ALM, BOS…)</td><td>Movimiento del depto: se le descuenta al propietario.</td></tr>
+  <tr><td>INT y códigos que no son deptos</td><td>Movimiento de la empresa (Hornera), con el código en el detalle.</td></tr>
+  <tr><td>CAY, LAU, CAY/LAU, CASEST, CASA</td><td>No son de Hornera: van a <span class="menu">Hornera → Gastos personales</span>.</td></tr>
+</table>
+<p>Al terminar muestra cuántos se importaron, la cuenta del mes por código y los avisos. Se puede volver a importar: lo que ya está no se
+duplica y lo corregido a mano no se pisa. Los de meses anteriores se saltean.</p>
 
 <!-- ============================================================ -->
-<h1>16. Terminales: usar Hornera en otra PC</h1>
+<h1>19. Auditoría</h1>
+<p>Quién cambió qué en el mes: cada alta, modificación, anulación, importación, cierre y reapertura, con la PC que lo hizo y lo que cambió.</p>
+<figure>
+  <img src="img/auditoria.png">
+  <figcaption>Los cambios del mes, del más nuevo al más viejo.</figcaption>
+</figure>
+<ul>
+  <li><b>Quién</b> es la PC: la servidor con el nombre que se le pone en <span class="menu">Terminales → Nombre de esta PC</span>; cada terminal,
+    con el nombre que se le puso al emparejarla.</li>
+  <li><b>Qué cambió:</b> en una modificación, solo lo que cambió (<i>"Importe $: $ 10.000 → $ 12.000"</i>); en un alta, lo que se cargó.</li>
+  <li>Filtros por mes, por PC y por tipo (movimiento, reserva, limpieza…), y un buscador por depto, reserva o dato.</li>
+  <li>Las claves de los deptos quedan registradas (quién las agregó o cambió), pero nunca el valor de la clave.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h1>20. Terminales: usar Hornera en otra PC</h1>
 <p>Una <b>terminal</b> es otra PC de la oficina que usa los datos del servidor por la red local. Todo lo que se carga desde una
-terminal queda en el servidor, con el nombre de la terminal en el registro de cambios. Esta pantalla solo aparece en la PC servidor.</p>
+terminal queda en el servidor, con el nombre de la terminal en la <span class="menu">Auditoría</span>. Esta pantalla solo aparece en la PC servidor.</p>
+<p><b>Nombre de esta PC:</b> arriba de todo se le pone nombre a la PC servidor (por ejemplo, el de quien la usa). Con ese nombre quedan sus
+cambios en la Auditoría; al cambiarlo, lo ya registrado con el nombre anterior pasa a decir el nuevo.</p>
 <figure>
   <img src="img/terminales.png">
   <figcaption>La dirección del servidor, el código para emparejar y las terminales conectadas.</figcaption>
@@ -668,7 +833,7 @@ terminal queda en el servidor, con el nombre de la terminal en el registro de ca
 </ul>
 
 <!-- ============================================================ -->
-<h1>17. Copias de seguridad y recuperación</h1>
+<h1>21. Copias de seguridad y recuperación</h1>
 <ul>
   <li>Hornera hace una copia de la base <b>al cerrar la app</b> y <b>cada 6 horas</b> mientras está abierta, en
     <code>%APPDATA%\Hornera\backups</code> (archivos <code>hornera-&lt;fecha&gt;.db</code>). Se guardan las últimas 60.</li>
@@ -705,7 +870,7 @@ Antes se hace una copia <code>antes-de-reemplazar</code> de la base, igual que a
 pueden estar abiertas a la vez.</div>
 
 <!-- ============================================================ -->
-<h1>18. Problemas frecuentes</h1>
+<h1>22. Problemas frecuentes</h1>
 <table>
   <tr><th style="width:38%">Qué pasa</th><th>Qué hacer</th></tr>
   <tr><td>"No se pudo conectar con Stays…"</td><td>Es un corte de internet. Revisar la conexión y volver a traer el mes: no se guardó nada a medias.</td></tr>
@@ -716,6 +881,9 @@ pueden estar abiertas a la vez.</div>
   <tr><td>El saldo de una cuenta no da como el banco</td><td>Revisar el saldo inicial, que cada medio de pago de Stays esté asociado a su cuenta y que estén cargados los gastos.</td></tr>
   <tr><td>Al facturar: "Computador no autorizado a acceder al servicio"</td><td>Falta autorizar wsfe al certificado en el Administrador de Relaciones de ARCA.</td></tr>
   <tr><td>La factura quedó "rechazada"</td><td>Leer el motivo en la fila del pago, corregir (datos fiscales, conexión) y tocar Reintentar.</td></tr>
+  <tr><td>Limpieza: no deja marcar pagada</td><td>El mes de la fecha de pago está cerrado: elegir una fecha del mes abierto.</td></tr>
+  <tr><td>Limpieza: "el período se pisa con otro"</td><td>Las fechas se superponen con otra liquidación: empezar el día siguiente a la anterior.</td></tr>
+  <tr><td>Los honorarios no dan el 20 % del bruto</td><td>Es correcto: el 20 % se aplica sobre la base de honorarios (bruto − costos operativos − comisiones). Ver el ⓘ de Honorarios en Resumen.</td></tr>
   <tr><td>La terminal no conecta</td><td>Que Hornera esté abierta en el servidor, que estén en la misma red, la dirección tal cual la muestra Terminales y el firewall con redes privadas permitidas.</td></tr>
 </table>
 <h2>Cómo reportar un problema</h2>
@@ -727,11 +895,16 @@ pueden estar abiertas a la vez.</div>
 </ul>
 
 <!-- ============================================================ -->
-<h1>19. Glosario</h1>
+<h1>23. Glosario</h1>
 <table>
   <tr><th style="width:28%">Término</th><th>Significado</th></tr>
   <tr><td>Bruto</td><td>Ingresos del depto en el mes: lo cobrado en pesos más lo cobrado en dólares convertido al cambio.</td></tr>
-  <tr><td>Honorarios</td><td>Lo que cobra Hornera: la comisión del depto sobre el bruto menos costos operativos y comisiones, redondeada a centenas.</td></tr>
+  <tr><td>Honorarios</td><td>Lo que cobra Hornera: la comisión del depto sobre la base de honorarios, redondeada hacia abajo a centenas.</td></tr>
+  <tr><td>Resultado de Hornera</td><td>Honorarios + costos operativos cobrados + ingresos y gastos de la empresa (INT). Los gastos personales no entran.</td></tr>
+  <tr><td>Disponible</td><td>Saldos de las cuentas menos la limpieza sin pagar y lo que falta transferir a propietarios.</td></tr>
+  <tr><td>Liquidación de limpieza</td><td>Lo que se le paga a la coordinadora por un período: horas de cada chica × precio por hora, más el plus y el ajuste.</td></tr>
+  <tr><td>Plus</td><td>Lo que se suma por cada tarea de un tipo (horas o un monto fijo), según las reglas del plus.</td></tr>
+  <tr><td>Mis Comprobantes</td><td>El listado de ARCA de todo lo facturado por un emisor, también lo hecho por fuera de Hornera.</td></tr>
   <tr><td>Base de honorarios</td><td>Ingresos operativos menos costos (costos operativos y comisiones de plataformas). Sobre esto se calculan los honorarios.</td></tr>
   <tr><td>Valor liquidación inicial</td><td>Base de honorarios menos honorarios.</td></tr>
   <tr><td>ADR</td><td>Tarifa promedio por noche vendida: lo que pagaron los huéspedes por las noches, sin la tarifa por estadía, dividido las noches vendidas (sin estadías del propietario).</td></tr>

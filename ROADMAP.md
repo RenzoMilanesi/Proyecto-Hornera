@@ -73,7 +73,9 @@ en la LAN (fase 5d), que sigue a testear.
    y DATOS queda con Deptos y el desplegable Propiedades (Liquidación, Transferencias, Historial, Propietarios). Resumen Hornera
    abre en el mes en curso: resultado con ingresos y gastos de la empresa por concepto, gastos personales aparte, lo que falta
    pagar (vencimientos, limpieza, propietarios del último cierre), Disponible = saldos − pendientes, facturado por emisor en el mes
-   y en 12 meses, y evolución. El Resumen queda de deptos (la tarjeta del resultado pasa a Honorarios). Falta: manual ([plan 060](plans/060-manual-menu-hornera.md)).
+   y en 12 meses, y evolución. El Resumen queda de deptos (la tarjeta del resultado pasa a Honorarios, con ⓘ que explica la cuenta).
+   v0.41.1: manual revisado de punta a punta (capítulos nuevos: Resumen Hornera, Limpieza, Comprobantes, Auditoría; gastos varios,
+   facturas hechas por fuera, nombre de la PC) con capturas nuevas; Auditoría legible para limpieza; pestañas de Limpieza: Horas primero.
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.
    - Terminales → "Nombre de esta PC" en el servidor (se guarda en `configuracion`); reemplaza al nombre de Windows en la auditoría.

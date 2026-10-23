@@ -6,6 +6,8 @@ const { abrirDb } = await import(P + 'db.ts');
 const { anularMovimiento, crearMovimiento, transferir } = await import(P + 'movimientos.ts');
 const { cerrarPeriodo } = await import(P + 'liquidacion/cierre.ts');
 const { listarTransferencias, pagarLiquidacion } = await import(P + 'liquidacion/pagos.ts');
+const { crearGastoAjeno } = await import(P + 'gastosAjenos.ts');
+const limpieza = await import(P + 'limpieza.ts');
 
 const dir = process.argv[2];
 rmSync(dir, { recursive: true, force: true });
@@ -14,6 +16,7 @@ writeFileSync(join(dir, 'rol.json'), JSON.stringify({ rol: 'servidor' }));
 const db = abrirDb(join(dir, 'hornera.db'));
 
 db.exec(`
+INSERT INTO configuracion(clave, valor) VALUES ('pc.nombre', 'PC de la oficina');
 INSERT INTO plataforma(nombre_stays, nombre, codigo, gestiona_pago, comision_pct) VALUES
   ('API airbnb', 'Airbnb', 'A', 1, 0.03), ('API booking', 'Booking', 'B', 0, 0.15), ('Directo', 'Directo', 'D', 0, 0);
 INSERT INTO propietario(nombre, cuit, cbu, moneda_liquidacion, fiscal_razon_social, fiscal_doc_tipo, fiscal_doc_nro, fiscal_condicion_iva, fiscal_domicilio) VALUES
@@ -84,6 +87,19 @@ mov('2026-08', '2026-08-01', null, 'saldo_inicial', 'Saldo inicial', 'Saldo del 
 mov('2026-08', '2026-08-01', null, 'saldo_inicial', 'Saldo inicial', 'Saldo de MP al 01/08', 120000000, 0, 2);
 mov('2026-08', '2026-08-01', null, 'saldo_inicial', 'Saldo inicial', 'Caja en dólares', 0, 300000, 3);
 mov('2026-10', '2026-10-09', 'DUR', 'pre_liquidacion', 'Adelanto', 'Adelanto pedido por la propietaria', 0, -20000, 3);
+// Gastos personales (no son de Hornera) y vencimientos de servicios que paga Hornera.
+for (const [m] of meses) {
+  crearGastoAjeno(db, { fecha: `${m}-08`, codigo: 'CAY', descripcion: 'Farmacia', importe: 1850000 });
+  crearGastoAjeno(db, { fecha: `${m}-14`, codigo: 'LAU', descripcion: 'Nafta', importe: 2400000 });
+  crearGastoAjeno(db, { fecha: `${m}-22`, codigo: 'CAY/LAU', descripcion: 'Supermercado', importe: 3100000 });
+  crearGastoAjeno(db, { fecha: `${m}-25`, codigo: 'CASA', descripcion: 'Gas de la casa', importe: 1200000 });
+}
+db.exec(`
+INSERT INTO concepto(nombre) VALUES ('TGI'), ('API');
+INSERT INTO depto_servicio(depto_id, concepto_id, cuenta, titular, paga, dia, cada_meses, mes_desde) VALUES
+  (1, (SELECT id FROM concepto WHERE nombre = 'EPE'), '1234567', 'Pérez Ana', 'hornera', 10, 1, 1),
+  (3, (SELECT id FROM concepto WHERE nombre = 'TGI'), 'TGI-4455', 'Gómez Luis', 'hornera', 28, 2, 2),
+  (5, (SELECT id FROM concepto WHERE nombre = 'API'), '09-876543', 'Ruiz Marcos', 'hornera', 15, 1, 1);`);
 transferir(db, { mes: '2026-10', fecha: '2026-10-18', desde_cuenta_id: 1, hacia_cuenta_id: 3, importe_desde: 146000000, importe_hacia: 100000, detalle: 'Compra de dólares' });
 
 cerrarPeriodo(db, '2026-08');
@@ -126,6 +142,25 @@ comprobante.run('2026-08', 'ESC', 4, pagos08.ESC, 2, 13, 2, 1, '76123456789201',
   facEsc, '2026-10-15 11:00:00');
 comprobante.run('2026-08', 'DUR', 3, pagos08.DUR, 1, 11, 3, 16, '76123456789016', '2026-10-26', '2026-10-16', ...ago, 3000000,
   receptor('Fernández Clara', '27444444449'), 'aprobado', null, '{"cbteTipo":11,"numero":16}', null, null, '2026-10-16 12:00:00');
+
+// Lo facturado en ARCA (Mis Comprobantes): una factura a un propietario hecha por fuera y una a otro receptor.
+db.exec(`INSERT INTO comprobante_arca(emisor_id, fecha, cbte_tipo, punto_venta, numero, numero_hasta, cae, doc_tipo, doc_nro, receptor, importe, importado_en) VALUES
+  (2, '2026-10-05', 11, 1, 31, 31, '76100000000031', 80, '20333333334', 'RUIZ MARCOS', 6100000, '2026-10-20 09:00:00'),
+  (2, '2026-10-12', 11, 1, 32, 32, '76100000000032', 99, '0', 'CONSUMIDOR FINAL', 2500000, '2026-10-20 09:00:00');`);
+
+// Limpieza: tareas del Form de septiembre y octubre, una liquidación pagada y una pendiente.
+limpieza.guardarPlus(db, { 'Check-Out': { modo: 'horas', valor: 30 }, 'Cambio Blanqueria': { modo: 'pesos', valor: 500000 } });
+const tarea = db.prepare('INSERT INTO tarea_limpieza(fecha, depto_id, operaria, tipo, minutos) VALUES (?, ?, ?, ?, ?)');
+const chicas = ['Rocío', 'Belén', 'Marta'];
+const tipos: [string, number][] = [['Limpieza', 120], ['Check-Out', 45], ['Check-In', 20], ['Cambio Blanqueria', 30], ['Limpieza', 150]];
+for (let i = 0; i < 70; i++) {
+  const dia = new Date(Date.parse('2026-09-10') + Math.floor(i / 2) * 864e5).toISOString().slice(0, 10);
+  const [tipo, min] = tipos[i % tipos.length];
+  tarea.run(dia, i % 7 === 6 ? null : 1 + (i % 5), chicas[i % 3], i % 7 === 6 ? 'Oficina' : tipo, min);
+}
+const liqSep = limpieza.crearLiquidacion(db, { desde: '2026-09-10', hasta: '2026-09-30', precio_hora: 450000, ajuste: 0, ajuste_nota: null });
+limpieza.pagarLiquidacion(db, liqSep, { fecha: '2026-10-03', cuenta_id: 2 });
+limpieza.crearLiquidacion(db, { desde: '2026-10-01', hasta: '2026-10-15', precio_hora: 450000, ajuste: -500000, ajuste_nota: 'Descuento de un adelanto' });
 
 const hist = db.prepare('INSERT INTO historico_mensual(depto_id, mes, noches_ocupadas) VALUES (?, ?, ?)');
 for (let i = 1; i <= 7; i++) for (let d = 1; d <= 5; d++) hist.run(d, `2026-0${i}`, 12 + ((i * d * 5) % 15));
