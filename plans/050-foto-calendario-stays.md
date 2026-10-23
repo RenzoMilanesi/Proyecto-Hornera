@@ -104,10 +104,16 @@ CREATE TABLE calendario_foto (
 ```
 
 2. La misma DDL como nueva entrada al final de `MIGRACIONES` en `server/db.ts`.
-3. En `schema.check.mjs`, lo que haga falta para que el chequeo siga pasando (leer el archivo: compara la
-   base creada desde `schema.sql` con la migrada).
+3. En `schema.check.mjs` (verifica las reglas de `schema.sql` con `run` y `falla`; leerlo entero), sumar al
+   final, con el depto `OVL` (id 1) que el archivo ya crea:
+   - una fila válida de `calendario_precio` y otra de `calendario_foto`;
+   - `falla(...)` para `disponible = 2` (`CHECK`), para `noche = '2026-13-01'` (`CHECK`) y para repetir la
+     misma (depto, noche, visto) (`UNIQUE` / `PRIMARY KEY`).
 
-Verificación: `npm test` → `fail 0`, y `node schema.check.mjs` sin errores.
+La igualdad entre una base migrada y una nueva la verifica `server/app.test.ts` ("una base del esquema 1
+migrada queda igual que una base nueva"): si la DDL de la migración y la de `schema.sql` difieren, ese test falla.
+
+Verificación: `npm test` → `fail 0` (incluye `node schema.check.mjs`).
 
 ## Paso 2 — Cliente de Stays
 
@@ -142,16 +148,21 @@ Qué hace, en orden:
 
 1. Si ya hay una fila en `calendario_foto` con `fecha = hoy` y `error IS NULL`, devolver sin pedir nada.
 2. `cliente.alojamientos()` y cruzar `internalName` con `depto.codigo` de los deptos con `estado <> 'finalizado'`.
-3. Para cada depto, **en serie** (no en paralelo: Stays se cuelga con muchas conexiones, ver el comentario
-   de `INTENTOS` en `cliente.ts`): `cliente.calendario(_id, hoy, hoy + 364 días)`.
-4. Por cada día, armar `{ disponible: avail ? 1 : 0, min_noches: prices[0]?.minStay ?? null,
-   precio: centavos de prices[0]._mcval.ARS o null, tramos_json: JSON de [[minStay, centavos], ...] o null }`.
-   Comparar con la **última** fila de esa (depto, noche) (`ORDER BY visto DESC LIMIT 1`); si no hay o difiere
-   en algún campo, insertar con `visto = hoy`. Contar las insertadas.
-5. Todo lo del paso 4 de todos los deptos dentro de **una transacción** (ver cómo lo hace
-   `server/stays/sync.ts`), y al final `INSERT OR REPLACE INTO calendario_foto(fecha, deptos, cambios, error) VALUES (hoy, n, cambios, NULL)`.
-6. Si algo tira error: `ROLLBACK` de las filas de precio, guardar la foto con `error = mensaje` (con
-   `INSERT OR REPLACE`, fuera de la transacción) y volver a tirar el error.
+3. **Bajar todo primero**, sin escribir nada: para cada depto, **en serie** (no en paralelo: Stays se cuelga
+   con muchas conexiones, ver el comentario de `INTENTOS` en `cliente.ts`),
+   `cliente.calendario(_id, hoy, hoy + 364 días)`, y guardar las respuestas en memoria.
+4. **Recién después, escribir**, en una transacción **sin ningún `await` adentro**. Es obligatorio: la API usa
+   la misma conexión a la base; si la transacción quedara abierta mientras se espera a Stays, lo que el usuario
+   guarde en ese rato entraría en ella (y un `ROLLBACK` se lo llevaría), y otra ruta que haga `BEGIN` fallaría
+   con "cannot start a transaction within a transaction". Copiar el patrón de `server/stays/sync.ts`
+   (comentario "---- 2. Escribir": `db.exec('BEGIN')`, `try { …; db.exec('COMMIT') } catch (e) { if (db.isTransaction) db.exec('ROLLBACK'); throw e; }`).
+   Adentro, por cada día de cada depto: armar `{ disponible: avail ? 1 : 0, min_noches: prices[0]?.minStay ?? null,
+   precio: centavos de prices[0]._mcval.ARS o null, tramos_json: JSON de [[minStay, centavos], ...] o null }`;
+   comparar con la **última** fila de esa (depto, noche) (`ORDER BY visto DESC LIMIT 1`); si no hay o difiere
+   en algún campo, insertar con `visto = hoy`. Contar las insertadas. Al final, dentro de la misma transacción,
+   `INSERT OR REPLACE INTO calendario_foto(fecha, deptos, cambios, error) VALUES (hoy, n, cambios, NULL)`.
+5. Si algo tira error (al bajar o al escribir): no queda ninguna fila de precio de esta foto; guardar la foto
+   con `error = mensaje` (con `INSERT OR REPLACE`, fuera de toda transacción) y volver a tirar el error.
 
 Para sumar días a una fecha ISO hay utilidades en `server/stays/sync.ts` (`sumarMeses`) y en el motor; si no
 hay una de días, escribir una línea con `Date.UTC`, igual que `dias()` en `server/liquidacion/motor.ts`.
@@ -170,7 +181,8 @@ Patrón: `server/stays/sync.test.ts` (Stays simulado con `createServer` de `node
 3. **Foto del día siguiente con un solo cambio** (una noche pasa de `avail 1` a `0`): agrega 1 fila con
    `visto` = el día nuevo; las demás noches no se repiten.
 4. **Un depto finalizado o sin alojamiento en Stays** no se pide.
-5. **Error de Stays** (500 en el calendario de un depto): no queda ninguna fila de precio de esa foto,
+5. **Error de Stays** (500 en el calendario del **segundo** depto, para que el primero ya se haya bajado):
+   no queda ninguna fila de precio de esa foto,
    `calendario_foto.error` tiene el mensaje, la función tira el error, y una llamada posterior el mismo día
    (con Stays ya respondiendo bien) sí toma la foto.
 

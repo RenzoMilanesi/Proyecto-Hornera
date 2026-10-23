@@ -55,6 +55,11 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 048 | [Elegir desde la app la carpeta de las copias de seguridad](048-carpeta-de-copias.md) | P2 | M | — | A TESTEAR |
 | 049 | [Ficha del depto y Vencimientos: decisiones, manual y test de rutas](049-ficha-del-depto.md) | P2 | S | — | HECHO |
 | 050 | [Foto diaria del calendario de Stays (precio y disponibilidad por noche)](050-foto-calendario-stays.md) | P3 | M | — | TODO |
+| 051 | [Noches no disponibles a partir del calendario de Stays](051-bloqueos-desde-calendario.md) | P2 | M | 050 | TODO |
+| 052 | [PDF del propietario: ocupación que se entiende con sus renglones](052-ocupacion-pdf-legible.md) | P3 | S | — | TODO |
+| 053 | [Test: alojamiento y métricas de un mes cerrado con detalle](053-test-alojamiento-mes-cerrado.md) | P3 | S | — | TODO |
+
+Planes 051–053: revisión `improve deep` de las métricas del glosario (`fcbdf9e`) y del plan 050, 2026-10-23. Corregido en el plan 050: la escritura iba en una transacción abierta mientras se esperaba a Stays (ahora baja todo y después escribe). Anotado en DECISIONES (sin plan): el ADR parte de lo cobrado neto de la comisión de MP/PayPal. Descartado: Evolución recalcula los saldos de cuentas por cada mes (pocos meses, no se nota); bloqueos y estadías del propietario contados dos veces (los bloqueos no se cargan); restar el propietario en meses del Excel (B26 también los incluye, lo confirma la regresión).
 
 Los planes 001 a 030 están implementados y con tests; quedan **a testear** a mano en la próxima sesión (ver checklist en `ROADMAP.md`).
 
