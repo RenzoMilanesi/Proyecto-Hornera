@@ -38,9 +38,10 @@ const DEPTO = { type: 'string', description: 'Código del depto, p. ej. ALM (de 
 const objeto = (props: Record<string, object> = {}) =>
   ({ type: 'object' as const, properties: props, required: Object.keys(props), additionalProperties: false });
 
-// strict solo con parámetros: sin ellos no hay nada que validar, y la API acepta como mucho 20 herramientas strict.
-const h = (name: string, description: string, props: Record<string, object>, correr: Herramienta['correr']): Herramienta =>
-  ({ definicion: { name, description, input_schema: objeto(props), ...(Object.keys(props).length ? { strict: true } : {}) }, correr });
+// strict solo con parámetros: sin ellos no hay nada que validar. La API acepta como mucho 20 herramientas strict y 16
+// parámetros que aceptan null (o anyOf) entre todas: si no, rechaza la pregunta entera.
+const h = (name: string, description: string, props: Record<string, object>, correr: Herramienta['correr'], strict = true): Herramienta =>
+  ({ definicion: { name, description, input_schema: objeto(props), ...(strict && Object.keys(props).length ? { strict: true } : {}) }, correr });
 
 function idDepto(db: DatabaseSync, codigo: unknown) {
   const d = db.prepare('SELECT id FROM depto WHERE upper(codigo) = upper(?)').get(String(codigo)) as { id: number } | undefined;
@@ -107,7 +108,8 @@ const HERRAMIENTAS: Herramienta[] = [
       if (!c) throw new Error(`No existe el capítulo ${e.capitulo} del manual.`);
       return c.texto;
     }),
-  ...Object.entries(DEFINICIONES).map(([nombre, d]) => h(nombre, d.descripcion, d.props, (db, e) => ({ propuesta: d.correr(db, e) }))),
+  // Sin strict: tienen 20 parámetros opcionales, más que el tope de la API. Lo que manden lo valida igual el ensayo (propuestas.ts).
+  ...Object.entries(DEFINICIONES).map(([nombre, d]) => h(nombre, d.descripcion, d.props, (db, e) => ({ propuesta: d.correr(db, e) }), false)),
 ];
 
 // El manual por capítulos (los <h1> numerados), leído una vez. Va a pedido y no en cada pregunta: entero eran ~21.000

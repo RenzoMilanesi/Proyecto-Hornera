@@ -55,10 +55,15 @@ test('asistente: dos herramientas en una vuelta van en un solo mensaje; se guard
   assert.deepEqual(pedidos[0].thinking, { type: 'adaptive', block_binding: { prefix_mismatch_behavior: 'drop_block' } });
   assert.deepEqual(pedidos[0].betas, ['thinking-binding-controls-2026-08-01', 'server-side-fallback-2026-07-01']);
   assert.deepEqual((pedidos[0].system as Anthropic.Beta.BetaTextBlockParam[])[1].cache_control, { type: 'ephemeral' });
-  // strict en las que tienen parámetros, y nunca más de 20 (la API rechaza la pregunta entera).
+  // strict en las que tienen parámetros (salvo las proponer_*), nunca más de 20 y, entre todas, como mucho 16 parámetros que
+  // aceptan null o anyOf: si no, la API rechaza la pregunta entera (plan 068).
   const tools = pedidos[0].tools as Anthropic.Beta.BetaTool[];
-  assert.ok(tools.every((t) => t.strict === (Object.keys(t.input_schema.properties ?? {}).length > 0 || undefined)));
-  assert.ok(tools.filter((t) => t.strict).length <= 20);
+  assert.ok(tools.every((t) => t.strict === ((Object.keys(t.input_schema.properties ?? {}).length > 0 && !t.name.startsWith('proponer_')) || undefined)));
+  const estrictas = tools.filter((t) => t.strict);
+  assert.ok(estrictas.length <= 20);
+  const uniones = estrictas.flatMap((t) => Object.values(t.input_schema.properties ?? {}) as { type?: unknown; anyOf?: unknown }[])
+    .filter((p) => Array.isArray(p.type) || p.anyOf).length;
+  assert.ok(uniones <= 16, `${uniones} parámetros con null o anyOf en herramientas strict`);
 
   const fila = db.prepare('SELECT * FROM respuesta_ia').get() as Record<string, unknown>;
   assert.deepEqual([fila.modelo, fila.esfuerzo, fila.tokens_entrada], ['claude-sonnet-5', 'low', 200]);

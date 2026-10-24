@@ -160,3 +160,8 @@ mismas funciones (y validaciones) que usan las pantallas.
 ## Fuera de este plan
 Pagar liquidaciones o limpieza, facturar, cerrar o reabrir el mes desde el asistente. Comprobantes en gastos personales.
 Login por persona.
+
+**Con la API real (2026-10-24):** dos rechazos de esquema que los tests con cliente falso no ven. (1) Un enum con
+type ['string', 'null'] no se acepta: va con anyOf (v0.51.2). (2) Entre todas las herramientas strict, como mucho 16 parámetros
+que aceptan null o anyOf; las proponer_* tenían 20: van sin strict, y lo que manden lo valida el ensayo (v0.51.3). Los dos
+límites quedaron en tests.
