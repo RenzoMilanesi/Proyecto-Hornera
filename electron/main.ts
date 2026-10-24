@@ -46,10 +46,21 @@ async function rolDeEstaPc(): Promise<Rol> {
 const MANUAL = app.isPackaged ? join(process.resourcesPath, 'manual.pdf') : join(RAIZ, 'manual', 'Manual de usuario Hornera.pdf');
 
 // La ventana solo muestra la app: sin ventanas nuevas, sin permisos. Navegar fuera, lo decide cada rol.
-// Única excepción: el link /manual.pdf abre el manual con el visor de PDF de Windows.
+// Excepciones: el link /manual.pdf abre el manual con el visor de PDF de Windows, y un comprobante
+// (/api/adjuntos/:id del mismo servidor) se ve en una ventana aparte que no navega ni abre nada.
 function crearVentana() {
   const ventana = new BrowserWindow({ width: 1280, height: 800, title: 'Hornera', autoHideMenuBar: true });
+  ventana.webContents.on('did-create-window', (hija) => {
+    hija.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    hija.webContents.on('will-navigate', (e) => e.preventDefault());
+  });
   ventana.webContents.setWindowOpenHandler(({ url }) => {
+    if (URL.canParse(url)) {
+      const u = new URL(url);
+      if (u.origin === new URL(ventana.webContents.getURL()).origin && /^\/api\/adjuntos\/\d+$/.test(u.pathname)) {
+        return { action: 'allow', overrideBrowserWindowOptions: { title: 'Comprobante', autoHideMenuBar: true, width: 900, height: 1000 } };
+      }
+    }
     // openPath no tira: devuelve el error como texto ('' si abrió).
     if (URL.canParse(url) && new URL(url).pathname === '/manual.pdf') {
       shell.openPath(MANUAL).then((error) => {

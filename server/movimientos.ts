@@ -195,5 +195,5 @@ export function listarMovimientos(db: DatabaseSync, mes: string) {
     LEFT JOIN depto d ON d.id = m.depto_id
     LEFT JOIN concepto c ON c.id = m.concepto_id
     LEFT JOIN cuenta cu ON cu.id = m.cuenta_id
-    WHERE p.mes = ? ORDER BY m.fecha, m.id`).all(mes);
+    WHERE p.mes = ? ORDER BY m.fecha DESC, m.id DESC`).all(mes);
 }
