@@ -64,6 +64,16 @@ test('herramientas: la descripción del SQL no nombra las tablas ocultas y un de
     'hoja_depto', 'reservas', 'resumen_mes', 'evolucion', 'resumen_hornera', 'movimientos', 'gastos_personales', 'transferencias',
     'historial_pagos', 'ficha_depto', 'vencimientos', 'limpieza_horas', 'limpieza_liquidaciones', 'comprobantes', 'mis_comprobantes', 'manual',
     'proponer_movimiento', 'proponer_gasto_personal', 'proponer_ficha', 'proponer_mes', 'consulta_sql']);
+  // La API rechaza la pregunta entera si un enum declara type ['string', 'null']: lo opcional va con anyOf (plan 068).
+  const malos: string[] = [];
+  const revisar = (nodo: unknown, ruta: string) => {
+    if (!nodo || typeof nodo !== 'object') return;
+    const o = nodo as Record<string, unknown>;
+    if ('enum' in o && typeof o.type !== 'string') malos.push(ruta);
+    for (const [k, v] of Object.entries(o)) revisar(v, `${ruta}.${k}`);
+  };
+  for (const x of todas) revisar(x.definicion.input_schema, x.definicion.name);
+  assert.deepEqual(malos, []);
   const ficha = todas.find((x) => x.definicion.name === 'ficha_depto')!;
   assert.throws(() => ficha.correr(db, { depto: 'ZZZ' }), /No existe el depto ZZZ/);
   assert.equal((ficha.correr(db, { depto: 'aaa' }) as { notas: null }).notas, null);

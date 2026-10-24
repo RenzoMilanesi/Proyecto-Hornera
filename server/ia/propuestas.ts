@@ -213,6 +213,8 @@ export function proponerMes(db: DatabaseSync, e: Record<string, unknown>): Propu
 // ---- Definiciones para la API (strict: todos los campos, los que no van en null).
 
 const n = (type: string, description: string) => ({ type: [type, 'null'], description });
+// Una lista cerrada o null. La API no acepta enum con type ['string', 'null'] ("Enum value does not match declared type"): va con anyOf.
+const opcion = (valores: string[]) => ({ anyOf: [{ type: 'string', enum: valores }, { type: 'null' }] });
 const NO_GUARDA = 'No guarda nada: arma una tarjeta que la persona confirma con un botón.';
 export const DEFINICIONES = {
   proponer_movimiento: {
@@ -222,9 +224,9 @@ export const DEFINICIONES = {
       accion: { type: 'string', enum: ['alta', 'edicion', 'anulacion'] },
       id: n('integer', 'id del movimiento (herramienta movimientos) para corregir o anular; null en alta'),
       mes: n('string', 'Mes del período al que se imputa, YYYY-MM'), fecha: n('string', 'YYYY-MM-DD'),
-      depto: n('string', 'Código del depto; null = la empresa'), tipo: { type: ['string', 'null'], enum: [...TIPOS_CARGABLES, null] },
+      depto: n('string', 'Código del depto; null = la empresa'), tipo: opcion([...TIPOS_CARGABLES]),
       concepto: n('string', 'Nombre del concepto (EPE, Expensas, Limpieza…)'), detalle: n('string', 'Texto libre'),
-      importe_centavos: n('integer', 'Centavos con signo: -1000000 = sale $ 10.000'), moneda: { type: ['string', 'null'], enum: ['ARS', 'USD', null] },
+      importe_centavos: n('integer', 'Centavos con signo: -1000000 = sale $ 10.000'), moneda: opcion(['ARS', 'USD']),
       cuenta: n('string', 'Nombre exacto de la cuenta (herramienta cuentas); null = no mueve plata de una cuenta'),
       adjunto: n('integer', 'Número del comprobante adjunto a la pregunta, si lo hay'),
     },
@@ -234,7 +236,7 @@ export const DEFINICIONES = {
     descripcion: `Propone cargar, corregir o anular un gasto personal (no es de Hornera). ${NO_GUARDA} Importe en CENTAVOS, positivo.`,
     props: {
       accion: { type: 'string', enum: ['alta', 'edicion', 'anulacion'] }, id: n('integer', 'id (herramienta gastos_personales); null en alta'),
-      fecha: n('string', 'YYYY-MM-DD; el mes es el de la fecha'), codigo: { type: ['string', 'null'], enum: [...CODIGOS_AJENOS, null] },
+      fecha: n('string', 'YYYY-MM-DD; el mes es el de la fecha'), codigo: opcion(CODIGOS_AJENOS),
       descripcion: n('string', 'Qué fue'), importe_centavos: n('integer', 'Centavos, positivo'),
     },
     correr: proponerGastoPersonal,
@@ -245,7 +247,7 @@ export const DEFINICIONES = {
       + 'claves {nombre, usuario, clave, nota}; contactos {nombre, rol, telefono, nota}; notas {notas}. En una corrección, todos los campos con el valor final.',
     props: {
       accion: { type: 'string', enum: ['alta', 'edicion', 'borrado', 'notas'] }, depto: { type: 'string', description: 'Código del depto' },
-      lista: { type: ['string', 'null'], enum: ['servicios', 'claves', 'contactos', null] }, id: n('integer', 'id del renglón (ficha_depto); null en alta y notas'),
+      lista: opcion(['servicios', 'claves', 'contactos']), id: n('integer', 'id del renglón (ficha_depto); null en alta y notas'),
       campos_json: n('string', 'Los campos, como JSON; null en borrado'),
     },
     correr: proponerFicha,
