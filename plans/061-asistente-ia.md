@@ -220,6 +220,10 @@ Runner):
 - Archivo `plans/061-preguntas.md` con 15–20 preguntas reales de la oficina (las juntan el usuario y su hermano),
   la respuesta esperada (sacada de la app) y, por modelo probado, lo que contestó el asistente y Claude Pro.
 - Criterio: cero números inventados; si una pregunta falla por falta de herramienta, se agrega la herramienta.
+- **En curso (2026-10-24):** 26 preguntas con su respuesta esperada en `plans/061-respuestas.local.md` (fuera del repo:
+  tiene datos de la base). Primeras 12: 8 bien, 3 mal y 1 mal leve. Causas y arreglo en las reglas (v0.47.2): tomaba los
+  costos operativos como gasto de Hornera (es un ingreso: resultado = honorarios + costos operativos + gastos de la empresa),
+  y sumaba de cabeza (US$ 8.176 en vez de 8.167): ahora las cuentas van con consulta_sql.
 
 ### 10. Docs
 - `DECISIONES.md`: las decisiones de arriba (sobre todo 3, 4 y "la IA no escribe").
