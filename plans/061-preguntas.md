@@ -1,5 +1,8 @@
 # 061 — Preguntas para validar el asistente (paso 9)
 
+**Versión con respuestas esperadas:** `plans/061-respuestas.local.md` (26 preguntas sobre la base de la PC de
+desarrollo, 2026-10-24). No está en el repo porque tiene nombres y montos de esa base. Esta es la plantilla genérica.
+
 Para completar con tu hermano. Las preguntas de abajo son **ejemplos**: cambiá lo que haga falta y sumá las que
 de verdad se hacen en la oficina (la idea es llegar a 15–20). Los códigos de depto (`XXX`) y los meses son para
 reemplazar.

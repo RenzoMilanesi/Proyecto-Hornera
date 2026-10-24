@@ -19,3 +19,5 @@ release/
 *.crt
 
 datos Fiscales/
+# Notas locales con datos de la base (p. ej. plans/061-respuestas.local.md)
+*.local.md
