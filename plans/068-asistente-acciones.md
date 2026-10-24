@@ -56,6 +56,10 @@ mismas funciones (y validaciones) que usan las pantallas.
   prueba) que se aceptan. Si no, una herramienta por acción no entra en el tope: STOP y replantear el agrupamiento.
 - Bloques `image` (base64, jpeg/png/webp) y `document` (PDF base64) en `client.beta.messages.create` con el modelo
   configurado y los betas actuales (`thinking-binding-controls…`, `server-side-fallback…`). Anotar límites de tamaño.
+- **Hecho (2026-10-24), con la skill `claude-api` y los tipos del SDK, sin gastar en la API:** strict acepta `enum`,
+  `anyOf`, `const` y tipos `['string','null']` (no `minimum`/`maxLength`: esos se validan en el servidor). El SDK trae
+  `BetaBase64ImageSource` (jpeg/png/gif/webp) y `BetaBase64PDFSource`. Límites: 5 MB por imagen, PDF hasta 32 MB y 100
+  páginas; nuestros topes (fotos achicadas, PDF ≤ 5 MB) quedan muy abajo. La prueba con la API real va en el paso 7.
 
 ### 1. Esquema (migración 22 → 23)
 - `auditoria.con_ia INTEGER NOT NULL DEFAULT 0 CHECK (con_ia IN (0,1))`.
