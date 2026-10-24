@@ -73,6 +73,7 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 066 | [Bajar el costo de cada pregunta al asistente](066-ia-costo-por-pregunta.md) | P2 | S | — | HECHO (v0.46.0; falta probar con la API real) |
 | 067 | [El asistente sabe que los sellos llevan offset](067-ia-sellos-con-offset.md) | P3 | S | — | HECHO (v0.47.1) |
 | 068 | [Asistente, fase 2: acciones con confirmación y comprobantes adjuntos](068-asistente-acciones.md) | P2 | L | 061 | A TESTEAR (v0.51.0: pasos 0 a 6 y 8 hechos; falta el 7, validación con la API real) |
+| 069 | [Acciones del asistente: cuatro ajustes de la revisión del plan 068](069-ia-acciones-pulido.md) | P2 | S | 068 | TODO |
 
 Planes 062–065: revisión `improve deep` de los pasos 0–4 del plan 061 (`fba59f6`, 2026-10-23), a hacer antes del paso 5. Descartado: `dbstat` (solo tamaños de páginas, no datos), `sqlite_dbpage` (no está compilado), `pragma_table_info` y `load_extension` (bloqueados por el authorizer, probado); claves de deptos guardadas en `conversacion_ia` (ya están en la misma base, en `depto_clave`); el esquema de `consulta_sql` se arma en cada pregunta (unas 60 consultas a `sqlite_master`, despreciable); tercera copia del patrón `safeStorage` en `electron/main.ts` (no vale abstraerlo).
 
@@ -168,3 +169,5 @@ de 002.
 - Estados de pago reales de Stays (hoy cuenta todo lo que no es "pending").
 - Redondeo a centavos al guardar la liquidación del motor (fase 5).
 - Fuses de Electron e integridad del asar al armar el instalador.
+
+Revisión `improve deep` del plan 068 pasos 1 a 6 (`5282eae..2a56f0c`, 2026-10-24): plan 069 (anular pagos desde el asistente, header de propuesta ajena, nosniff, tests de confirmar). Descartado: comparar con el "antes" al guardar desde Editar (la persona ve lo que guarda) y no reenviar adjuntos viejos (van en el prefijo cacheado).
