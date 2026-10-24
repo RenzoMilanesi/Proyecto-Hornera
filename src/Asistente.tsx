@@ -183,13 +183,17 @@ export function PanelAsistente({ abierto, alCerrar, pantalla }: { abierto: boole
   const [pregunta, setPregunta] = useState('');
   const [esperando, setEsperando] = useState<string>();
   const [error, setError] = useState<string>();
+  const [gasto, setGasto] = useState<number>();
   const fin = useRef<HTMLDivElement>(null);
 
   const listar = () => get<Conversacion[]>('ia/conversaciones').then(setConversaciones, (e) => setError(textoError(e)));
+  // ponytail: si falla, el título queda sin el gasto; no vale un error en el panel.
+  const leerGasto = () => get<{ costo: number }>('ia/gasto').then((g) => setGasto(g.costo), () => {});
   useEffect(() => {
     if (!abierto) return;
     get<{ disponible: boolean; motivo?: string }>('ia/estado').then(setEstado, (e) => setError(textoError(e)));
     listar();
+    leerGasto();
   }, [abierto]);
   useEffect(() => { fin.current?.scrollIntoView({ block: 'end' }); }, [turnos, esperando]);
 
@@ -226,6 +230,7 @@ export function PanelAsistente({ abierto, alCerrar, pantalla }: { abierto: boole
       const r = await enviar<Turno & { conversacion_id: number | null }>('ia/preguntar', 'POST',
         { conversacion_id: conv, pregunta: p, pantalla, mes: mesVisto.valor, esfuerzo: repetir ? 'high' : undefined });
       setTurnos((ts) => [...ts, { ...r, pregunta: p }]);
+      leerGasto();
       if (r.conversacion_id != null && r.conversacion_id !== conv) { setConvId(r.conversacion_id); listar(); }
     } catch (e) {
       if (!repetir) setPregunta(p); // para reintentar sin volver a escribirla
@@ -237,7 +242,8 @@ export function PanelAsistente({ abierto, alCerrar, pantalla }: { abierto: boole
 
   const noDisponible = estado?.disponible === false;
   return (
-    <Drawer open={abierto} onClose={alCerrar} size={560} mask={false} title="Asistente"
+    <Drawer open={abierto} onClose={alCerrar} size={560} mask={false}
+      title={<>Asistente{gasto != null && <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 'normal' }}> · este mes {dolares(gasto)}</Typography.Text>}</>}
       extra={
         <Space>
           <Select style={{ width: 200 }} placeholder="Conversaciones anteriores" value={convId ?? undefined} onChange={abrir} disabled={!!esperando}
