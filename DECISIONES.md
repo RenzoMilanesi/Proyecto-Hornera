@@ -130,6 +130,7 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - **Privacidad:** salen a Anthropic todos los datos del negocio que la IA consulte, **incluidas las claves de los deptos** (decisión del usuario). Nunca salen las tablas `terminal` y `configuracion` (tokens, ticket de ARCA): `consulta_sql` las bloquea con el authorizer de SQLite.
 - **Números verificables:** 20 herramientas que reusan las funciones del programa + `consulta_sql` (conexión de solo lectura, solo SELECT, 200 filas, 5 s, en un proceso aparte que se mata si se pasa). Al pie de cada respuesta, modelo, consultas, costo y qué consultó.
 - **Costo (plan 066):** Sonnet 5.5 con esfuerzo bajo por defecto; "Pensar más" repite la última pregunta con esfuerzo alto en una conversación nueva. No se filtra la pregunta para elegir modelo antes de mandarla: un filtro que se equivoca da un número mal, y el pensamiento adaptativo ya piensa poco en lo fácil. Caché de 1 hora: a decidir con un mes de uso real.
+- **Respuestas como en la app de Claude:** Markdown completo con `marked` (GFM), sin caja alrededor y la pregunta en una burbuja. Sin HTML crudo, imágenes ni links: la respuesta puede repetir datos de la base (una imagen remota los sacaría al cargarse; un link `javascript:` correría en la app).
 
 ## Técnico
 - **Desktop** como Roble: Electron + React/Vite + Express + SQLite. Proyecto nuevo, se copia de Roble solo lo que sirva.

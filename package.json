@@ -1,6 +1,6 @@
 {
   "name": "hornera",
-  "version": "0.46.1",
+  "version": "0.46.2",
   "description": "HORNERA â€” liquidaciÃ³n mensual a propietarios",
   "private": true,
   "type": "module",
@@ -37,6 +37,7 @@
     "antd": "^6.6.6",
     "electron": "^44.7.0",
     "electron-builder": "^26.15.3",
+    "marked": "^18.1.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "typescript": "^7.0.2",

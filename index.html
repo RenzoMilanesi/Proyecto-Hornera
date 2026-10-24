@@ -16,12 +16,30 @@
         display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; align-items: baseline; }
       .ficha > dt { color: #6E6259; margin: 0; }
       .ficha > dd { margin: 0; }
-      /* Asistente: la pregunta a la derecha, la respuesta a lo ancho; tablas de la IA con líneas. */
-      .burbuja-ia { padding: 8px 12px; border-radius: 8px; background: #FBF4EF; border: 1px solid #E6DED3; overflow-x: auto; }
-      .burbuja-ia-usuario { margin: 0 0 6px auto; width: fit-content; max-width: 85%; background: #F3E3D9; white-space: pre-wrap; }
-      .tabla-ia { border-collapse: collapse; margin: 0 0 8px; font-size: 13px; }
-      .tabla-ia th, .tabla-ia td { border: 1px solid #E6DED3; padding: 3px 8px; }
-      .tabla-ia th { background: #F6EEE7; }
+      /* Asistente, como la app de Claude: la pregunta en una burbuja a la derecha; la respuesta sin caja, texto a lo ancho. */
+      .pregunta-ia { margin: 0 0 12px auto; width: fit-content; max-width: 85%; padding: 8px 14px; border-radius: 14px;
+        background: #F3E3D9; white-space: pre-wrap; }
+      .md-ia { font-size: 14.5px; line-height: 1.65; overflow-x: auto; }
+      .md-ia > :first-child { margin-top: 0; }
+      .md-ia > :last-child { margin-bottom: 0; }
+      .md-ia p { margin: 0 0 0.8em; }
+      .md-ia h1, .md-ia h2, .md-ia h3, .md-ia h4 { font-weight: 600; line-height: 1.3; margin: 1.1em 0 0.5em; }
+      .md-ia h1 { font-size: 1.3em; } .md-ia h2 { font-size: 1.15em; } .md-ia h3, .md-ia h4 { font-size: 1em; }
+      .md-ia ul, .md-ia ol { margin: 0 0 0.8em; padding-left: 1.5em; }
+      .md-ia li { margin: 0.25em 0; }
+      .md-ia li > ul, .md-ia li > ol { margin: 0.25em 0 0; }
+      .md-ia strong { font-weight: 600; }
+      .md-ia code { font-family: Consolas, monospace; font-size: 0.88em; background: #F5EFE9; border: 1px solid #EAE1D8;
+        border-radius: 4px; padding: 1px 5px; }
+      .md-ia pre { background: #F5EFE9; border: 1px solid #EAE1D8; border-radius: 8px; padding: 10px 12px; overflow-x: auto; margin: 0 0 0.8em; }
+      .md-ia pre code { background: none; border: 0; padding: 0; }
+      .md-ia blockquote { margin: 0 0 0.8em; padding-left: 12px; border-left: 3px solid #E6DED3; color: #6E6259; }
+      .md-ia hr { border: 0; border-top: 1px solid #E6DED3; margin: 1em 0; }
+      .md-ia table { border-collapse: collapse; margin: 0 0 0.8em; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+      .md-ia th, .md-ia td { padding: 6px 12px; border-bottom: 1px solid #EAE1D8; text-align: left; }
+      .md-ia th { font-weight: 600; border-bottom: 2px solid #E6DED3; }
+      .md-ia th[align="right"], .md-ia td[align="right"] { text-align: right; }
+      .md-ia tbody tr:last-child td { border-bottom: 0; }
       .detalle-abierto > td { background: #FBF4EF !important; box-shadow: inset 4px 0 0 #A8461F; }
       /* Subtotales y totales de las tablas del detalle (la cuenta, el total de reservas). */
       .subtotal > td { background: #F6EEE7 !important; }

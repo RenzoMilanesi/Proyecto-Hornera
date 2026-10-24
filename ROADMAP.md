@@ -86,7 +86,8 @@ en la LAN (fase 5d), que sigue a testear.
    conversación) y el historial de cada PC. v0.44.0: el panel "Asistente con IA" (menú lateral, en todas las PCs):
    conversaciones anteriores, tablas de la respuesta y, al pie, modelo, consultas, costo y "Cómo lo calculé". v0.44.3: el manual se lee por capítulo, a pedido (plan 066): la primera
    pregunta de cada conversación manda unos 7.000 tokens fijos en vez de 28.500. v0.45.0: Sonnet con esfuerzo bajo por
-   defecto y "Pensar más" al pie de la última respuesta (la repite con esfuerzo alto en una conversación nueva). v0.46.0: Herramientas → Asistente muestra el gasto del mes (v0.46.1: también el título del panel).
+   defecto y "Pensar más" al pie de la última respuesta (la repite con esfuerzo alto en una conversación nueva). v0.46.0: Herramientas → Asistente muestra el gasto del mes (v0.46.1: también el panel). v0.46.2: las respuestas se ven como en la app de Claude
+   (Markdown completo: títulos, tablas, listas anidadas).
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.
    - Terminales → "Nombre de esta PC" en el servidor (se guarda en `configuracion`); reemplaza al nombre de Windows en la auditoría.
