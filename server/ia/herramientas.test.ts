@@ -59,10 +59,11 @@ test('herramientas: la descripción del SQL no nombra las tablas ocultas y un de
   const sql = todas.find((x) => x.definicion.name === 'consulta_sql')!;
   assert.match(sql.definicion.description!, /depto\(id, codigo/);
   assert.doesNotMatch(sql.definicion.description!, /terminal\(|configuracion\(/);
-  // Sin acciones de escritura en la lista: si se suma una herramienta, que sea a propósito.
+  // Si se suma una herramienta, que sea a propósito. Las proponer_* no escriben (plan 068): arman una tarjeta.
   assert.deepEqual(todas.map((x) => x.definicion.name), ['listar_deptos', 'listar_propietarios', 'periodos', 'cuentas', 'liquidacion',
     'hoja_depto', 'reservas', 'resumen_mes', 'evolucion', 'resumen_hornera', 'movimientos', 'gastos_personales', 'transferencias',
-    'historial_pagos', 'ficha_depto', 'vencimientos', 'limpieza_horas', 'limpieza_liquidaciones', 'comprobantes', 'mis_comprobantes', 'manual', 'consulta_sql']);
+    'historial_pagos', 'ficha_depto', 'vencimientos', 'limpieza_horas', 'limpieza_liquidaciones', 'comprobantes', 'mis_comprobantes', 'manual',
+    'proponer_movimiento', 'proponer_gasto_personal', 'proponer_ficha', 'proponer_mes', 'consulta_sql']);
   const ficha = todas.find((x) => x.definicion.name === 'ficha_depto')!;
   assert.throws(() => ficha.correr(db, { depto: 'ZZZ' }), /No existe el depto ZZZ/);
   assert.equal((ficha.correr(db, { depto: 'aaa' }) as { notas: null }).notas, null);

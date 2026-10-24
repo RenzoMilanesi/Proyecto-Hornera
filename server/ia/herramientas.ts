@@ -1,4 +1,5 @@
-// Herramientas del asistente (plan 061): todas de solo lectura. Cada una reusa la función que está detrás de su ruta GET;
+// Herramientas del asistente (plan 061): de solo lectura, salvo las proponer_* (plan 068), que tampoco escriben: arman una
+// propuesta que se confirma con un botón (ver propuestas.ts). Cada una reusa la función que está detrás de su ruta GET;
 // la IA nunca toca la base de otra forma. consulta_sql es la única libre, con tres cercos (ver sqlProceso.ts).
 import { fork } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -16,6 +17,7 @@ import * as limpieza from '../limpieza.ts';
 import { listarComprobantes } from '../facturacion.ts';
 import { listarMisComprobantes } from '../misComprobantes.ts';
 import { MAX_FILAS, OCULTAS, type RespuestaSql } from './sqlProceso.ts';
+import { DEFINICIONES } from './propuestas.ts';
 
 export interface Herramienta {
   definicion: Anthropic.Tool;
@@ -105,6 +107,7 @@ const HERRAMIENTAS: Herramienta[] = [
       if (!c) throw new Error(`No existe el capítulo ${e.capitulo} del manual.`);
       return c.texto;
     }),
+  ...Object.entries(DEFINICIONES).map(([nombre, d]) => h(nombre, d.descripcion, d.props, (db, e) => ({ propuesta: d.correr(db, e) }))),
 ];
 
 // El manual por capítulos (los <h1> numerados), leído una vez. Va a pedido y no en cada pregunta: entero eran ~21.000

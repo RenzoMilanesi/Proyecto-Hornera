@@ -107,6 +107,11 @@ mismas funciones (y validaciones) que usan las pantallas.
   adjunto, decir qué no se lee bien en vez de suponer.
 - Tests (cliente falso, como en `asistente.test.ts`): una propuesta no escribe nada fuera de `propuesta_ia`; mes cerrado
   y depto inexistente vuelven como error; quedan como mucho 20 herramientas strict.
+- **Hecho (v0.50.0):** `server/ia/propuestas.ts`. La validación ensaya la misma función de la pantalla dentro de un
+  `SAVEPOINT` que se deshace (mismos errores, sin escribir nada, tampoco la auditoría ni un concepto nuevo); por eso
+  `enTransaccion` de `gastosAjenos.ts` ahora corre dentro de otra transacción, como el de movimientos. El modelo no ve ids
+  de propuestas: la pregunta siguiente le cuenta las tarjetas resueltas por su título (« Tarjetas: «Nuevo gasto» descartada »).
+  `conversacionIa` devuelve las propuestas de cada turno (las une a su respuesta por el sello).
 
 ### 5. Confirmar, descartar y "Confirmar todas" (servidor)
 - `POST /api/ia/propuestas/:id/confirmar`: solo `pendiente` y de una conversación de esta PC; relee el "antes" (si cambió,

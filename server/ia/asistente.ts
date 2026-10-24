@@ -2,6 +2,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import Anthropic from '@anthropic-ai/sdk';
 import { capitulosManual, herramientas } from './herramientas.ts';
+import { resumenPropuesta, type Propuesta } from './propuestas.ts';
 import { sello } from '../sello.ts';
 
 // Dónde vive la API key de Anthropic. En Electron, cifrada con safeStorage fuera de la base (no viaja en los backups).
@@ -82,7 +83,10 @@ Reglas:
 - No hagas cuentas de cabeza: un total, diferencia o promedio que la herramienta no trae, calculalo con consulta_sql (p. ej. SELECT 608200 + 87500). Para una cantidad, contá las filas de la tabla que vas a mostrar.
 - Las herramientas devuelven la plata en CENTAVOS: dividí por 100. Mostrá los montos con $ (o US$), punto de miles y coma decimal: $ 1.234.567,89.
 - No menciones ids internos ni nombres de tablas; hablá de deptos por su código y de propietarios por su nombre.
-- Solo podés consultar: no podés cargar, cambiar ni borrar nada. Si te piden hacerlo, explicá en qué pantalla se hace.
+- No guardás nada vos. Para cargar, corregir o anular movimientos y gastos personales, cambiar la ficha de un depto, traer un mes de Stays o poner la cotización, usá las herramientas proponer_*: arman una tarjeta que la persona confirma con un botón. Nunca digas que algo quedó guardado: decí que está la tarjeta para confirmar.
+- Antes de proponer, si falta un dato (la cuenta, el concepto, el depto, el mes), preguntalo: no lo adivines. Los ids para corregir salen de las herramientas de consulta.
+- Cerrar o reabrir el mes no lo podés proponer: explicá qué falta (cotización, mes anterior cerrado, avisos) y que se hace en la pantalla Liquidación. Pagar o facturar, tampoco: decí en qué pantalla se hace.
+- Si la pregunta trae un comprobante adjunto, leé fecha, importe y concepto de ahí; lo que no se lee bien, decilo en vez de suponerlo.
 - Para dudas de cómo se usa la app, leé el capítulo que corresponda con la herramienta manual (índice abajo): no contestes de memoria.
 - El primer renglón de cada pregunta dice en qué pantalla y mes está la persona, y la fecha de hoy.`;
 
@@ -122,10 +126,15 @@ export async function preguntar(db: DatabaseSync, cliente: ClienteIa, pc: string
   ];
   // Historial tal cual vino de la API (incluidos los bloques de thinking): solo se agrega al final.
   const mensajes: Anthropic.Beta.BetaMessageParam[] = conv ? JSON.parse(conv.mensajes_json) : [];
-  mensajes.push({ role: 'user', content: `[Pantalla: ${p.pantalla || '—'} · Mes: ${p.mes || '—'} · Hoy: ${hoy}]\n\n${p.pregunta.trim()}` });
+  // Lo que la persona hizo con las tarjetas desde la respuesta anterior (plan 068): se agrega al final, el historial no se toca.
+  const resueltas = conv ? db.prepare(`SELECT datos_json, estado, resultado FROM propuesta_ia WHERE conversacion_id = ? AND estado <> 'pendiente'
+    AND resuelta_en > (SELECT max(creada_en) FROM respuesta_ia WHERE conversacion_id = ?) ORDER BY id`).all(conv.id, conv.id) as { datos_json: string; estado: string; resultado: string | null }[] : [];
+  const tarjetas = resueltas.map((r) => `«${JSON.parse(r.datos_json).titulo}» ${r.estado}${r.estado === 'fallida' && r.resultado ? ` (${r.resultado})` : ''}`).join('; ');
+  mensajes.push({ role: 'user', content: `[Pantalla: ${p.pantalla || '—'} · Mes: ${p.mes || '—'} · Hoy: ${hoy}${tarjetas ? ` · Tarjetas: ${tarjetas}` : ''}]\n\n${p.pregunta.trim()}` });
 
   const tokens = { entrada: 0, cache: 0, salida: 0 };
   const usadas: Usada[] = [];
+  const propuestas: Propuesta[] = [];
   let modelo = configurado;
   let respuesta: Anthropic.Beta.BetaMessage | undefined;
   let vueltas = 0;
@@ -153,7 +162,7 @@ export async function preguntar(db: DatabaseSync, cliente: ClienteIa, pc: string
       tokens.cache += respuesta.usage.cache_read_input_tokens ?? 0;
       tokens.salida += respuesta.usage.output_tokens;
       // ponytail: un rechazo no se guarda (puede venir sin contenido y el historial quedaría inválido); tampoco su costo.
-      if (respuesta.stop_reason === 'refusal') return { conversacion_id: conv?.id ?? null, texto: 'El asistente no puede responder eso.', modelo, esfuerzo, tokens, costo: costo(modelo, tokens), herramientas: usadas };
+      if (respuesta.stop_reason === 'refusal') return { conversacion_id: conv?.id ?? null, texto: 'El asistente no puede responder eso.', modelo, esfuerzo, tokens, costo: costo(modelo, tokens), herramientas: usadas, propuestas: [] };
       mensajes.push({ role: 'assistant', content: respuesta.content });
       if (respuesta.stop_reason !== 'tool_use') break;
 
@@ -165,6 +174,13 @@ export async function preguntar(db: DatabaseSync, cliente: ClienteIa, pc: string
         try {
           if (!h) throw new Error(`No existe la herramienta ${b.name}`);
           const r = await h.correr(db, b.input as Record<string, unknown>);
+          if (b.name.startsWith('proponer_')) {
+            const pr = (r as { propuesta: Propuesta }).propuesta;
+            propuestas.push(pr);
+            usadas.push({ id: b.id, nombre: b.name, entrada: b.input, filas: null });
+            resultados.push({ type: 'tool_result', tool_use_id: b.id, content: resumenPropuesta(pr) });
+            continue;
+          }
           const filas = Array.isArray(r) ? r.length : Array.isArray((r as { filas?: unknown[] })?.filas) ? (r as { filas: unknown[] }).filas.length : null;
           usadas.push({ id: b.id, nombre: b.name, entrada: b.input, filas });
           resultados.push({ type: 'tool_result', tool_use_id: b.id, content: acotar(typeof r === 'string' ? r : JSON.stringify(r)) });
@@ -190,7 +206,11 @@ export async function preguntar(db: DatabaseSync, cliente: ClienteIa, pc: string
   db.prepare('UPDATE conversacion_ia SET mensajes_json = ?, actualizada_en = ? WHERE id = ?').run(JSON.stringify(mensajes), ahora, id);
   db.prepare(`INSERT INTO respuesta_ia(conversacion_id, modelo, esfuerzo, tokens_entrada, tokens_cache, tokens_salida, herramientas_json, creada_en)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(id, modelo, esfuerzo, tokens.entrada, tokens.cache, tokens.salida, JSON.stringify(usadas), ahora);
-  return { conversacion_id: id, texto, modelo, esfuerzo, tokens, costo: costo(modelo, tokens), herramientas: usadas };
+  const insertar = db.prepare('INSERT INTO propuesta_ia(conversacion_id, tipo, accion, datos_json, antes_json, creada_en) VALUES (?, ?, ?, ?, ?, ?)');
+  for (const pr of propuestas) {
+    insertar.run(id, pr.tipo, pr.accion, JSON.stringify({ args: pr.args, titulo: pr.titulo, campos: pr.campos }), pr.antes == null ? null : JSON.stringify(pr.antes), ahora);
+  }
+  return { conversacion_id: id, texto, modelo, esfuerzo, tokens, costo: costo(modelo, tokens), herramientas: usadas, propuestas: propuestasDe(db, id).filter((x) => x.creada_en === ahora) };
 }
 
 // ---- Historial (paso 5): lo que ve el panel. Cada pregunta guardada tiene su fila en respuesta_ia, en el mismo orden.
@@ -211,17 +231,26 @@ export function conversacionIa(db: DatabaseSync, pc: string, id: number) {
       if (t) turnos[turnos.length - 1].texto = t;
     }
   }
-  const respuestas = db.prepare('SELECT modelo, esfuerzo, tokens_entrada, tokens_cache, tokens_salida, herramientas_json FROM respuesta_ia WHERE conversacion_id = ? ORDER BY id').all(id) as
-    { modelo: string; esfuerzo: string; tokens_entrada: number; tokens_cache: number; tokens_salida: number; herramientas_json: string }[];
+  const respuestas = db.prepare('SELECT modelo, esfuerzo, tokens_entrada, tokens_cache, tokens_salida, herramientas_json, creada_en FROM respuesta_ia WHERE conversacion_id = ? ORDER BY id').all(id) as
+    { modelo: string; esfuerzo: string; tokens_entrada: number; tokens_cache: number; tokens_salida: number; herramientas_json: string; creada_en: string }[];
+  const propuestas = propuestasDe(db, id);
   return {
     id: conv.id, titulo: conv.titulo,
     turnos: turnos.map((t, i) => {
       const r = respuestas[i];
       if (!r) return t;
       const tokens = { entrada: r.tokens_entrada, cache: r.tokens_cache, salida: r.tokens_salida };
-      return { ...t, modelo: r.modelo, esfuerzo: r.esfuerzo, tokens, costo: costo(r.modelo, tokens), herramientas: JSON.parse(r.herramientas_json) as Usada[] };
+      return { ...t, modelo: r.modelo, esfuerzo: r.esfuerzo, tokens, costo: costo(r.modelo, tokens), herramientas: JSON.parse(r.herramientas_json) as Usada[],
+        propuestas: propuestas.filter((x) => x.creada_en === r.creada_en) };
     }),
   };
+}
+
+// Las tarjetas de una conversación (plan 068), con lo necesario para dibujarlas.
+export function propuestasDe(db: DatabaseSync, conversacionId: number) {
+  return (db.prepare('SELECT id, tipo, accion, datos_json, estado, resultado, creada_en FROM propuesta_ia WHERE conversacion_id = ? ORDER BY id').all(conversacionId) as
+    { id: number; tipo: string; accion: string; datos_json: string; estado: string; resultado: string | null; creada_en: string }[])
+    .map(({ datos_json, ...x }) => ({ ...x, ...(JSON.parse(datos_json) as { args: Record<string, unknown>; titulo: string; campos: [string, string, string?][] }) }));
 }
 
 export function borrarConversacionIa(db: DatabaseSync, pc: string, id: number) {

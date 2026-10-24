@@ -26,6 +26,7 @@ function validar(db: DatabaseSync, d: DatosGastoAjeno) {
 }
 
 function enTransaccion<T>(db: DatabaseSync, fn: () => T): T {
+  if (db.isTransaction) return fn(); // dentro de otra (el ensayo de una propuesta del asistente): la de afuera confirma o deshace
   db.exec('BEGIN');
   try {
     const r = fn();

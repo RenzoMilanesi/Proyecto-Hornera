@@ -134,3 +134,35 @@ test('gasto del mes: desde el 1 a la hora local, con el precio de cada modelo', 
   fila.run('claude-haiku-5-5', 1_000_000, new Date(2026, 9, 20).toISOString());
   assert.deepEqual(gastoIaMes(db, ahora), { preguntas: 2, costo: 2 + 0.10 });
 });
+
+test('propuestas (plan 068): se arma la tarjeta sin escribir nada; un error vuelve al modelo; lo resuelto se avisa en la pregunta siguiente', async () => {
+  const db = base();
+  db.exec(`INSERT INTO periodo(mes, fecha_inicio, fecha_cierre_reservas, fecha_corte_gastos, fecha_pago, costo_hora_limpieza, servicio_limpieza,
+             servicio_lavanderia, prestamo_blanqueria, gestion_operativa, mantenimiento, tarifa_base, adicional_huesped, cargo_tramo_1, cargo_tramo_2, cm_fee_usd, estado)
+           VALUES ('2026-09', '2026-09-01', '2026-10-01', '2026-09-28', '2026-10-10', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 'cerrado'),
+                  ('2026-10', '2026-10-01', '2026-11-01', '2026-10-28', '2026-11-10', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 'abierto');
+           INSERT INTO cuenta(nombre, moneda) VALUES ('Banco Prueba', 'ARS');`);
+  const gasto = { accion: 'alta', id: null, mes: '2026-10', fecha: '2026-10-20', depto: 'aaa', tipo: 'gasto', concepto: 'Cerrajería Nueva', detalle: 'Copia de llaves',
+    importe_centavos: -1000000, moneda: 'ARS', cuenta: 'banco prueba', adjunto: null };
+  const { cliente, pedidos } = falso([
+    mensaje([herramienta('t1', 'proponer_movimiento', gasto), herramienta('t2', 'proponer_mes', { accion: 'cotizacion', mes: '2026-09', cotizacion: 1500 })], 'tool_use'),
+    mensaje([texto('Te dejé la tarjeta para confirmar.')], 'end_turn'),
+  ]);
+  const cuantos = (t: string) => (db.prepare(`SELECT count(*) n FROM ${t}`).get() as { n: number }).n;
+  const r = await preguntar(db, cliente, 'PC Uno', { pregunta: 'Cargale $ 10.000 de cerrajería a AAA', pantalla: '', mes: '' });
+
+  assert.deepEqual([cuantos('movimiento'), cuantos('auditoria'), cuantos('propuesta_ia')], [0, 0, 1]);
+  assert.equal(db.prepare(`SELECT 1 FROM concepto WHERE nombre = 'Cerrajería Nueva'`).get(), undefined); // el ensayo no deja el concepto
+  assert.deepEqual(r.propuestas.map((x) => [x.titulo, x.estado, x.args.depto, x.args.cuenta_id]), [['Nuevo gasto', 'pendiente', 'AAA', 1]]);
+  assert.ok(r.propuestas[0].campos.some(([k, v]) => k === 'Importe' && v === '$ -10.000,00'));
+  const resultados = pedidos[1].messages[2].content as Anthropic.Beta.BetaToolResultBlockParam[];
+  assert.match(String(resultados[0].content), /todavía NO guardada/);
+  assert.deepEqual([resultados[1].is_error, String(resultados[1].content)], [true, 'El período 2026-09 está cerrado: reabrilo para cargar o cambiar movimientos.']);
+
+  // La persona la descarta; la pregunta siguiente se lo cuenta al modelo.
+  db.exec(`UPDATE propuesta_ia SET estado = 'descartada', resuelta_en = '9999'`);
+  const segundo = falso([mensaje([texto('Ok.')], 'end_turn')]);
+  await preguntar(db, segundo.cliente, 'PC Uno', { conversacion_id: r.conversacion_id, pregunta: '¿Y ahora?', pantalla: '', mes: '' });
+  assert.match(String(segundo.pedidos[0].messages.at(-1)!.content), /· Tarjetas: «Nuevo gasto» descartada\]/);
+  assert.equal(((await import('./asistente.ts')).conversacionIa(db, 'PC Uno', r.conversacion_id!).turnos[0] as { propuestas: unknown[] }).propuestas.length, 1);
+});
