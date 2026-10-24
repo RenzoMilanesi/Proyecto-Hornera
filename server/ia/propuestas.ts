@@ -74,6 +74,10 @@ export function proponerMovimiento(db: DatabaseSync, e: Record<string, unknown>)
   const id = Number(e.id);
   if (accion === 'anulacion') {
     const antes = movimientoActual(db, id);
+    // Pagar quedó fuera del asistente (plan 068): anular un pago tampoco.
+    if (!(TIPOS_CARGABLES as readonly string[]).includes(antes.tipo)) {
+      throw new Error('Los pagos de liquidación y las transferencias se anulan en su pantalla (Transferencias o Movimientos), no desde el asistente.');
+    }
     ensayar(db, () => anularMovimiento(db, id));
     return { tipo: 'movimiento', accion, args: { id }, antes, titulo: 'Anular movimiento', campos: vistaMovimiento(db, antes as any) };
   }

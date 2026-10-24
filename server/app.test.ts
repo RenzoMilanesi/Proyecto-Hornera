@@ -627,17 +627,19 @@ test('sello: ISO 8601 con el offset de la PC, que vuelve al mismo instante', () 
 test('lo guardado desde "Editar" de una tarjeta del asistente queda "con IA" y la propuesta, editada (plan 068)', () => {
   const db = abrirDb(':memory:');
   periodo(db, '2026-05', '2026-05-01', '2026-06-01');
-  db.exec(`INSERT INTO conversacion_ia(pc, titulo, mensajes_json, creada_en, actualizada_en) VALUES ('PC Uno', 'x', '[]', 'x', 'x');
-           INSERT INTO propuesta_ia(conversacion_id, tipo, accion, datos_json, creada_en) VALUES (1, 'movimiento', 'alta', '{}', 'x')`);
+  db.exec(`INSERT INTO configuracion(clave, valor) VALUES ('pc.nombre', 'PC Uno');
+           INSERT INTO conversacion_ia(pc, titulo, mensajes_json, creada_en, actualizada_en) VALUES ('PC Uno', 'x', '[]', 'x', 'x'), ('Otra PC', 'y', '[]', 'x', 'x');
+           INSERT INTO propuesta_ia(conversacion_id, tipo, accion, datos_json, creada_en) VALUES (1, 'movimiento', 'alta', '{}', 'x'), (2, 'movimiento', 'alta', '{}', 'x')`);
   return conApi(db, async (base) => {
     const mov = { mes: '2026-05', fecha: '2026-05-03', depto: null, tipo: 'gasto', concepto: 'Viáticos', detalle: null, importe_ars: -100000, importe_usd: 0, cuenta_id: null };
     const guardar = (headers: Record<string, string>) =>
       fetch(`${base}/api/movimientos`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(mov) });
     assert.equal((await guardar({})).status, 200);
     assert.equal((await guardar({ 'X-Hornera-Ia': '1' })).status, 200);
+    assert.equal((await guardar({ 'X-Hornera-Ia': '2' })).status, 200); // la propuesta es de otra PC: no se marca (plan 069)
     const filas = await (await fetch(`${base}/api/auditoria?mes=${sello().slice(0, 7)}`)).json();
-    assert.deepEqual(filas.filter((f: any) => f.tipo === 'Movimiento').map((f: any) => f.conIa), [true, false]); // la más nueva primero
-    assert.equal((db.prepare('SELECT estado FROM propuesta_ia').get() as any).estado, 'editada');
+    assert.deepEqual(filas.filter((f: any) => f.tipo === 'Movimiento').map((f: any) => f.conIa), [true, true, false]); // la más nueva primero
+    assert.deepEqual((db.prepare('SELECT estado FROM propuesta_ia ORDER BY id').all() as any[]).map((p) => p.estado), ['editada', 'pendiente']);
   });
 });
 
@@ -656,6 +658,7 @@ test('comprobantes por la API: subir, vincular al movimiento y bajarlo con su ti
     assert.equal(r.headers.get('content-type'), 'application/pdf');
     assert.match(r.headers.get('content-disposition') ?? '', /Ticket%20%C3%B1and%C3%BA\.pdf/);
     assert.equal(await r.text(), '%PDF-1.4 ficticio');
+    assert.equal(r.headers.get('x-content-type-options'), 'nosniff');
     assert.equal((await fetch(`${base}/api/adjuntos/999`)).status, 404);
   });
 });
@@ -689,5 +692,33 @@ test('confirmar y descartar tarjetas del asistente: guarda "con IA", una sola ve
     const otra = guardar(1, proponerMovimiento(db, datos));
     assert.deepEqual(await (await post(`${otra}/descartar`)).json(), { estado: 'descartada' });
     assert.equal((db.prepare('SELECT count(*) n FROM movimiento').get() as any).n, 1);
+  });
+});
+
+test('confirmar un gasto personal, una clave y la cotización; un pago no se anula desde el asistente (plan 069)', async () => {
+  const { proponerFicha, proponerGastoPersonal, proponerMes, proponerMovimiento } = await import('./ia/propuestas.ts');
+  const db = abrirDb(':memory:');
+  periodo(db, '2026-05', '2026-05-01', '2026-06-01');
+  db.exec(`INSERT INTO configuracion(clave, valor) VALUES ('pc.nombre', 'PC Uno');
+           INSERT INTO propietario(nombre) VALUES ('Propietario Uno');
+           INSERT INTO depto(codigo, nombre, propietario_id) VALUES ('AAA', 'Depto A', 1);
+           INSERT INTO conversacion_ia(pc, titulo, mensajes_json, creada_en, actualizada_en) VALUES ('PC Uno', 'x', '[]', 'x', 'x');
+           INSERT INTO movimiento(periodo_id, fecha, tipo, importe_ars, creado_en) VALUES (1, '2026-05-10', 'liquidacion', -5000, 'x')`);
+  assert.throws(() => proponerMovimiento(db, { accion: 'anulacion', id: 1 }), /se anulan en su pantalla/);
+  const guardar = (p: ReturnType<typeof proponerMes>) => Number(db.prepare(`INSERT INTO propuesta_ia(conversacion_id, tipo, accion, datos_json, antes_json, creada_en)
+    VALUES (1, ?, ?, ?, ?, 'x')`).run(p.tipo, p.accion, JSON.stringify({ args: p.args, titulo: p.titulo, campos: p.campos }), p.antes && JSON.stringify(p.antes)).lastInsertRowid);
+  const ids = [
+    guardar(proponerGastoPersonal(db, { accion: 'alta', id: null, fecha: '2026-05-04', codigo: 'LAU', descripcion: 'Nafta', importe_centavos: 1200000 })),
+    guardar(proponerFicha(db, { accion: 'alta', depto: 'AAA', lista: 'claves', id: null, campos_json: JSON.stringify({ nombre: 'Wifi', clave: 'prueba' }) })),
+    guardar(proponerMes(db, { accion: 'cotizacion', mes: '2026-05', cotizacion: 1550 })),
+  ];
+  return conApi(db, async (base) => {
+    for (const id of ids) assert.equal((await (await fetch(`${base}/api/ia/propuestas/${id}/confirmar`, { method: 'POST' })).json()).estado, 'confirmada');
+    const uno = (sql: string) => Object.values(db.prepare(sql).get()!)[0];
+    assert.equal(uno(`SELECT importe FROM gasto_ajeno WHERE codigo = 'LAU'`), 1200000);
+    assert.equal(uno(`SELECT nombre FROM depto_clave`), 'Wifi');
+    assert.equal(uno(`SELECT usd_cotizacion FROM periodo WHERE mes = '2026-05'`), 1550);
+    assert.deepEqual((db.prepare(`SELECT tabla, con_ia FROM auditoria ORDER BY id`).all() as any[]).map((a) => [a.tabla, a.con_ia]),
+      [['gasto_ajeno', 1], ['depto_clave', 1], ['periodo', 1]]);
   });
 });

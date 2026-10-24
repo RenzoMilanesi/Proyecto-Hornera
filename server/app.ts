@@ -126,8 +126,10 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   app.use('/api', (req, res, next) => {
     const propuesta = Number(req.headers['x-hornera-ia']);
     if (!propuesta || req.method === 'GET') return next();
+    const pc = pcActual.getStore() ?? nombrePc(db);
     res.on('finish', () => {
-      if (res.statusCode < 400) db.prepare(`UPDATE propuesta_ia SET estado = 'editada', resuelta_en = ? WHERE id = ? AND estado = 'pendiente'`).run(sello(), propuesta);
+      if (res.statusCode < 400) db.prepare(`UPDATE propuesta_ia SET estado = 'editada', resuelta_en = ? WHERE id = ? AND estado = 'pendiente'
+        AND conversacion_id IN (SELECT id FROM conversacion_ia WHERE pc = ?)`).run(sello(), propuesta, pc); // solo una de esta PC
     });
     conIa.run(true, next);
   });
@@ -417,6 +419,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     try {
       const a = leerAdjunto(db, Number(req.params.id));
       res.type(a.tipo).setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(a.nombre)}`);
+      res.setHeader('X-Content-Type-Options', 'nosniff'); // que el navegador no lo lea como otra cosa
       res.send(Buffer.from(a.datos));
     } catch (e) {
       res.status(404).json({ error: mensaje(e) });

@@ -64,3 +64,6 @@ el gasto personal existe, la clave está en la ficha, `periodo.usd_cotizacion` c
 ## Mantenimiento
 Si se suma una acción nueva al asistente, revisar que su `proponer_*` no abra una puerta a algo que el usuario dejó fuera
 (pagar, facturar, cerrar el mes) y que tenga su test de confirmar.
+
+**Hecho (v0.51.1, 2026-10-24):** los cuatro pasos. El test de confirmar (paso 4) quedó aparte, en `server/app.test.ts`,
+junto con el de anular un pago (paso 1).
