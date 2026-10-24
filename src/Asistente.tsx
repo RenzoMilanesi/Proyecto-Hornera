@@ -74,7 +74,8 @@ export function ConfigAsistente() {
           <Select style={{ width: 200 }} options={ESFUERZOS} value={config?.esfuerzo} loading={!config} onChange={(esfuerzo) => guardar({ esfuerzo })} />
         </Space>
         <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
-          Sonnet con esfuerzo medio alcanza para la mayoría de las preguntas. Si se equivoca en análisis, probar Opus; si sobra, Haiku.
+          Sonnet con esfuerzo bajo alcanza para la mayoría de las preguntas. Si una respuesta no convence, "Pensar más" (al pie de
+          la respuesta) la repite con esfuerzo alto sin cambiar esto.
         </Typography.Paragraph>
       </Card>
 
@@ -86,7 +87,7 @@ export function ConfigAsistente() {
 // ---- Panel del asistente (plan 061 paso 6): un Drawer abrible desde cualquier pantalla.
 
 interface Usada { id: string; nombre: string; entrada: Record<string, unknown>; filas: number | null; error?: string }
-interface Turno { pregunta: string; texto: string; modelo?: string; costo?: number | null; herramientas?: Usada[] }
+interface Turno { pregunta: string; texto: string; modelo?: string; esfuerzo?: string; costo?: number | null; herramientas?: Usada[] }
 interface Conversacion { id: number; titulo: string }
 
 // El mes que muestra la pantalla actual: lo escribe cada pantalla con selector de mes y App lo borra al cambiar de sección.
@@ -133,12 +134,14 @@ function Markdown({ texto }: { texto: string }) {
 }
 
 // Al pie de cada respuesta: modelo, consultas y costo, y qué consultó (para verificar los números).
-function Pie({ t }: { t: Turno }) {
+// pensarMas: solo en la última respuesta, si no salió ya con esfuerzo alto.
+function Pie({ t, pensarMas }: { t: Turno; pensarMas?: () => void }) {
   if (!t.modelo) return null;
   const usadas = t.herramientas ?? [];
   return (
     <div style={{ fontSize: 12, color: '#8A7E74', marginTop: 4 }}>
-      {nombreModelo(t.modelo)} · {usadas.length === 1 ? '1 consulta' : `${usadas.length} consultas`}{t.costo != null && ` · ${dolares(t.costo)}`}
+      {nombreModelo(t.modelo)}{t.esfuerzo === 'high' && ' (pensando más)'} · {usadas.length === 1 ? '1 consulta' : `${usadas.length} consultas`}{t.costo != null && ` · ${dolares(t.costo)}`}
+      {pensarMas && <> · <Typography.Link style={{ fontSize: 12 }} onClick={pensarMas}>Pensar más</Typography.Link></>}
       {usadas.length > 0 && (
         <details>
           <summary style={{ cursor: 'pointer' }}>Cómo lo calculé</summary>
@@ -199,18 +202,23 @@ export function PanelAsistente({ abierto, alCerrar, pantalla }: { abierto: boole
       setError(textoError(e));
     }
   };
-  const preguntar = async () => {
-    const p = pregunta.trim();
+  // Sin esfuerzo, la pregunta del cuadro en esta conversación. "Pensar más" repite la última con esfuerzo alto en una
+  // conversación nueva: cambiar el esfuerzo en la misma invalidaría su caché, y así es una segunda opinión (plan 066).
+  const preguntar = async (repetir?: string) => {
+    const p = (repetir ?? pregunta).trim();
     if (!p || esperando) return;
+    const conv = repetir ? null : convId;
+    if (repetir) { setConvId(null); setTurnos([]); }
     setEsperando(p);
-    setPregunta('');
+    if (!repetir) setPregunta('');
     setError(undefined);
     try {
-      const r = await enviar<Turno & { conversacion_id: number | null }>('ia/preguntar', 'POST', { conversacion_id: convId, pregunta: p, pantalla, mes: mesVisto.valor });
+      const r = await enviar<Turno & { conversacion_id: number | null }>('ia/preguntar', 'POST',
+        { conversacion_id: conv, pregunta: p, pantalla, mes: mesVisto.valor, esfuerzo: repetir ? 'high' : undefined });
       setTurnos((ts) => [...ts, { ...r, pregunta: p }]);
-      if (r.conversacion_id != null && r.conversacion_id !== convId) { setConvId(r.conversacion_id); listar(); }
+      if (r.conversacion_id != null && r.conversacion_id !== conv) { setConvId(r.conversacion_id); listar(); }
     } catch (e) {
-      setPregunta(p); // para reintentar sin volver a escribirla
+      if (!repetir) setPregunta(p); // para reintentar sin volver a escribirla
       setError(textoError(e));
     } finally {
       setEsperando(undefined);
@@ -232,7 +240,7 @@ export function PanelAsistente({ abierto, alCerrar, pantalla }: { abierto: boole
         <Space.Compact style={{ width: '100%' }}>
           <Input.TextArea value={pregunta} onChange={(e) => setPregunta(e.target.value)} autoSize={{ minRows: 1, maxRows: 6 }} disabled={noDisponible}
             placeholder="Preguntá sobre los datos, el uso de la app o pedí un análisis" onPressEnter={(e) => { if (!e.shiftKey) { e.preventDefault(); preguntar(); } }} />
-          <Button type="primary" onClick={preguntar} loading={!!esperando} disabled={noDisponible}>Preguntar</Button>
+          <Button type="primary" onClick={() => preguntar()} loading={!!esperando} disabled={noDisponible}>Preguntar</Button>
         </Space.Compact>
       }>
       {noDisponible && <Alert type="warning" showIcon title="El asistente no está disponible" description={estado.motivo} style={{ marginBottom: 12 }} />}
@@ -247,7 +255,7 @@ export function PanelAsistente({ abierto, alCerrar, pantalla }: { abierto: boole
           <div className="burbuja-ia burbuja-ia-usuario">{t.pregunta}</div>
           <div className="burbuja-ia">
             {t.texto ? <Markdown texto={t.texto} /> : <Typography.Text type="secondary">Pensando…</Typography.Text>}
-            <Pie t={t} />
+            <Pie t={t} pensarMas={i === turnos.length - 1 && !esperando && t.esfuerzo !== 'high' ? () => preguntar(t.pregunta) : undefined} />
           </div>
         </div>
       ))}

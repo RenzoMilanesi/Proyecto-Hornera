@@ -31,7 +31,10 @@ ya piensa poco en lo fácil: las 8 preguntas de prueba salieron bien con Sonnet 
 
 - Lo predeterminado pasa a Sonnet 5.5 + esfuerzo bajo (el selector de Herramientas → Asistente sigue para cambiarlo).
 - Debajo de cada respuesta, "Pensar más": repite esa pregunta en una conversación nueva con esfuerzo alto. Se paga más
-  solo cuando una respuesta no convence, y se decide después de verla.
+  solo cuando una respuesta no convence, y se decide después de verla. Conversación nueva y no la misma: cambiar el
+  esfuerzo a mitad de una conversación invalida su caché; además es una segunda opinión que no arrastra la primera.
+
+**Hecho (v0.45.0).** Sin probar contra la API real.
 
 ## Para más adelante
 

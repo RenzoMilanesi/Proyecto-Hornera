@@ -70,7 +70,7 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 063 | [Una consulta SQL del asistente no puede congelar el servidor](063-ia-consulta-sql-worker.md) | P1 | M | — | HECHO (v0.42.5; falta probar en el .exe) |
 | 064 | [Lo que devuelve una herramienta del asistente tiene tope de tamaño](064-ia-tope-tamano-resultados.md) | P2 | S | — | HECHO (v0.42.6) |
 | 065 | [El costo se ve también cuando contesta el modelo de respaldo](065-ia-precios-modelos-respaldo.md) | P3 | S | — | HECHO (v0.42.7) |
-| 066 | [Bajar el costo de cada pregunta al asistente](066-ia-costo-por-pregunta.md) | P2 | S | — | EN CURSO (v0.44.3: paso 1, manual a pedido) |
+| 066 | [Bajar el costo de cada pregunta al asistente](066-ia-costo-por-pregunta.md) | P2 | S | — | HECHO (v0.45.0; falta probar con la API real) |
 
 Planes 062–065: revisión `improve deep` de los pasos 0–4 del plan 061 (`fba59f6`, 2026-10-23), a hacer antes del paso 5. Descartado: `dbstat` (solo tamaños de páginas, no datos), `sqlite_dbpage` (no está compilado), `pragma_table_info` y `load_extension` (bloqueados por el authorizer, probado); claves de deptos guardadas en `conversacion_ia` (ya están en la misma base, en `depto_clave`); el esquema de `consulta_sql` se arma en cada pregunta (unas 60 consultas a `sqlite_master`, despreciable); tercera copia del patrón `safeStorage` en `electron/main.ts` (no vale abstraerlo).
 

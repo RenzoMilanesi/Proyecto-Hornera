@@ -16,7 +16,7 @@ const leerValor = (db: DatabaseSync, clave: string) =>
   (db.prepare('SELECT valor FROM configuracion WHERE clave = ?').get(clave) as { valor: string } | undefined)?.valor;
 
 export function configIa(db: DatabaseSync) {
-  return { modelo: leerValor(db, 'ia.modelo') ?? 'claude-sonnet-5-5', esfuerzo: leerValor(db, 'ia.esfuerzo') ?? 'medium' };
+  return { modelo: leerValor(db, 'ia.modelo') ?? 'claude-sonnet-5-5', esfuerzo: leerValor(db, 'ia.esfuerzo') ?? 'low' };
 }
 
 export function guardarConfigIa(db: DatabaseSync, cuerpo: unknown) {
@@ -80,7 +80,8 @@ Reglas:
 - Para dudas de cómo se usa la app, leé el capítulo que corresponda con la herramienta manual (índice abajo): no contestes de memoria.
 - El primer renglón de cada pregunta dice en qué pantalla y mes está la persona, y la fecha de hoy.`;
 
-export interface Pregunta { conversacion_id?: number | null; pregunta: string; pantalla: string; mes: string }
+// esfuerzo: el de la configuración salvo "Pensar más", que repite la pregunta con alto en una conversación nueva (plan 066).
+export interface Pregunta { conversacion_id?: number | null; pregunta: string; pantalla: string; mes: string; esfuerzo?: string }
 export interface Usada { id: string; nombre: string; entrada: unknown; filas: number | null; error?: string }
 
 // Errores de la API en palabras de la oficina. Del más específico al más general (APIConnectionError hereda de APIError).
@@ -103,7 +104,9 @@ export async function preguntar(db: DatabaseSync, cliente: ClienteIa, pc: string
     : db.prepare('SELECT id, mensajes_json FROM conversacion_ia WHERE id = ? AND pc = ?').get(p.conversacion_id, pc) as { id: number; mensajes_json: string } | undefined;
   if (p.conversacion_id != null && !conv) throw new Error('No existe la conversación');
 
-  const { modelo: configurado, esfuerzo } = configIa(db);
+  const { modelo: configurado, esfuerzo: elegido } = configIa(db);
+  const esfuerzo = p.esfuerzo ?? elegido;
+  if (!ESFUERZOS.includes(esfuerzo)) throw new Error('Esfuerzo desconocido');
   const lista = herramientas(db);
   // Orden fijo para el caché: herramientas → system (reglas + índice del manual) → mensajes. Lo variable (la fecha) va en el mensaje.
   const tools = lista.map((h) => h.definicion);

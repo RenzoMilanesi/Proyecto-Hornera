@@ -49,7 +49,7 @@ test('asistente: dos herramientas en una vuelta van en un solo mensaje; se guard
 
   // Lo que se pide: modelo y esfuerzo de la configuración, respaldo por rechazo, manual con caché y nada que escriba.
   assert.equal(pedidos[0].model, 'claude-sonnet-5-5');
-  assert.deepEqual(pedidos[0].output_config, { effort: 'medium' });
+  assert.deepEqual(pedidos[0].output_config, { effort: 'low' });
   assert.equal(pedidos[0].fallbacks, 'default');
   // Una conversación vieja se retoma aunque la app haya cambiado el manual o las herramientas (plan 062).
   assert.deepEqual(pedidos[0].thinking, { type: 'adaptive', block_binding: { prefix_mismatch_behavior: 'drop_block' } });
@@ -61,7 +61,7 @@ test('asistente: dos herramientas en una vuelta van en un solo mensaje; se guard
   assert.ok(tools.filter((t) => t.strict).length <= 20);
 
   const fila = db.prepare('SELECT * FROM respuesta_ia').get() as Record<string, unknown>;
-  assert.deepEqual([fila.modelo, fila.esfuerzo, fila.tokens_entrada], ['claude-sonnet-5', 'medium', 200]);
+  assert.deepEqual([fila.modelo, fila.esfuerzo, fila.tokens_entrada], ['claude-sonnet-5', 'low', 200]);
   const conv = db.prepare('SELECT pc, titulo, mensajes_json FROM conversacion_ia').get() as Record<string, string>;
   assert.deepEqual([conv.pc, conv.titulo, JSON.parse(conv.mensajes_json).length], ['PC Uno', '¿Cuántos deptos hay?', 4]);
 });
@@ -77,6 +77,11 @@ test('asistente: retomar agrega al final; otra PC no la ve; Haiku va sin respald
   assert.equal(pedidos[0].fallbacks, undefined);
   assert.deepEqual(pedidos[0].betas, ['thinking-binding-controls-2026-08-01']);
   await assert.rejects(preguntar(db, cliente, 'PC Dos', { conversacion_id, pregunta: 'Espío', pantalla: '', mes: '' }), /No existe la conversación/);
+
+  // "Pensar más": esa pregunta con otro esfuerzo, sin tocar la configuración.
+  const r = await preguntar(db, cliente, 'PC Uno', { pregunta: 'Hola', pantalla: '', mes: '', esfuerzo: 'high' });
+  assert.deepEqual([pedidos[2].output_config, r.esfuerzo], [{ effort: 'high' }, 'high']);
+  await assert.rejects(preguntar(db, cliente, 'PC Uno', { pregunta: 'Hola', pantalla: '', mes: '', esfuerzo: 'máximo' }), /Esfuerzo desconocido/);
 });
 
 test('asistente: el tope de vueltas corta y avisa; un rechazo o un error de la API no guardan nada', async () => {

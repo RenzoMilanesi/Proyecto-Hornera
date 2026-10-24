@@ -139,10 +139,10 @@ test('asistente: la key se guarda y solo vuelven sus últimos 4; el modelo y el 
     assert.equal(guardada, 'sk-ant-api03-ficticia-WXYZ');
     assert.deepEqual(await (await fetch(`${base}/api/ia/clave`)).json(), { final: 'WXYZ' });
 
-    assert.deepEqual(await (await fetch(`${base}/api/ia/configuracion`)).json(), { modelo: 'claude-sonnet-5-5', esfuerzo: 'medium' });
+    assert.deepEqual(await (await fetch(`${base}/api/ia/configuracion`)).json(), { modelo: 'claude-sonnet-5-5', esfuerzo: 'low' });
     assert.equal((await put('configuracion', { modelo: 'gpt-5' })).status, 400);
     assert.equal((await put('configuracion', { esfuerzo: 'max' })).status, 400);
-    assert.deepEqual(await (await put('configuracion', { modelo: 'claude-opus-5-5' })).json(), { modelo: 'claude-opus-5-5', esfuerzo: 'medium' });
+    assert.deepEqual(await (await put('configuracion', { modelo: 'claude-opus-5-5' })).json(), { modelo: 'claude-opus-5-5', esfuerzo: 'low' });
     assert.deepEqual(await (await put('configuracion', { esfuerzo: 'high' })).json(), { modelo: 'claude-opus-5-5', esfuerzo: 'high' });
   }, { claveIa });
 });

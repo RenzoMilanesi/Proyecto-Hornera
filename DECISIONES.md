@@ -129,6 +129,7 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - **Corre en la PC servidor:** las terminales preguntan por la API. La key y el modelo solo se tocan en el servidor. El historial es por PC (como la auditoría: sin login).
 - **Privacidad:** salen a Anthropic todos los datos del negocio que la IA consulte, **incluidas las claves de los deptos** (decisión del usuario). Nunca salen las tablas `terminal` y `configuracion` (tokens, ticket de ARCA): `consulta_sql` las bloquea con el authorizer de SQLite.
 - **Números verificables:** 20 herramientas que reusan las funciones del programa + `consulta_sql` (conexión de solo lectura, solo SELECT, 200 filas, 5 s, en un proceso aparte que se mata si se pasa). Al pie de cada respuesta, modelo, consultas, costo y qué consultó.
+- **Costo (plan 066):** Sonnet 5.5 con esfuerzo bajo por defecto; "Pensar más" repite la última pregunta con esfuerzo alto en una conversación nueva. No se filtra la pregunta para elegir modelo antes de mandarla: un filtro que se equivoca da un número mal, y el pensamiento adaptativo ya piensa poco en lo fácil. Caché de 1 hora: a decidir con un mes de uso real.
 
 ## Técnico
 - **Desktop** como Roble: Electron + React/Vite + Express + SQLite. Proyecto nuevo, se copia de Roble solo lo que sirva.

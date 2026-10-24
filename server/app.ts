@@ -359,7 +359,8 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     if (!cliente) { res.status(400).json({ error: 'Falta cargar la API key de Anthropic.' }); return; }
     if (id != null) enCurso.add(id);
     try {
-      res.json(await preguntar(db, cliente, pcIa(), { conversacion_id: id, pregunta: b.pregunta, pantalla: String(b.pantalla ?? ''), mes: String(b.mes ?? '') }));
+      res.json(await preguntar(db, cliente, pcIa(), { conversacion_id: id, pregunta: b.pregunta, pantalla: String(b.pantalla ?? ''), mes: String(b.mes ?? ''),
+        esfuerzo: b.esfuerzo == null ? undefined : String(b.esfuerzo) }));
     } catch (e) {
       res.status(400).json({ error: mensaje(e) });
     } finally {
