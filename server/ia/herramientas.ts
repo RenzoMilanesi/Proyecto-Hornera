@@ -62,8 +62,17 @@ const HERRAMIENTAS: Herramienta[] = [
     }),
   h('reservas', `Reservas que pertenecen a un mes (regla del período: noches en el mes o llegada en el mes), con lo cobrado neto. Usar esta y no SQL para "reservas de un mes". ${PLATA}`,
     { mes: MES, depto: { ...DEPTO, type: ['string', 'null'], description: 'Código del depto, o null para todos' } },
-    (db, e) => reservasDelMes(db, s(e.mes)).filter((r) => e.depto == null || s(r.depto).toUpperCase() === s(e.depto).toUpperCase())
-      .map(({ desglose_json: _, ...r }) => r)),
+    (db, e) => {
+      const filas = reservasDelMes(db, s(e.mes)).filter((r) => e.depto == null || s(r.depto).toUpperCase() === s(e.depto).toUpperCase())
+        .map(({ desglose_json: _, ...r }) => r);
+      // Un mes importado del Excel no tiene sus reservas: solo las que trajo Stays al traer el mes siguiente.
+      const excel = db.prepare(`SELECT sum(l.cant_reservas) n FROM periodo p JOIN liquidacion l ON l.periodo_id = p.id WHERE p.mes = ? AND p.estado = 'cerrado'
+        AND NOT EXISTS (SELECT 1 FROM liquidacion l2 JOIN liquidacion_reserva lr ON lr.liquidacion_id = l2.id WHERE l2.periodo_id = p.id)`).get(s(e.mes)) as { n: number | null };
+      return excel.n == null ? filas : {
+        filas,
+        aviso: `${s(e.mes)} vino del Excel: la app no tiene sus reservas (el Excel registró ${excel.n}). Estas ${filas.length} son solo las que se trajeron de Stays con el mes siguiente. No sirven para totales, rankings ni "la más/menos" del mes: decilo así.`,
+      };
+    }),
   h('resumen_mes', `KPIs de los deptos en un mes: ocupación, ADR, RevPAR, bruto, honorarios, resultado de Hornera y saldos de cuentas. ${PLATA}`,
     { mes: MES }, (db, e) => resumenDelMes(db, s(e.mes))),
   h('evolucion', `Evolución mes a mes (meses cerrados): ocupación, ADR, RevPAR, bruto, honorarios y resultado. ${PLATA}`, {}, (db) => evolucion(db)),

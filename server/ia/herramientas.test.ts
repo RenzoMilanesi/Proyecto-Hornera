@@ -66,4 +66,18 @@ test('herramientas: la descripción del SQL no nombra las tablas ocultas y un de
   const ficha = todas.find((x) => x.definicion.name === 'ficha_depto')!;
   assert.throws(() => ficha.correr(db, { depto: 'ZZZ' }), /No existe el depto ZZZ/);
   assert.equal((ficha.correr(db, { depto: 'aaa' }) as { notas: null }).notas, null);
+
+  // Un mes cerrado que vino del Excel no tiene sus reservas: la herramienta lo avisa en vez de pasar una lista parcial.
+  const reservas = todas.find((x) => x.definicion.name === 'reservas')!;
+  db.exec(`INSERT INTO periodo(mes, fecha_inicio, fecha_cierre_reservas, fecha_corte_gastos, fecha_pago, costo_hora_limpieza, servicio_limpieza,
+             servicio_lavanderia, prestamo_blanqueria, gestion_operativa, mantenimiento, tarifa_base, adicional_huesped, cargo_tramo_1, cargo_tramo_2,
+             cm_fee_usd, estado)
+             VALUES ('2026-09', '2026-09-01', '2026-10-01', '2026-09-28', '2026-10-10', 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 'cerrado');
+           INSERT INTO liquidacion(periodo_id, depto_id, cambio, comision_pct, noches_disponibles, noches_ocupadas, cant_reservas, ingresos_ars,
+             ingresos_usd, costos_operativos, comisiones_ars, comisiones_usd, bruto, honorarios, saldo_anterior_ars, saldo_anterior_usd,
+             movimientos_ars, movimientos_usd, conversion_ars, conversion_usd, saldo_final_ars, saldo_final_usd, calculada_en)
+             VALUES (1, 1, 1000, 0.2, 30, 20, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'x')`);
+  const r = reservas.correr(db, { mes: '2026-09', depto: null }) as { filas: unknown[]; aviso: string };
+  assert.deepEqual(r.filas, []);
+  assert.match(r.aviso, /vino del Excel.*registró 7/);
 });
