@@ -221,3 +221,12 @@ export function conversacionIa(db: DatabaseSync, pc: string, id: number) {
 export function borrarConversacionIa(db: DatabaseSync, pc: string, id: number) {
   if (!db.prepare('DELETE FROM conversacion_ia WHERE id = ? AND pc = ?').run(id, pc).changes) throw new Error('No existe la conversación');
 }
+
+// Lo gastado desde el 1 del mes (hora local), para Herramientas → Asistente (plan 066). Según PRECIOS: el número real está en la consola.
+export function gastoIaMes(db: DatabaseSync, ahora = new Date()) {
+  const desde = new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString();
+  const filas = db.prepare('SELECT modelo, tokens_entrada, tokens_cache, tokens_salida FROM respuesta_ia WHERE creada_en >= ?').all(desde) as
+    { modelo: string; tokens_entrada: number; tokens_cache: number; tokens_salida: number }[];
+  const total = filas.reduce((s, r) => s + (costo(r.modelo, { entrada: r.tokens_entrada, cache: r.tokens_cache, salida: r.tokens_salida }) ?? 0), 0);
+  return { preguntas: filas.length, costo: total };
+}

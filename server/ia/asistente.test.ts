@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import Anthropic from '@anthropic-ai/sdk';
 import { abrirDb } from '../db.ts';
-import { costo, guardarConfigIa, MAX_RESULTADO, MAX_VUELTAS, preguntar, type ClienteIa } from './asistente.ts';
+import { costo, gastoIaMes, guardarConfigIa, MAX_RESULTADO, MAX_VUELTAS, preguntar, type ClienteIa } from './asistente.ts';
 
 type Bloque = Anthropic.Beta.BetaContentBlock;
 const usage = { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 1000, cache_creation_input_tokens: 0 };
@@ -121,4 +121,16 @@ test('costo: también el de los modelos de respaldo, sin confundir opus-5-5 con 
   assert.equal(costo('claude-opus-5', t), 5 + 25 + 0.50);
   assert.equal(costo('claude-opus-4-8', t), 5 + 25 + 0.50);
   assert.equal(costo('otro-modelo', t), null);
+});
+
+test('gasto del mes: desde el 1 a la hora local, con el precio de cada modelo', () => {
+  const db = base();
+  db.exec(`INSERT INTO conversacion_ia(pc, titulo, mensajes_json, creada_en, actualizada_en) VALUES ('PC Uno', 'x', '[]', 'x', 'x')`);
+  const fila = db.prepare(`INSERT INTO respuesta_ia(conversacion_id, modelo, esfuerzo, tokens_entrada, tokens_cache, tokens_salida, herramientas_json, creada_en)
+    VALUES (1, ?, 'low', ?, 0, 0, '[]', ?)`);
+  const ahora = new Date(2026, 9, 23, 12);
+  fila.run('claude-sonnet-5-5', 1_000_000, new Date(2026, 8, 30, 23).toISOString()); // septiembre: no cuenta
+  fila.run('claude-sonnet-5-5', 1_000_000, new Date(2026, 9, 1, 0, 30).toISOString()); // 1 de octubre a las 0:30
+  fila.run('claude-haiku-5-5', 1_000_000, new Date(2026, 9, 20).toISOString());
+  assert.deepEqual(gastoIaMes(db, ahora), { preguntas: 2, costo: 2 + 0.10 });
 });

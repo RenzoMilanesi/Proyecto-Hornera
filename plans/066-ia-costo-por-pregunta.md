@@ -36,6 +36,13 @@ ya piensa poco en lo fácil: las 8 preguntas de prueba salieron bien con Sonnet 
 
 **Hecho (v0.45.0).** Sin probar contra la API real.
 
+## Paso 3 — El gasto del mes a la vista
+
+Herramientas → Asistente muestra lo gastado desde el 1 del mes (todas las PCs, con los precios de `PRECIOS`) y el
+promedio por pregunta: sirve para ver si vale seguir optimizando y para decidir el caché de 1 hora.
+
+**Hecho (v0.46.0).**
+
 ## Para más adelante
 
 - Caché de 1 hora (`ttl: '1h'`): escribir cuesta 2× en vez de 1,25×, y paga solo si entre pregunta y pregunta pasan

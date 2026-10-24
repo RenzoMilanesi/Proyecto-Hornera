@@ -20,11 +20,13 @@ export function ConfigAsistente() {
   const [final, setFinal] = useState<string | null>();
   const [editando, setEditando] = useState(false);
   const [config, setConfig] = useState<Config>();
+  const [gasto, setGasto] = useState<{ preguntas: number; costo: number }>();
   const [error, setError] = useState<string>();
 
   useEffect(() => {
     get<{ final: string | null }>('ia/clave').then((r) => setFinal(r.final), (e) => setError(String(e)));
     get<Config>('ia/configuracion').then(setConfig, (e) => setError(String(e)));
+    get<{ preguntas: number; costo: number }>('ia/gasto').then(setGasto, (e) => setError(String(e)));
   }, []);
 
   const guardar = async (cambio: Partial<Config>) => {
@@ -76,6 +78,14 @@ export function ConfigAsistente() {
         <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
           Sonnet con esfuerzo bajo alcanza para la mayoría de las preguntas. Si una respuesta no convence, "Pensar más" (al pie de
           la respuesta) la repite con esfuerzo alto sin cambiar esto.
+        </Typography.Paragraph>
+      </Card>
+
+      <Card size="small" title="Gasto de este mes">
+        {gasto && (gasto.preguntas === 0 ? 'Todavía no se hizo ninguna pregunta este mes.'
+          : <><b>{dolares(gasto.costo)}</b> en {gasto.preguntas === 1 ? '1 pregunta' : `${gasto.preguntas} preguntas`} (en promedio, {dolares(gasto.costo / gasto.preguntas)} cada una).</>)}
+        <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
+          Lo calcula la app con los precios de cada modelo, desde todas las PCs. Lo que se cobra de verdad está en la consola de Anthropic.
         </Typography.Paragraph>
       </Card>
 

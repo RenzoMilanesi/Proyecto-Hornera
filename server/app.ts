@@ -28,7 +28,7 @@ import { datosDePago, datosFiscales, guardarDatosDePago, guardarDatosFiscales, p
 import { rutasBackup, type Sistema } from './backup.ts';
 import { agregar, borrar, editar, ficha, guardarNotas, vencimientos } from './ficha.ts';
 import { liquidacionDelMes, listarCuentas, listarDeptos, listarPeriodos, listarPropietarios, reservasDelMes } from './consultas.ts';
-import { borrarConversacionIa, clienteAnthropic, configIa, conversacionesIa, conversacionIa, guardarConfigIa, preguntar, type AlmacenClaveIa, type ClienteIa } from './ia/asistente.ts';
+import { borrarConversacionIa, clienteAnthropic, configIa, conversacionesIa, conversacionIa, gastoIaMes, guardarConfigIa, preguntar, type AlmacenClaveIa, type ClienteIa } from './ia/asistente.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
 
 // Dónde viven las credenciales de Stays. En Electron, cifradas con safeStorage
@@ -342,6 +342,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     return { final: clave.slice(-4) };
   }));
   app.get('/api/ia/configuracion', (_req, res) => { res.json(configIa(db)); });
+  app.get('/api/ia/gasto', (_req, res) => { res.json(gastoIaMes(db)); });
   app.put('/api/ia/configuracion', soloLocal, (req, res) => intentar(res, () => guardarConfigIa(db, req.body)));
   // Preguntar y el historial, también desde las terminales: cada PC ve solo sus conversaciones (la PC, como en la auditoría).
   const pcIa = () => pcActual.getStore() ?? nombrePc(db);
