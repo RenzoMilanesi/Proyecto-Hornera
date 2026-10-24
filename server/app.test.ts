@@ -659,3 +659,35 @@ test('comprobantes por la API: subir, vincular al movimiento y bajarlo con su ti
     assert.equal((await fetch(`${base}/api/adjuntos/999`)).status, 404);
   });
 });
+
+test('confirmar y descartar tarjetas del asistente: guarda "con IA", una sola vez, solo esta PC y no pisa un cambio posterior (plan 068)', async () => {
+  const { proponerMovimiento } = await import('./ia/propuestas.ts');
+  const db = abrirDb(':memory:');
+  periodo(db, '2026-05', '2026-05-01', '2026-06-01');
+  db.exec(`INSERT INTO configuracion(clave, valor) VALUES ('pc.nombre', 'PC Uno');
+           INSERT INTO cuenta(nombre, moneda) VALUES ('Banco Prueba', 'ARS');
+           INSERT INTO conversacion_ia(pc, titulo, mensajes_json, creada_en, actualizada_en) VALUES ('PC Uno', 'x', '[]', 'x', 'x'), ('PC Dos', 'y', '[]', 'x', 'x')`);
+  const datos = { accion: 'alta', id: null, mes: '2026-05', fecha: '2026-05-03', depto: null, tipo: 'gasto', concepto: 'Viáticos', detalle: null,
+    importe_centavos: -1000, moneda: 'ARS', cuenta: 'Banco Prueba', adjunto: null };
+  const guardar = (conv: number, p: ReturnType<typeof proponerMovimiento>) => Number(db.prepare(`INSERT INTO propuesta_ia(conversacion_id, tipo, accion, datos_json, antes_json, creada_en)
+    VALUES (?, ?, ?, ?, ?, 'x')`).run(conv, p.tipo, p.accion, JSON.stringify({ args: p.args, titulo: p.titulo, campos: p.campos }), p.antes && JSON.stringify(p.antes)).lastInsertRowid);
+  const alta = guardar(1, proponerMovimiento(db, datos));
+  const ajena = guardar(2, proponerMovimiento(db, datos));
+  return conApi(db, async (base) => {
+    const post = (ruta: string) => fetch(`${base}/api/ia/propuestas/${ruta}`, { method: 'POST' });
+    assert.deepEqual(await (await post(`${alta}/confirmar`)).json(), { estado: 'confirmada', resultado: 1 });
+    assert.match((await (await post(`${alta}/confirmar`)).json()).error, /ya está confirmada/);
+    assert.match((await (await post(`${ajena}/confirmar`)).json()).error, /No existe esa propuesta/); // es de otra PC
+    assert.equal((db.prepare(`SELECT con_ia FROM auditoria WHERE tabla = 'movimiento'`).get() as any).con_ia, 1);
+
+    // Una corrección propuesta y, antes de confirmarla, el movimiento cambia a mano: no se pisa.
+    const edicion = guardar(1, proponerMovimiento(db, { ...datos, accion: 'edicion', id: 1, importe_centavos: -2000 }));
+    db.exec(`UPDATE movimiento SET detalle = 'cambiado a mano' WHERE id = 1`);
+    assert.deepEqual(await (await post(`${edicion}/confirmar`)).json(), { estado: 'fallida', resultado: 'Cambió desde la propuesta: pedila de nuevo.' });
+    assert.equal((db.prepare('SELECT importe_ars FROM movimiento WHERE id = 1').get() as any).importe_ars, -1000);
+
+    const otra = guardar(1, proponerMovimiento(db, datos));
+    assert.deepEqual(await (await post(`${otra}/descartar`)).json(), { estado: 'descartada' });
+    assert.equal((db.prepare('SELECT count(*) n FROM movimiento').get() as any).n, 1);
+  });
+});

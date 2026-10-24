@@ -120,6 +120,10 @@ mismas funciones (y validaciones) que usan las pantallas.
 - La pregunta siguiente de esa conversación suma al primer renglón el estado de las propuestas resueltas desde la anterior.
 - Tests: confirmar crea el movimiento con `con_ia = 1`; dos veces no lo duplica; otra PC no confirma; un registro cambiado
   desde la propuesta se rechaza; en "todas", una que falla no frena a las otras.
+- **Hecho (v0.50.1):** `confirmarPropuesta`/`descartarPropuesta` en `server/ia/propuestas.ts` y sus rutas. "Traer mes" y la
+  cotización manual pasaron a funciones en `server/app.ts` que usan la ruta de siempre y la tarjeta. Un error deja la
+  propuesta `fallida` con el motivo (no se reintenta: se pide de nuevo). "Confirmar todas" queda del lado del panel (paso 6):
+  confirma de a una, en orden.
 
 ### 6. Interfaz (`src/Asistente.tsx`; skill `modales`)
 - Tarjeta por propuesta: título por tipo ("Nuevo gasto", "Corregir gasto", "Borrar contacto", "Traer octubre de Stays"),

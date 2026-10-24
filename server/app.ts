@@ -31,6 +31,7 @@ import { liquidacionDelMes, listarCuentas, listarDeptos, listarPeriodos, listarP
 import { borrarConversacionIa, clienteAnthropic, configIa, conversacionesIa, conversacionIa, gastoIaMes, guardarConfigIa, preguntar, type AlmacenClaveIa, type ClienteIa } from './ia/asistente.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
 import { sello } from './sello.ts';
+import { confirmarPropuesta, descartarPropuesta, type AccionesMes } from './ia/propuestas.ts';
 import { guardarAdjunto, leerAdjunto, MAX_ADJUNTO, purgarAdjuntos } from './adjuntos.ts';
 
 // Dónde viven las credenciales de Stays. En Electron, cifradas con safeStorage
@@ -191,23 +192,18 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     res.json({ usuario: usuario.trim() });
   });
 
+  // "Traer mes": la pantalla Stays y las tarjetas del asistente (plan 068).
   let sincronizando = false; // un "traer mes" por vez
-  app.post('/api/stays/sincronizar', async (req, res) => {
+  async function traerMes(mes: string, crear: string[]) {
     const creds = credenciales?.leer();
-    if (!creds) {
-      res.status(400).json({ error: 'Cargá primero el usuario y la clave de Stays' });
-      return;
-    }
-    if (sincronizando) {
-      res.status(409).json({ error: 'Ya se está trayendo un mes de Stays' });
-      return;
-    }
+    if (!creds) throw new Error('Cargá primero el usuario y la clave de Stays');
+    if (sincronizando) throw Object.assign(new Error('Ya se está trayendo un mes de Stays'), { status: 409 });
     sincronizando = true;
     try {
       // configuracion.stays.url permite apuntar a otra cuenta de Stays (o a un Stays de prueba).
       const url = (db.prepare(`SELECT valor FROM configuracion WHERE clave = 'stays.url'`).get() as { valor: string } | undefined)?.valor ?? urlStays;
       if (!urlStaysPermitida(url)) throw new Error(`URL de Stays no permitida: ${url} (tiene que ser https://….stays.net).`);
-      const reporte = await sincronizarMes(db, crearClienteStays(creds, url), String(req.body?.mes ?? ''), Array.isArray(req.body?.crear) ? req.body.crear.map(String) : []);
+      const reporte = await sincronizarMes(db, crearClienteStays(creds, url), mes, crear);
       // El dólar viene con "traer mes"; si falla, Stays queda traído igual y se avisa.
       try {
         const { aviso } = await actualizarCotizacion(db, reporte.mes, false, fetchDolar);
@@ -218,11 +214,16 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
       const { avisos, ...resumen } = reporte;
       // Un renglón por cada vez que se trae el mes, con el resumen; no uno por reserva (decisión 2026-10-21).
       auditar(db, 'stays', null, 'importacion', null, { ...resumen, avisos: avisos.length });
-      res.json(reporte);
-    } catch (e) {
-      res.status(400).json({ error: mensaje(e) });
+      return reporte;
     } finally {
       sincronizando = false;
+    }
+  }
+  app.post('/api/stays/sincronizar', async (req, res) => {
+    try {
+      res.json(await traerMes(String(req.body?.mes ?? ''), Array.isArray(req.body?.crear) ? req.body.crear.map(String) : []));
+    } catch (e) {
+      res.status((e as { status?: number }).status ?? 400).json({ error: mensaje(e) });
     }
   });
 
@@ -273,15 +274,21 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   });
 
   // Cotización del dólar cripto al cierre cargada a mano: "traer mes" ya no la pisa.
-  app.put('/api/periodos/:mes/cotizacion', (req, res) => {
-    const cotizacion = req.body?.cotizacion;
-    const p = db.prepare('SELECT id, estado, usd_cotizacion FROM periodo WHERE mes = ?').get(req.params.mes) as { id: number; estado: string; usd_cotizacion: number | null } | undefined;
-    if (!p) { res.status(404).json({ error: 'No existe el período' }); return; }
-    if (p.estado !== 'abierto') { res.status(400).json({ error: 'El período está cerrado' }); return; }
-    if (typeof cotizacion !== 'number' || !(cotizacion > 0)) { res.status(400).json({ error: 'Cotización inválida' }); return; }
+  function cotizacionManual(mes: string, cotizacion: unknown) {
+    const p = db.prepare('SELECT id, estado, usd_cotizacion FROM periodo WHERE mes = ?').get(mes) as { id: number; estado: string; usd_cotizacion: number | null } | undefined;
+    if (!p) throw Object.assign(new Error('No existe el período'), { status: 404 });
+    if (p.estado !== 'abierto') throw new Error('El período está cerrado');
+    if (typeof cotizacion !== 'number' || !(cotizacion > 0)) throw new Error('Cotización inválida');
     db.prepare(`UPDATE periodo SET usd_cotizacion = ?, usd_cotizacion_fuente = 'manual', usd_cotizacion_fecha = NULL, usd_cotizacion_provisoria = 0 WHERE id = ?`).run(cotizacion, p.id);
     auditar(db, 'periodo', p.id, 'modificacion', { usd_cotizacion: p.usd_cotizacion }, { usd_cotizacion: cotizacion });
-    res.json({ cotizacion });
+    return { cotizacion };
+  }
+  app.put('/api/periodos/:mes/cotizacion', (req, res) => {
+    try {
+      res.json(cotizacionManual(req.params.mes, req.body?.cotizacion));
+    } catch (e) {
+      res.status((e as { status?: number }).status ?? 400).json({ error: mensaje(e) });
+    }
   });
 
   // Variables operativas del mes (tarifas de limpieza, lavandería, etc.). "Traer mes" las copia al mes siguiente.
@@ -381,7 +388,20 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
       if (id != null) enCurso.delete(id);
     }
   });
-  app.get('/api/ia/conversaciones', (_req, res) => { res.json(conversacionesIa(db, pcIa())); });
+  // Tarjetas del asistente (plan 068): lo que guarda es esto, con la marca "con IA" en la auditoría.
+  const accionesMes: AccionesMes = {
+    traerStays: (mes) => traerMes(mes, []),
+    cotizacion: (mes, valor) => (valor == null ? actualizarCotizacion(db, mes, true, fetchDolar) : Promise.resolve(cotizacionManual(mes, valor))),
+  };
+  app.post('/api/ia/propuestas/:id/confirmar', async (req, res) => {
+    try {
+      res.json(await conIa.run(true, () => confirmarPropuesta(db, pcIa(), Number(req.params.id), accionesMes)));
+    } catch (e) {
+      res.status(400).json({ error: mensaje(e) });
+    }
+  });
+  app.post('/api/ia/propuestas/:id/descartar', (req, res) => intentar(res, () => descartarPropuesta(db, pcIa(), Number(req.params.id))));
+  app.get('/api/ia/conversaciones',(_req, res) => { res.json(conversacionesIa(db, pcIa())); });
   app.get('/api/ia/conversaciones/:id', (req, res) => intentar(res, () => conversacionIa(db, pcIa(), Number(req.params.id))));
   app.delete('/api/ia/conversaciones/:id', (req, res) => intentar(res, () => borrarConversacionIa(db, pcIa(), Number(req.params.id))));
 

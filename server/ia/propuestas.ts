@@ -3,7 +3,8 @@
 // Lo que guarda es el botón Confirmar del panel (confirmarPropuesta, paso 5).
 import type { DatabaseSync } from 'node:sqlite';
 import { anularGastoAjeno, CODIGOS_AJENOS, crearGastoAjeno, editarGastoAjeno, type DatosGastoAjeno } from '../gastosAjenos.ts';
-import { agregar, editar, guardarNotas } from '../ficha.ts';
+import { agregar, borrar, editar, guardarNotas } from '../ficha.ts';
+import { sello } from '../sello.ts';
 import { anularMovimiento, crearMovimiento, editarMovimiento, periodoAbierto, TIPOS_CARGABLES, type DatosMovimiento } from '../movimientos.ts';
 
 export type Tipo = 'movimiento' | 'gasto_personal' | 'ficha' | 'mes';
@@ -142,6 +143,10 @@ const LISTAS: Record<string, { tabla: string; nombre: string; campos: string[] }
 const vistaFila = (l: (typeof LISTAS)[string], f: Record<string, unknown>): [string, string][] =>
   l.campos.map((k) => [k.charAt(0).toUpperCase() + k.slice(1).replace('_', ' '), txt(f[k]) ?? '—']);
 
+const filaFicha = (db: DatabaseSync, lista: string, id: number, deptoId: unknown) => db.prepare(`SELECT t.*${lista === 'servicios'
+  ? ', (SELECT nombre FROM concepto WHERE id = t.concepto_id) AS concepto' : ''} FROM ${LISTAS[lista].tabla} t WHERE t.id = ? AND t.depto_id = ?`)
+  .get(id, Number(deptoId)) as Record<string, unknown> | undefined;
+
 export function proponerFicha(db: DatabaseSync, e: Record<string, unknown>): Propuesta {
   const accion = String(e.accion);
   const deptoId = idDepto(db, e.depto);
@@ -160,8 +165,7 @@ export function proponerFicha(db: DatabaseSync, e: Record<string, unknown>): Pro
   const l = LISTAS[lista];
   if (!l) throw new Error('lista va servicios, claves o contactos.');
   const actual = () => {
-    const f = db.prepare(`SELECT t.*${lista === 'servicios' ? ', (SELECT nombre FROM concepto WHERE id = t.concepto_id) AS concepto' : ''}
-      FROM ${l.tabla} t WHERE t.id = ? AND t.depto_id = ?`).get(Number(e.id), deptoId) as Record<string, unknown> | undefined;
+    const f = filaFicha(db, lista, Number(e.id), deptoId);
     if (!f) throw new Error(`No existe ese renglón en la ficha de ${codigo}. Los ids salen de ficha_depto.`);
     return f;
   };
@@ -256,3 +260,80 @@ export const DEFINICIONES = {
 export const resumenPropuesta = (p: Propuesta) =>
   `Propuesta lista, todavía NO guardada (la persona la confirma o la descarta con los botones): ${p.titulo}. `
   + p.campos.map(([k, v, a]) => (a ? `${k}: ${a} → ${v}` : `${k}: ${v}`)).join(' · ');
+
+// ---- Confirmar y descartar (paso 5). Corre con conIa (lo pone la ruta): la auditoría queda "con IA".
+
+// Lo que traer un mes de Stays y la cotización necesitan del servidor (cliente de Stays, API del dólar).
+export interface AccionesMes { traerStays(mes: string): Promise<unknown>; cotizacion(mes: string, valor: number | null): Promise<unknown> }
+
+// El registro hoy, con la misma forma que el "antes" guardado al proponer: si no coinciden, alguien lo cambió en el medio.
+function actualDe(db: DatabaseSync, tipo: string, accion: string, args: Record<string, any>, antes: Record<string, any>) {
+  if (tipo === 'movimiento') return db.prepare('SELECT 1 FROM movimiento WHERE id = ?').get(args.id) ? movimientoActual(db, args.id) : null;
+  if (tipo === 'gasto_personal') return db.prepare('SELECT * FROM gasto_ajeno WHERE id = ?').get(args.id) ?? null;
+  if (tipo === 'ficha' && accion === 'notas') return db.prepare('SELECT notas FROM depto WHERE id = ?').get(args.depto_id) ?? null;
+  if (tipo === 'ficha') return filaFicha(db, args.lista, args.id, antes.depto_id) ?? null;
+  return db.prepare('SELECT usd_cotizacion FROM periodo WHERE mes = ?').get(args.mes) ?? null; // cotización
+}
+
+async function ejecutar(db: DatabaseSync, tipo: string, accion: string, a: Record<string, any>, mes: AccionesMes) {
+  const { id, ...resto } = a;
+  if (tipo === 'movimiento') {
+    if (accion === 'alta') return crearMovimiento(db, a as DatosMovimiento);
+    if (accion === 'edicion') return editarMovimiento(db, id, resto as DatosMovimiento);
+    return anularMovimiento(db, id);
+  }
+  if (tipo === 'gasto_personal') {
+    if (accion === 'alta') return crearGastoAjeno(db, a as DatosGastoAjeno);
+    if (accion === 'edicion') return editarGastoAjeno(db, id, resto as DatosGastoAjeno);
+    return anularGastoAjeno(db, id);
+  }
+  if (tipo === 'ficha') {
+    if (accion === 'notas') return guardarNotas(db, a.depto_id, a);
+    if (accion === 'alta') return agregar(db, a.lista, a.depto_id, a.campos);
+    if (accion === 'edicion') return editar(db, a.lista, id, a.campos);
+    return borrar(db, a.lista, id);
+  }
+  if (accion === 'traer_stays') return mes.traerStays(a.mes);
+  return mes.cotizacion(a.mes, a.cotizacion);
+}
+
+const resolver = (db: DatabaseSync, id: number, estado: string, resultado: string | null) =>
+  db.prepare('UPDATE propuesta_ia SET estado = ?, resultado = ?, resuelta_en = ? WHERE id = ?').run(estado, resultado, sello(), id);
+
+function pendiente(db: DatabaseSync, pc: string, id: number) {
+  const p = db.prepare(`SELECT p.* FROM propuesta_ia p JOIN conversacion_ia c ON c.id = p.conversacion_id WHERE p.id = ? AND c.pc = ?`).get(id, pc) as
+    { tipo: string; accion: string; datos_json: string; antes_json: string | null; estado: string } | undefined;
+  if (!p) throw new Error('No existe esa propuesta.');
+  if (p.estado !== 'pendiente') throw new Error(`Esa propuesta ya está ${p.estado}.`);
+  return p;
+}
+
+// Un error (mes cerrado, el registro cambió, Stays caído) deja la propuesta fallida con el motivo: se pide de nuevo.
+const enCurso = new Set<number>(); // traer de Stays tarda: un segundo clic no la corre dos veces
+export async function confirmarPropuesta(db: DatabaseSync, pc: string, id: number, mes: AccionesMes) {
+  const p = pendiente(db, pc, id);
+  if (enCurso.has(id)) throw new Error('Esa propuesta ya se está confirmando.');
+  const { args } = JSON.parse(p.datos_json) as { args: Record<string, any> };
+  enCurso.add(id);
+  try {
+    if (p.antes_json != null) {
+      const antes = JSON.parse(p.antes_json);
+      if (JSON.stringify(actualDe(db, p.tipo, p.accion, args, antes)) !== JSON.stringify(antes)) throw new Error('Cambió desde la propuesta: pedila de nuevo.');
+    }
+    const r = await ejecutar(db, p.tipo, p.accion, args, mes);
+    resolver(db, id, 'confirmada', typeof r === 'number' ? String(r) : null);
+    return { estado: 'confirmada', resultado: r ?? null };
+  } catch (e) {
+    const motivo = e instanceof Error ? e.message : String(e);
+    resolver(db, id, 'fallida', motivo);
+    return { estado: 'fallida', resultado: motivo };
+  } finally {
+    enCurso.delete(id);
+  }
+}
+
+export function descartarPropuesta(db: DatabaseSync, pc: string, id: number) {
+  pendiente(db, pc, id);
+  resolver(db, id, 'descartada', null);
+  return { estado: 'descartada' };
+}
