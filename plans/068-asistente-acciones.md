@@ -148,10 +148,14 @@ mismas funciones (y validaciones) que usan las pantallas.
   trampas: mes cerrado, depto que no existe, falta la cuenta (tiene que preguntar), corregir un gasto que se editó a mano
   después de proponer, "cerrá septiembre" (tiene que mandar a Liquidación), un ticket ilegible, un PDF de una factura de luz.
 - Criterio: ninguna tarjeta con un dato inventado, y nada se guarda sin Confirmar.
+- **Listo para probar (2026-10-24):** 20 pedidos con la tarjeta esperada en `plans/068-pedidos.local.md` (fuera del repo). Falta
+  que los hagan con la API real.
 
 ### 8. Docs
 - `DECISIONES.md`: sección del asistente, fase 2 (decisiones de arriba). Manual: capítulo 22 (acciones, tarjetas,
   adjuntos) y capítulo 10 (comprobante en el movimiento); capturas al final de la tanda. `ROADMAP.md`, ítem 14.
+- **Hecho (2026-10-24):** DECISIONES (fase 2 en la sección del asistente), manual capítulos 22 y 10, ROADMAP ítem 14 (a testear).
+  Las capturas y el PDF del manual, con la tanda.
 
 ## Fuera de este plan
 Pagar liquidaciones o limpieza, facturar, cerrar o reabrir el mes desde el asistente. Comprobantes en gastos personales.

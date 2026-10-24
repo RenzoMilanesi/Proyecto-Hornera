@@ -125,7 +125,13 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - Las horas por chica, depto y mes son solo información.
 
 ## Asistente con IA (`server/ia/`, panel "Asistente con IA"; plan 061, 2026-10-23)
-- **Fase 1, solo lectura:** contesta sobre datos, uso de la app (el manual por capítulos, a pedido: en las instrucciones va solo el índice; plan 066) y análisis. Ninguna herramienta escribe; las acciones (cargar, facturar) son una fase 2 aparte, con confirmación.
+- **Fase 1, solo lectura:** contesta sobre datos, uso de la app (el manual por capítulos, a pedido: en las instrucciones va solo el índice; plan 066) y análisis.
+- **Fase 2, acciones con confirmación (plan 068, 2026-10-24):** la IA sigue sin escribir. Las herramientas `proponer_*` arman una **tarjeta** (validada ensayando la función de la pantalla en un SAVEPOINT que se deshace) y lo que guarda es el botón **Confirmar**, con las mismas funciones que las pantallas, o el formulario de siempre que abre **Editar**.
+  - Qué puede proponer: movimientos y gastos personales (cargar, corregir, anular), la ficha del depto (notas, claves, servicios, contactos), traer un mes de Stays y la cotización. **Cerrar y reabrir el mes, pagar y facturar, no**: se hacen en su pantalla.
+  - Si falta un dato (cuenta, concepto, depto) pregunta; nunca lo adivina. Varias acciones: una tarjeta por acción y "Confirmar todas" (de a una; una que falla no frena a las otras).
+  - Una corrección no pisa un cambio hecho después de proponerla: se compara el registro con el que se vio al proponer.
+  - La auditoría marca lo confirmado o editado desde una tarjeta **"con IA"** (`auditoria.con_ia`), además de la PC. Las terminales también confirman.
+  - **Comprobantes:** se puede arrastrar al panel la foto o el PDF de un ticket; Claude lo lee y propone el gasto. Queda guardado con el movimiento (tabla `adjunto`, en la base: viaja en el backup), y se adjunta, ve o cambia también desde el formulario de Movimientos. Uno por movimiento; las fotos se achican a 1600 px; los sueltos de más de 30 días se borran.
 - **Solo Claude**, con una API key del negocio (console.anthropic.com, no Claude Pro), cifrada con safeStorage en la PC servidor y fuera de los backups. El tope de gasto se pone en la consola de Anthropic; la app no tiene tope propio. Modelo y esfuerzo se eligen en Herramientas → Asistente (arranca Sonnet 5.5, medio).
 - **Corre en la PC servidor:** las terminales preguntan por la API. La key y el modelo solo se tocan en el servidor. El historial es por PC (como la auditoría: sin login).
 - **Privacidad:** salen a Anthropic todos los datos del negocio que la IA consulte, **incluidas las claves de los deptos** (decisión del usuario). Nunca salen las tablas `terminal` y `configuracion` (tokens, ticket de ARCA): `consulta_sql` las bloquea con el authorizer de SQLite.

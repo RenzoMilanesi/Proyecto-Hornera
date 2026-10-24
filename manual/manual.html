@@ -471,6 +471,8 @@ cerrado la lista es de solo lectura. Se puede filtrar por depto, buscar por conc
 </table>
 <p>Los movimientos de tipo <i>Pago de liquidación</i> los genera Transferencias, y los de tipo <i>Transferencia</i>, el botón
 <span class="boton">Transferencia entre cuentas</span>.</p>
+<p><b>Comprobante</b> (opcional): con <span class="boton">Adjuntar foto o PDF</span> se guarda el ticket o la factura con el movimiento; en la lista
+aparece un 📎 que lo abre. <span class="boton">Quitar</span> lo saca. También lo puede adjuntar el asistente al cargar un gasto desde un ticket.</p>
 <p><span class="boton">Editar</span> corrige un movimiento y <span class="boton">Anular</span> lo deja sin efecto (no suma, pero queda en la lista con "Ver anulados").
 El pago de una liquidación de limpieza no se edita desde acá: se anula, y la liquidación vuelve a quedar pendiente en <span class="menu">Limpieza</span>.</p>
 
@@ -876,14 +878,23 @@ pueden estar abiertas a la vez.</div>
 (<i>"¿cómo cargo un gasto personal?"</i>) y pide análisis (<i>"¿qué depto tuvo peor ocupación este año?"</i>). Se abre con
 <span class="menu">Asistente con IA</span>, abajo del menú, desde cualquier pantalla y en cualquier PC: sabe qué pantalla y qué mes se está mirando.</p>
 <ul>
-  <li><b>Solo lee:</b> no carga, no cambia ni borra nada. Para hacer algo, hay que hacerlo en la pantalla que corresponde.</li>
+  <li><b>Carga y corrige, pero con tu OK:</b> si le pedís <i>"cargale $ 15.000 de cerrajería a ALV, salió de Galicia A"</i>, arma una
+    <b>tarjeta</b> con el detalle. No se guarda nada hasta que tocás <span class="boton">Confirmar</span>. <span class="boton">Editar</span>
+    abre el formulario de siempre ya completo, para corregir antes de guardar, y <span class="boton">Descartar</span> la deja sin efecto.
+    Si le pedís varias cosas, aparece una tarjeta por cada una y <span class="boton">Confirmar todas</span>.</li>
+  <li><b>Qué puede proponer:</b> gastos y movimientos, gastos personales, la ficha del depto (notas, claves, servicios, contactos), traer el mes de
+    Stays y la cotización del dólar. Cerrar o reabrir el mes, pagar y facturar, no: dice en qué pantalla se hace. Si le falta un dato (la cuenta,
+    el concepto), lo pregunta.</li>
+  <li><b>Tickets y facturas:</b> se puede arrastrar al panel (o adjuntar con 📎) la foto o el PDF de un comprobante. Lo lee y propone el gasto; al
+    confirmarlo, el comprobante queda guardado con el movimiento.</li>
+  <li><b>Queda registrado:</b> en <i>Herramientas → Auditoría</i>, lo guardado desde una tarjeta dice <b>con IA</b> debajo de la PC.</li>
   <li><b>Verificar los números:</b> al pie de cada respuesta dice qué modelo contestó, cuántas consultas hizo y cuánto costó; debajo del cuadro de la pregunta, lo gastado en el mes.
     <b>Cómo lo calculé</b> muestra qué datos pidió (y la consulta, si escribió una). Ante la duda, comparar con la pantalla de la app.</li>
   <li><b>Pensar más:</b> si la última respuesta no convence, <b>Pensar más</b> (al pie) hace la misma pregunta en una conversación nueva,
     pensándola más a fondo. Cuesta algo más; el pie de esa respuesta dice “(pensando más)”.</li>
   <li><b>Conversaciones:</b> quedan guardadas en cada PC; se retoman desde la lista de arriba. <span class="boton">Nueva</span> empieza otra y
     <span class="boton">Borrar</span> borra la que está abierta.</li>
-  <li><b>Los datos salen a Anthropic:</b> para contestar, la pregunta y los datos que consulta (incluidas las claves de los deptos si las pide) se mandan a
+  <li><b>Los datos salen a Anthropic:</b> para contestar, la pregunta, los comprobantes adjuntos y los datos que consulta (incluidas las claves de los deptos si las pide) se mandan a
     Anthropic, la empresa de Claude. Nunca se mandan las claves de Stays, de ARCA ni de las terminales.</li>
 </ul>
 <h2>Cargar la API key (una sola vez, en la PC servidor)</h2>
