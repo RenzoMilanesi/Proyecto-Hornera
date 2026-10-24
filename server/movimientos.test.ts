@@ -97,3 +97,30 @@ test('el saldo de la cuenta arranca en su saldo inicial: lo anterior ya está in
   assert.equal(saldo(db, 1), 10000000 + 700000);                                           // desde el 10/5
   assert.equal((db.prepare('SELECT saldo_desde FROM v_saldo_cuenta WHERE cuenta_id = 1').get() as any).saldo_desde, '2026-05-10');
 });
+
+test('comprobante: se sube suelto, se vincula al guardar, se reemplaza o se quita; los sueltos viejos se borran (plan 068)', async () => {
+  const { guardarAdjunto, adjuntoDe, purgarAdjuntos } = await import('./adjuntos.ts');
+  const db = base();
+  const pdf = Buffer.from('%PDF-1.4 ficticio');
+  assert.throws(() => guardarAdjunto(db, 'x.pdf', Buffer.from('<html>')), /Solo se pueden adjuntar/); // el nombre no manda
+  const uno = guardarAdjunto(db, 'ticket.pdf', pdf);
+  const id = crearMovimiento(db, gasto({ adjunto_id: uno }));
+  assert.equal(adjuntoDe(db, id), uno);
+
+  editarMovimiento(db, id, gasto({ detalle: 'Otro detalle' })); // sin adjunto_id: no lo toca
+  assert.equal(adjuntoDe(db, id), uno);
+  const dos = guardarAdjunto(db, 'foto.jpg', Buffer.from([0xff, 0xd8, 0xff, 0xe0]));
+  editarMovimiento(db, id, gasto({ adjunto_id: dos }));
+  assert.equal(adjuntoDe(db, id), dos);
+  const otro = crearMovimiento(db, gasto());
+  assert.throws(() => editarMovimiento(db, otro, gasto({ adjunto_id: dos })), /ya es de otro movimiento/);
+  editarMovimiento(db, id, gasto({ adjunto_id: null }));
+  assert.equal(adjuntoDe(db, id), null);
+
+  const audit = db.prepare(`SELECT despues_json FROM auditoria WHERE tabla = 'movimiento' AND registro_id = ? ORDER BY id`).all(id) as { despues_json: string }[];
+  assert.deepEqual(audit.map((a) => JSON.parse(a.despues_json).adjunto_id), [uno, undefined, dos, null]);
+
+  // Los dos quedaron sueltos: dentro de 30 días siguen, después se borran.
+  assert.equal(purgarAdjuntos(db), 0);
+  assert.equal(purgarAdjuntos(db, new Date(Date.now() + 31 * 864e5)), 2);
+});

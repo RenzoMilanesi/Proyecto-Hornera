@@ -63,7 +63,7 @@ const CAMPOS: Record<string, string> = {
   eliminadas: 'Borradas', medios: 'Medios de pago', comision_cobro_usd_pct: 'Comisión de cobro', moneda_liquidacion: 'Liquida en',
   cbu: 'CBU/CVU', mails: 'Mails', saldado_fuera: 'Saldado el', direccion: 'Dirección', razon_social: 'Razón social', doc_nro: 'Documento', condicion_iva: 'Condición IVA',
   precio_hora: 'Precio por hora', plus_json: 'Plus', 'limpieza.plus': 'Reglas del plus', ajuste_nota: 'Nota del ajuste',
-  movimiento_id: 'Pago', porOperaria: 'Por chica', operaria: 'Chica',
+  movimiento_id: 'Pago', porOperaria: 'Por chica', operaria: 'Chica', adjunto_id: 'Comprobante n.º',
 };
 // En altas e importaciones no se muestra el mes (ya está en el filtro de la pantalla).
 const SIN_MOSTRAR = new Set(['mes', 'periodo_id']);

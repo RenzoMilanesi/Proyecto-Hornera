@@ -91,6 +91,9 @@ mismas funciones (y validaciones) que usan las pantallas.
   (abre en otra ventana) y "Quitar"; en la tabla, un ícono en los que tienen comprobante.
 - Borrar adjuntos sin movimiento con más de 30 días al abrir la app (los subidos al panel y nunca confirmados).
 - Tests: subir, vincular, desvincular; un tipo no permitido se rechaza; el backup incluye el adjunto.
+- **Hecho (v0.49.0):** `server/adjuntos.ts` (un comprobante por movimiento; el nuevo reemplaza al anterior), rutas en
+  `server/app.ts`, `subirComprobante`/`verComprobante` en `src/api.ts` y el campo Comprobante en `FormMovimiento`. Los sueltos
+  de más de 30 días se borran al arrancar el servidor. El backup copia la base entera, así que no hizo falta un test aparte.
 
 ### 4. Herramientas de propuesta (`server/ia/herramientas.ts`)
 - Las 4 herramientas validan sin escribir: el depto, la cuenta y el concepto existen; el mes está abierto; para

@@ -31,6 +31,7 @@ import { liquidacionDelMes, listarCuentas, listarDeptos, listarPeriodos, listarP
 import { borrarConversacionIa, clienteAnthropic, configIa, conversacionesIa, conversacionIa, gastoIaMes, guardarConfigIa, preguntar, type AlmacenClaveIa, type ClienteIa } from './ia/asistente.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
 import { sello } from './sello.ts';
+import { guardarAdjunto, leerAdjunto, MAX_ADJUNTO, purgarAdjuntos } from './adjuntos.ts';
 
 // Dónde viven las credenciales de Stays. En Electron, cifradas con safeStorage
 // (DPAPI de Windows) fuera de la base: no viajan en los backups.
@@ -104,6 +105,7 @@ function hostPermitido(host: string) {
 
 export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf; fetchDolar?: Fetch; claves?: AlmacenClaves; fetchArca?: Fetch; desarrollo?: boolean; carpetaBackups?: string; sistema?: Sistema; claveIa?: AlmacenClaveIa; clienteIa?: ClienteIa } = {}) {
   const app = express();
+  purgarAdjuntos(db);
   const { credenciales, urlStays = URL_STAYS, pdf, fetchDolar = fetch, claves, fetchArca, desarrollo = false, carpetaBackups, sistema, claveIa, clienteIa } = opciones;
   app.use((req, res, next) => {
     if (hostPermitido(req.headers.host ?? '')) return next();
@@ -388,6 +390,18 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   app.post('/api/movimientos', (req, res) => intentar(res, () => ({ id: crearMovimiento(db, { ...req.body, origen: null }) })));
   app.put('/api/movimientos/:id', (req, res) => intentar(res, () => editarMovimiento(db, Number(req.params.id), req.body ?? {})));
   // Anular un pago facturado no toca la factura: se devuelve para que la UI ofrezca la nota de crédito (plan 031).
+  // Comprobantes de los movimientos (plan 068): se suben sueltos y se vinculan con adjunto_id al guardar el movimiento.
+  app.post('/api/adjuntos', express.raw({ type: 'application/octet-stream', limit: MAX_ADJUNTO }), (req, res) =>
+    intentar(res, () => ({ id: guardarAdjunto(db, req.query.nombre, Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0)) })));
+  app.get('/api/adjuntos/:id', (req, res) => {
+    try {
+      const a = leerAdjunto(db, Number(req.params.id));
+      res.type(a.tipo).setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(a.nombre)}`);
+      res.send(Buffer.from(a.datos));
+    } catch (e) {
+      res.status(404).json({ error: mensaje(e) });
+    }
+  });
   app.post('/api/movimientos/:id/anular', (req, res) => intentar(res, () => {
     anularMovimiento(db, Number(req.params.id));
     return { ok: true, facturaVigente: facturaVigente(db, Number(req.params.id)) };

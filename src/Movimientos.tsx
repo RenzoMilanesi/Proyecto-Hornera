@@ -4,13 +4,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, AutoComplete, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Radio, Select, Space, Switch, Table, Tag, Typography } from 'antd';
 import { mesVisto } from './Asistente.tsx';
 import type { TableColumnsType } from 'antd';
-import { entradaPlata, enviar, get, pesos, simbolo, useUnaVez } from './api.ts';
+import { entradaPlata, enviar, get, pesos, simbolo, subirComprobante, useUnaVez, verComprobante } from './api.ts';
 
 interface Periodo { mes: string; estado: string }
 export interface Cuenta { id: number; nombre: string; moneda: 'ARS' | 'USD'; activo: number }
 export interface Movimiento {
   id: number; fecha: string; depto: string | null; tipo: string; concepto: string | null; detalle: string | null;
   importe_ars: number; importe_usd: number; cuenta_id: number | null; cuenta: string | null; estado: string; transferencia_grupo: number | null;
+  adjunto_id?: number | null;
 }
 
 export const TIPOS: Record<string, string> = {
@@ -39,6 +40,8 @@ export function FormMovimiento({ abierto, mes, editando, depto, deptos, cuentas,
 }) {
   const [form] = Form.useForm();
   const [error, setError] = useState<string>();
+  const [adjunto, setAdjunto] = useState<number | null>(null); // comprobante (plan 068)
+  const [subiendo, setSubiendo] = useState(false);
   const tipo = Form.useWatch('tipo', form) as string | undefined;
   const moneda = Form.useWatch('moneda', form) as 'ARS' | 'USD' | undefined;
 
@@ -46,6 +49,7 @@ export function FormMovimiento({ abierto, mes, editando, depto, deptos, cuentas,
     if (!abierto) return;
     setError(undefined);
     const m = editando;
+    setAdjunto(m?.adjunto_id ?? null);
     const importe = m ? (m.importe_ars || m.importe_usd) : 0;
     form.setFieldsValue(m ? {
       fecha: m.fecha, depto: m.depto ?? EMPRESA, tipo: m.tipo, concepto: m.concepto ?? '', detalle: m.detalle ?? '',
@@ -66,6 +70,7 @@ export function FormMovimiento({ abierto, mes, editando, depto, deptos, cuentas,
       mes, fecha: v.fecha, depto: v.depto === EMPRESA ? null : v.depto, tipo: v.tipo, concepto: v.concepto || null,
       detalle: v.detalle || null, importe_ars: v.moneda === 'ARS' ? importe : 0, importe_usd: v.moneda === 'USD' ? importe : 0,
       cuenta_id: v.cuenta_id ?? null,
+      ...(adjunto !== (editando?.adjunto_id ?? null) ? { adjunto_id: adjunto } : {}),
     };
     try {
       if (editando) await enviar(`movimientos/${editando.id}`, 'PUT', datos);
@@ -77,6 +82,17 @@ export function FormMovimiento({ abierto, mes, editando, depto, deptos, cuentas,
   };
 
   const [guardarUnaVez, guardando] = useUnaVez(guardar);
+  const adjuntar = async (archivo?: File) => {
+    if (!archivo) return;
+    setSubiendo(true);
+    try {
+      setAdjunto(await subirComprobante(archivo));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSubiendo(false);
+    }
+  };
   return (
     <Modal open={abierto} title={editando ? 'Editar movimiento' : `Nuevo movimiento · ${mes}`} okText="Guardar" cancelText="Cancelar"
       onOk={guardarUnaVez} confirmLoading={guardando} onCancel={() => alCerrar(false)} destroyOnHidden>
@@ -109,6 +125,15 @@ export function FormMovimiento({ abierto, mes, editando, depto, deptos, cuentas,
         <Form.Item label="Cuenta" name="cuenta_id" extra="Vacío si no mueve plata de una cuenta (por ejemplo, un cobro directo del propietario).">
           <Select allowClear placeholder="Sin cuenta"
             options={cuentas.filter((c) => c.activo && c.moneda === moneda).map((c) => ({ value: c.id, label: c.nombre }))} />
+        </Form.Item>
+        <Form.Item label="Comprobante" extra="Foto o PDF del ticket o la factura (opcional).">
+          {adjunto ? (
+            <Space><Button onClick={() => verComprobante(adjunto)}>📎 Ver</Button><Button danger type="text" onClick={() => setAdjunto(null)}>Quitar</Button></Space>
+          ) : (
+            <Button loading={subiendo} onClick={() => document.getElementById('comprobante-movimiento')?.click()}>Adjuntar foto o PDF</Button>
+          )}
+          <input id="comprobante-movimiento" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" hidden
+            onChange={(e) => { void adjuntar(e.target.files?.[0]); e.target.value = ''; }} />
         </Form.Item>
       </Form>
       {error && <Alert type="error" showIcon title={error} />}
@@ -220,7 +245,7 @@ export function Movimientos() {
     { title: 'Depto', dataIndex: 'depto', render: (v: string | null) => v ?? <Typography.Text type="secondary">INT</Typography.Text> },
     { title: 'Tipo', dataIndex: 'tipo', render: (v: string) => <Tag color={COLOR_TIPO[v]}>{TIPOS[v] ?? v}</Tag> },
     { title: 'Concepto', dataIndex: 'concepto' },
-    { title: 'Detalle', dataIndex: 'detalle', ellipsis: true },
+    { title: 'Detalle', dataIndex: 'detalle', ellipsis: true, render: (v: string | null, m) => <>{m.adjunto_id ? <Typography.Link onClick={() => verComprobante(m.adjunto_id!)} title="Ver el comprobante">📎 </Typography.Link> : null}{v}</> },
     { title: 'ARS', dataIndex: 'importe_ars', ...derecha, render: (v: number) => importe(v) },
     { title: 'USD', dataIndex: 'importe_usd', ...derecha, render: (v: number) => importe(v, 'USD') },
     { title: 'Cuenta', dataIndex: 'cuenta' },

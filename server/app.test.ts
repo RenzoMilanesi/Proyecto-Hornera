@@ -640,3 +640,22 @@ test('lo guardado desde "Editar" de una tarjeta del asistente queda "con IA" y l
     assert.equal((db.prepare('SELECT estado FROM propuesta_ia').get() as any).estado, 'editada');
   });
 });
+
+test('comprobantes por la API: subir, vincular al movimiento y bajarlo con su tipo (plan 068)', () => {
+  const db = abrirDb(':memory:');
+  periodo(db, '2026-05', '2026-05-01', '2026-06-01');
+  return conApi(db, async (base) => {
+    const subir = (cuerpo: Buffer) => fetch(`${base}/api/adjuntos?nombre=${encodeURIComponent('Ticket ñandú.pdf')}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: new Uint8Array(cuerpo) });
+    assert.match((await (await subir(Buffer.from('hola'))).json()).error, /Solo se pueden adjuntar/);
+    const { id } = await (await subir(Buffer.from('%PDF-1.4 ficticio'))).json();
+    const mov = { mes: '2026-05', fecha: '2026-05-03', depto: null, tipo: 'gasto', concepto: 'Viáticos', detalle: null, importe_ars: -1000, importe_usd: 0, cuenta_id: null, adjunto_id: id };
+    assert.equal((await fetch(`${base}/api/movimientos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(mov) })).status, 200);
+    assert.equal((await (await fetch(`${base}/api/movimientos?mes=2026-05`)).json())[0].adjunto_id, id);
+    const r = await fetch(`${base}/api/adjuntos/${id}`);
+    assert.equal(r.headers.get('content-type'), 'application/pdf');
+    assert.match(r.headers.get('content-disposition') ?? '', /Ticket%20%C3%B1and%C3%BA\.pdf/);
+    assert.equal(await r.text(), '%PDF-1.4 ficticio');
+    assert.equal((await fetch(`${base}/api/adjuntos/999`)).status, 404);
+  });
+});

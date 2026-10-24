@@ -2,6 +2,7 @@
 // empresa, adelantos al propietario, cobros directos, saldos iniciales y transferencias
 // entre cuentas. Nunca se borran: se anulan. Todo cambio queda en `auditoria`.
 import type { DatabaseSync } from 'node:sqlite';
+import { adjuntoDe, vincularAdjunto } from './adjuntos.ts';
 import { auditar } from './auditoria.ts';
 import { sello } from './sello.ts';
 
@@ -21,6 +22,7 @@ export interface DatosMovimiento {
   importe_usd: number;
   cuenta_id: number | null;    // null = no mueve plata de una cuenta
   origen?: string | null;      // fila de un Excel importado (solo al crear; editar no lo cambia)
+  adjunto_id?: number | null;  // comprobante (plan 068): undefined = no se toca, null = se quita
 }
 
 const esFecha = (s: unknown) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
@@ -99,7 +101,8 @@ export function crearMovimiento(db: DatabaseSync, d: DatosMovimiento): number {
       INSERT INTO movimiento(periodo_id, fecha, depto_id, tipo, concepto_id, detalle, importe_ars, importe_usd, cuenta_id, origen, creado_en)
       VALUES (:periodo_id, :fecha, :depto_id, :tipo, :concepto_id, :detalle, :importe_ars, :importe_usd, :cuenta_id, :origen, :creado_en)`)
       .run({ ...v, origen: d.origen ?? null, creado_en: sello() }).lastInsertRowid);
-    auditar(db, 'movimiento', id, 'alta', null, v);
+    if (d.adjunto_id != null) vincularAdjunto(db, id, d.adjunto_id);
+    auditar(db, 'movimiento', id, 'alta', null, d.adjunto_id != null ? { ...v, adjunto_id: d.adjunto_id } : v);
     return id;
   });
 }
@@ -120,7 +123,10 @@ export function editarMovimiento(db: DatabaseSync, id: number, d: DatosMovimient
     db.prepare(`
       UPDATE movimiento SET periodo_id = :periodo_id, fecha = :fecha, depto_id = :depto_id, tipo = :tipo, concepto_id = :concepto_id,
         detalle = :detalle, importe_ars = :importe_ars, importe_usd = :importe_usd, cuenta_id = :cuenta_id WHERE id = :id`).run({ ...v, id });
-    auditar(db, 'movimiento', id, 'modificacion', antes, v);
+    if (d.adjunto_id === undefined) return auditar(db, 'movimiento', id, 'modificacion', antes, v);
+    const anterior = adjuntoDe(db, id);
+    vincularAdjunto(db, id, d.adjunto_id);
+    auditar(db, 'movimiento', id, 'modificacion', { ...antes, adjunto_id: anterior }, { ...v, adjunto_id: d.adjunto_id });
   });
 }
 
@@ -183,7 +189,8 @@ export function transferir(db: DatabaseSync, t: DatosTransferencia): number {
 export function listarMovimientos(db: DatabaseSync, mes: string) {
   return db.prepare(`
     SELECT m.id, m.fecha, d.codigo AS depto, m.tipo, c.nombre AS concepto, m.detalle, m.importe_ars, m.importe_usd,
-           m.cuenta_id, cu.nombre AS cuenta, m.estado, m.transferencia_grupo
+           m.cuenta_id, cu.nombre AS cuenta, m.estado, m.transferencia_grupo,
+           (SELECT a.id FROM adjunto a WHERE a.movimiento_id = m.id) AS adjunto_id
     FROM movimiento m JOIN periodo p ON p.id = m.periodo_id
     LEFT JOIN depto d ON d.id = m.depto_id
     LEFT JOIN concepto c ON c.id = m.concepto_id

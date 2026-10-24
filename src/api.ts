@@ -28,6 +28,20 @@ export async function descargarPdfComprobante(id: number) {
 export const subirArchivo = <T>(ruta: string, archivo: Blob) =>
   pedir<T>(ruta, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: archivo });
 
+// Comprobante de un movimiento (plan 068): la foto se achica antes de subir (lado mayor 1600 px, JPEG); el PDF va tal cual.
+export async function subirComprobante(archivo: File) {
+  let datos: Blob = archivo;
+  if (archivo.type.startsWith('image/')) {
+    const img = await createImageBitmap(archivo);
+    const escala = Math.min(1, 1600 / Math.max(img.width, img.height));
+    const lienzo = Object.assign(document.createElement('canvas'), { width: Math.round(img.width * escala), height: Math.round(img.height * escala) });
+    lienzo.getContext('2d')!.drawImage(img, 0, 0, lienzo.width, lienzo.height);
+    datos = await new Promise<Blob>((ok, mal) => lienzo.toBlob((b) => (b ? ok(b) : mal(new Error('No se pudo leer la foto.'))), 'image/jpeg', 0.8));
+  }
+  return (await subirArchivo<{ id: number }>(`adjuntos?nombre=${encodeURIComponent(archivo.name)}`, datos)).id;
+}
+export const verComprobante = (id: number) => window.open(`/api/adjuntos/${id}`, '_blank');
+
 // Para los InputNumber de plata: muestra "1.612.004,50" y lee lo mismo. Mientras se escribe no reformatea
 // (el cursor no salta). Uso: <InputNumber {...entradaPlata} prefix="$" />
 export const entradaPlata = {
