@@ -76,7 +76,7 @@ en la LAN (fase 5d), que sigue a testear.
    y en 12 meses, y evolución. El Resumen queda de deptos (la tarjeta del resultado pasa a Honorarios, con ⓘ que explica la cuenta).
    v0.41.1: manual revisado de punta a punta (capítulos nuevos: Resumen Hornera, Limpieza, Comprobantes, Auditoría; gastos varios,
    facturas hechas por fuera, nombre de la PC) con capturas nuevas; Auditoría legible para limpieza; pestañas de Limpieza: Horas primero.
-14. **Asistente con IA** — **En curso** (v0.42.0; definido con grill-me el 2026-10-23; [plan 061](plans/061-asistente-ia.md)): panel
+14. **Asistente con IA** — **Fase 1 testeada** (validada el 2026-10-24 con 26 preguntas sobre la base de prueba; v0.42.0; definido con grill-me el 2026-10-23; [plan 061](plans/061-asistente-ia.md)): panel
    lateral que contesta preguntas sobre los datos, el uso de la app y análisis con Claude, solo lectura (la IA llama herramientas
    del servidor, ninguna escribe). v0.42.0: tablas de conversaciones y respuestas (esquema 21). v0.42.1: Herramientas →
    Asistente (solo servidor): API key cifrada en la PC, modelo y esfuerzo. v0.42.2: las 21 herramientas de solo lectura
