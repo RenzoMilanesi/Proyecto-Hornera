@@ -182,4 +182,18 @@ run(resp('[]'));
 run(`DELETE FROM conversacion_ia WHERE id = ${convId}`);
 assert.equal(db.prepare(`SELECT count(*) n FROM respuesta_ia`).get().n, 0);
 
+// Acciones del asistente (plan 068): propuestas con estado de una lista y comprobantes solo foto o PDF.
+run(`INSERT INTO conversacion_ia(pc, titulo, mensajes_json, creada_en, actualizada_en) VALUES ('PC Uno', 'y', '[]', 'x', 'x')`);
+const conv2 = db.prepare(`SELECT max(id) id FROM conversacion_ia`).get().id;
+const prop = (estado) => `INSERT INTO propuesta_ia(conversacion_id, tipo, accion, datos_json, estado, creada_en)
+  VALUES (${conv2}, 'movimiento', 'alta', '{}', '${estado}', 'x')`;
+falla(prop('aprobada'), 'CHECK');
+run(prop('pendiente'));
+run(`DELETE FROM conversacion_ia WHERE id = ${conv2}`);
+assert.equal(db.prepare(`SELECT count(*) n FROM propuesta_ia`).get().n, 0);
+const adj = (tipo) => `INSERT INTO adjunto(nombre, tipo, datos, bytes, creado_en) VALUES ('ticket', '${tipo}', x'00', 1, 'x')`;
+falla(adj('text/html'), 'CHECK');
+run(adj('application/pdf'));
+falla(`INSERT INTO auditoria(fecha, pc, tabla, accion, con_ia) VALUES ('x', 'PC', 't', 'alta', 2)`, 'CHECK');
+
 console.log('schema OK');

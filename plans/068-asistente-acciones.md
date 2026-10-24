@@ -71,6 +71,8 @@ mismas funciones (y validaciones) que usan las pantallas.
   resuelta_en)`.
 - `schema.check.mjs` y el test de migración (base del esquema 1 migrada = base nueva).
 - Las tablas nuevas **no** se exponen a `consulta_sql` (agregarlas a la lista de excluidas de `server/ia/`).
+- **Hecho (v0.48.0):** migración 22 → 23; `adjunto` y `propuesta_ia` en `OCULTAS` (`server/ia/sqlProceso.ts`). El test de
+  la migración 21 → 22 arma su base vieja sin lo de la 23.
 
 ### 2. "Con IA" en la auditoría
 - `server/auditoria.ts`: `export const conIa = new AsyncLocalStorage<boolean>()`; `auditar` guarda

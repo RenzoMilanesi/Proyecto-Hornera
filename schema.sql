@@ -678,7 +678,8 @@ CREATE TABLE auditoria (
     registro_id INTEGER,
     accion      TEXT    NOT NULL CHECK (accion IN ('alta','modificacion','anulacion','cierre','reapertura','importacion')),
     antes_json  TEXT,
-    despues_json TEXT
+    despues_json TEXT,
+    con_ia      INTEGER NOT NULL DEFAULT 0 CHECK (con_ia IN (0,1)) -- confirmado desde el asistente (plan 068)
 ) STRICT;
 CREATE INDEX ix_auditoria_registro ON auditoria(tabla, registro_id);
 
@@ -723,6 +724,33 @@ CREATE TABLE respuesta_ia (
     creada_en         TEXT    NOT NULL
 ) STRICT;
 CREATE INDEX ix_respuesta_ia_conversacion ON respuesta_ia(conversacion_id);
+
+-- Lo que el asistente propone hacer (plan 068): no se guarda nada hasta que la persona lo confirma.
+CREATE TABLE propuesta_ia (
+    id              INTEGER PRIMARY KEY,
+    conversacion_id INTEGER NOT NULL REFERENCES conversacion_ia(id) ON DELETE CASCADE,
+    tipo            TEXT    NOT NULL CHECK (tipo IN ('movimiento','gasto_personal','ficha','mes')),
+    accion          TEXT    NOT NULL,                 -- alta, edicion, anulacion, borrado, traer_stays, cotizacion
+    datos_json      TEXT    NOT NULL CHECK (json_valid(datos_json)),   -- lo propuesto
+    antes_json      TEXT    CHECK (antes_json IS NULL OR json_valid(antes_json)), -- el registro al proponer (edición/anulación)
+    estado          TEXT    NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente','confirmada','editada','descartada','fallida')),
+    resultado       TEXT,                             -- id creado o motivo del fallo
+    creada_en       TEXT    NOT NULL,
+    resuelta_en     TEXT
+) STRICT;
+CREATE INDEX ix_propuesta_ia_conversacion ON propuesta_ia(conversacion_id);
+
+-- Comprobantes (foto o PDF) de un movimiento. Sin movimiento: subido al asistente y todavía sin confirmar.
+CREATE TABLE adjunto (
+    id            INTEGER PRIMARY KEY,
+    nombre        TEXT    NOT NULL,
+    tipo          TEXT    NOT NULL CHECK (tipo IN ('image/jpeg','image/png','image/webp','application/pdf')),
+    datos         BLOB    NOT NULL,
+    bytes         INTEGER NOT NULL,
+    movimiento_id INTEGER REFERENCES movimiento(id) ON DELETE SET NULL,
+    creado_en     TEXT    NOT NULL
+) STRICT;
+CREATE INDEX ix_adjunto_movimiento ON adjunto(movimiento_id);
 
 -- ------------------------------------------------------------
 --  VISTAS

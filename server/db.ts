@@ -333,6 +333,31 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
    UPDATE periodo SET estado = 'cerrado' WHERE id IN (SELECT id FROM _cerrado);
    DROP TABLE _cerrado;
    DROP TABLE _excel;`,
+  // 22 → 23: acciones del asistente (plan 068): marca "con IA" en la auditoría, propuestas y comprobantes adjuntos.
+  `ALTER TABLE auditoria ADD COLUMN con_ia INTEGER NOT NULL DEFAULT 0 CHECK (con_ia IN (0,1));
+   CREATE TABLE propuesta_ia (
+       id              INTEGER PRIMARY KEY,
+       conversacion_id INTEGER NOT NULL REFERENCES conversacion_ia(id) ON DELETE CASCADE,
+       tipo            TEXT    NOT NULL CHECK (tipo IN ('movimiento','gasto_personal','ficha','mes')),
+       accion          TEXT    NOT NULL,
+       datos_json      TEXT    NOT NULL CHECK (json_valid(datos_json)),
+       antes_json      TEXT    CHECK (antes_json IS NULL OR json_valid(antes_json)),
+       estado          TEXT    NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente','confirmada','editada','descartada','fallida')),
+       resultado       TEXT,
+       creada_en       TEXT    NOT NULL,
+       resuelta_en     TEXT
+   ) STRICT;
+   CREATE INDEX ix_propuesta_ia_conversacion ON propuesta_ia(conversacion_id);
+   CREATE TABLE adjunto (
+       id            INTEGER PRIMARY KEY,
+       nombre        TEXT    NOT NULL,
+       tipo          TEXT    NOT NULL CHECK (tipo IN ('image/jpeg','image/png','image/webp','application/pdf')),
+       datos         BLOB    NOT NULL,
+       bytes         INTEGER NOT NULL,
+       movimiento_id INTEGER REFERENCES movimiento(id) ON DELETE SET NULL,
+       creado_en     TEXT    NOT NULL
+   ) STRICT;
+   CREATE INDEX ix_adjunto_movimiento ON adjunto(movimiento_id);`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

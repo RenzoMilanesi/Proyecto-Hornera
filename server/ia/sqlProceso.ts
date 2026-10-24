@@ -4,7 +4,7 @@
 import { DatabaseSync, constants as c } from 'node:sqlite';
 
 // Tablas que la IA nunca ve: el hash de los tokens de las terminales y la configuración (ticket de ARCA, etc.).
-export const OCULTAS = ['terminal', 'configuracion'];
+export const OCULTAS = ['terminal', 'configuracion', 'adjunto', 'propuesta_ia'];
 export const MAX_FILAS = 200;
 // raw_json y desglose_json de una reserva pesan KB: cada texto largo se corta (plan 064).
 export const MAX_CELDA = 2000;
