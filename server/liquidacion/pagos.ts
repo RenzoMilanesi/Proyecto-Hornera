@@ -4,6 +4,7 @@
 import * as XLSX from 'xlsx';
 import type { DatabaseSync } from 'node:sqlite';
 import { auditar } from '../auditoria.ts';
+import { sello } from '../sello.ts';
 import { conceptoId } from '../movimientos.ts';
 import { SQL_FACTURA_VIGENTE } from '../facturacion.ts';
 
@@ -168,7 +169,7 @@ export function pagarLiquidacion(db: DatabaseSync, liquidacionId: number, d: Dat
       VALUES (?, ?, ?, 'liquidacion', ?, ?, ?, ?, ?, ?)`).run(
       l.periodo_id, d.fecha, l.depto_id, conceptoId(db, 'Liquidacion periodo'), d.detalle?.trim() || 'Transferencia',
       t.moneda === 'ARS' ? -d.importe : 0, t.moneda === 'USD' ? -d.importe : 0, d.cuenta_id ?? null,
-      new Date().toLocaleString('sv-SE').slice(0, 19),
+      sello(),
     ).lastInsertRowid);
     if (!l.movimiento_pago_id) db.prepare('UPDATE liquidacion SET movimiento_pago_id = ? WHERE id = ?').run(id, l.id);
     auditar(db, 'movimiento', id, 'alta', null, { pago_liquidacion: l.id, depto: l.codigo, mes: l.mes, moneda: t.moneda, ...d });

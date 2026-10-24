@@ -312,6 +312,27 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
        creada_en         TEXT    NOT NULL
    ) STRICT;
    CREATE INDEX ix_respuesta_ia_conversacion ON respuesta_ia(conversacion_id);`,
+  // 21 → 22: los sellos *_en y auditoria.fecha pasan a ISO 8601 con offset (server/sello.ts). Había tres formatos sin zona:
+  // hora local 'AAAA-MM-DD HH:MM:SS' (casi todos), UTC con el mismo formato (Stays y la importación del Excel) y UTC con Z (asistente).
+  // ponytail: offset fijo -03:00, el de Argentina (sin horario de verano), donde se escribió todo.
+  `CREATE TEMP TABLE _cerrado AS SELECT id FROM periodo WHERE estado = 'cerrado';
+   UPDATE periodo SET estado = 'abierto' WHERE id IN (SELECT id FROM _cerrado); -- los triggers no dejan tocar movimientos de un mes cerrado
+   -- La importación del Excel escribió el mismo sello UTC en sus movimientos, liquidaciones, cierre y auditoría.
+   CREATE TEMP TABLE _excel AS SELECT DISTINCT fecha FROM auditoria WHERE json_extract(despues_json, '$.importacion') = 'excel';
+   ${[['movimiento', 'creado_en'], ['liquidacion', 'calculada_en'], ['periodo', 'cerrado_en'], ['auditoria', 'fecha']]
+     .map(([t, c]) => `UPDATE ${t} SET ${c} = datetime(${c}, '-3 hours') WHERE ${c} IN (SELECT fecha FROM _excel);`).join('\n   ')}
+   ${[['reserva', 'sincronizada_en'], ['sincronizacion', 'iniciada_en'], ['sincronizacion', 'terminada_en']]
+     .map(([t, c]) => `UPDATE ${t} SET ${c} = datetime(${c}, '-3 hours') WHERE ${c} GLOB '????-??-?? ??:??:??';`).join('\n   ')}
+   ${[['conversacion_ia', 'creada_en'], ['conversacion_ia', 'actualizada_en'], ['respuesta_ia', 'creada_en']]
+     .map(([t, c]) => `UPDATE ${t} SET ${c} = datetime(${c}, '-3 hours') WHERE ${c} LIKE '%Z';`).join('\n   ')}
+   ${[['periodo', 'cerrado_en'], ['reserva', 'sincronizada_en'], ['sincronizacion', 'iniciada_en'], ['sincronizacion', 'terminada_en'],
+      ['movimiento', 'creado_en'], ['gasto_ajeno', 'creado_en'], ['liquidacion_limpieza', 'creado_en'], ['liquidacion', 'calculada_en'],
+      ['comprobante', 'creado_en'], ['comprobante_arca', 'importado_en'], ['auditoria', 'fecha'], ['terminal', 'creada_en'],
+      ['terminal', 'revocada_en'], ['conversacion_ia', 'creada_en'], ['conversacion_ia', 'actualizada_en'], ['respuesta_ia', 'creada_en']]
+     .map(([t, c]) => `UPDATE ${t} SET ${c} = replace(${c}, ' ', 'T') || '-03:00' WHERE ${c} GLOB '????-??-?? ??:??:??';`).join('\n   ')}
+   UPDATE periodo SET estado = 'cerrado' WHERE id IN (SELECT id FROM _cerrado);
+   DROP TABLE _cerrado;
+   DROP TABLE _excel;`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

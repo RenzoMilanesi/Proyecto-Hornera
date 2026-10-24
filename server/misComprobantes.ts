@@ -3,6 +3,7 @@
 // veces la misma liquidación y para vincular a un pago la factura que se hizo por fuera.
 import type { DatabaseSync } from 'node:sqlite';
 import { auditar } from './auditoria.ts';
+import { sello } from './sello.ts';
 import { dniDeCuit } from './fiscal.ts';
 
 // Facturas (no NC ni ND): A, B, C, M y las de crédito MiPyME.
@@ -49,7 +50,7 @@ export function importarMisComprobantes(db: DatabaseSync, emisorId: number, nomb
   const cuit = nombre.match(/_(\d{11})_/)?.[1];
   if (cuit && cuit !== e.cuit) throw new Error(`El archivo es del CUIT ${cuit}, no del de ${e.nombre} (${e.cuit}).`);
   const filas = leerCsv(texto);
-  const ahora = new Date().toLocaleString('sv-SE').slice(0, 19);
+  const ahora = sello();
   const existe = db.prepare('SELECT 1 FROM comprobante_arca WHERE emisor_id = ? AND cbte_tipo = ? AND punto_venta = ? AND numero = ?');
   const guardar = db.prepare(`INSERT INTO comprobante_arca(emisor_id, fecha, cbte_tipo, punto_venta, numero, numero_hasta, cae, doc_tipo, doc_nro,
       receptor, importe, importado_en) VALUES (:emisor_id, :fecha, :cbte_tipo, :punto_venta, :numero, :numero_hasta, :cae, :doc_tipo, :doc_nro,

@@ -3,6 +3,7 @@
 // entre cuentas. Nunca se borran: se anulan. Todo cambio queda en `auditoria`.
 import type { DatabaseSync } from 'node:sqlite';
 import { auditar } from './auditoria.ts';
+import { sello } from './sello.ts';
 
 // Los de tipo 'liquidacion' los genera "marcar pagado" (fase 5c) y los de 'transferencia', transferir().
 export const TIPOS_CARGABLES = ['gasto', 'ingreso', 'pre_liquidacion', 'pago_directo', 'saldo_inicial', 'ajuste'] as const;
@@ -22,7 +23,6 @@ export interface DatosMovimiento {
   origen?: string | null;      // fila de un Excel importado (solo al crear; editar no lo cambia)
 }
 
-const ahora = () => new Date().toLocaleString('sv-SE').replace('T', ' ').slice(0, 19); // hora local
 const esFecha = (s: unknown) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
 
 export function periodoAbierto(db: DatabaseSync, mes: unknown): number {
@@ -98,7 +98,7 @@ export function crearMovimiento(db: DatabaseSync, d: DatosMovimiento): number {
     const id = Number(db.prepare(`
       INSERT INTO movimiento(periodo_id, fecha, depto_id, tipo, concepto_id, detalle, importe_ars, importe_usd, cuenta_id, origen, creado_en)
       VALUES (:periodo_id, :fecha, :depto_id, :tipo, :concepto_id, :detalle, :importe_ars, :importe_usd, :cuenta_id, :origen, :creado_en)`)
-      .run({ ...v, origen: d.origen ?? null, creado_en: ahora() }).lastInsertRowid);
+      .run({ ...v, origen: d.origen ?? null, creado_en: sello() }).lastInsertRowid);
     auditar(db, 'movimiento', id, 'alta', null, v);
     return id;
   });
@@ -172,9 +172,9 @@ export function transferir(db: DatabaseSync, t: DatosTransferencia): number {
       VALUES (?, ?, 'transferencia', ?, ?, ?, ?, ?, ?)`);
     const lado = (c: typeof desde, importe: number) => (c.moneda === 'ARS' ? [importe, 0] : [0, importe]);
     const detalle = t.detalle?.trim() || `${desde.nombre} → ${hacia.nombre}`;
-    const primero = Number(alta.run(periodoId, t.fecha, detalle, ...lado(desde, -t.importe_desde), desde.id, null, ahora()).lastInsertRowid);
+    const primero = Number(alta.run(periodoId, t.fecha, detalle, ...lado(desde, -t.importe_desde), desde.id, null, sello()).lastInsertRowid);
     db.prepare('UPDATE movimiento SET transferencia_grupo = ? WHERE id = ?').run(primero, primero);
-    const segundo = Number(alta.run(periodoId, t.fecha, detalle, ...lado(hacia, t.importe_hacia), hacia.id, primero, ahora()).lastInsertRowid);
+    const segundo = Number(alta.run(periodoId, t.fecha, detalle, ...lado(hacia, t.importe_hacia), hacia.id, primero, sello()).lastInsertRowid);
     auditar(db, 'movimiento', primero, 'alta', null, { transferencia: t, movimientos: [primero, segundo] });
     return primero;
   });

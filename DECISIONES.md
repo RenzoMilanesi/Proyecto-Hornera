@@ -23,6 +23,7 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - **Correcciones:** preferentemente en Stays y volver a sincronizar; también ajuste manual sobre la reserva (corrección ARS/USD, observación) que no se pisa al re-sincronizar.
 - **Cierre:** el mes queda congelado (parámetros, reservas, resultados), se puede reabrir a mano y el saldo pasa al mes siguiente.
 - **Auditoría:** antes/después de cada cambio financiero (movimientos, parámetros, cierres, reaperturas), con fecha y PC.
+- **Fechas y sellos (2026-10-24):** las fechas de negocio (llegada, pago, movimiento, comprobante) son días del calendario `AAAA-MM-DD`, sin zona. Los sellos de "cuándo se hizo" (`*_en`, `auditoria.fecha`) van en ISO 8601 con el offset de la PC (`2026-10-24T15:30:00-03:00`, `server/sello.ts`) para que otra app o API los lea sin adivinar la zona; en SQL se comparan con `datetime(col)`. Antes había hora local y UTC sin marca mezclados (la migración 21 → 22 los unificó).
 - **Transferencias:** al marcar "pagado" se genera el movimiento "Liquidación período" contra la cuenta elegida.
 
 ## Migración

@@ -3,6 +3,7 @@
 // resultado. No se borran: se anulan. Todo cambio queda en `auditoria`.
 import type { DatabaseSync } from 'node:sqlite';
 import { auditar } from './auditoria.ts';
+import { sello } from './sello.ts';
 import { periodoAbierto } from './movimientos.ts';
 
 export const CODIGOS_AJENOS = ['CAY', 'LAU', 'CAY/LAU', 'CASEST', 'CASA'];
@@ -15,7 +16,6 @@ export interface DatosGastoAjeno {
   origen?: string | null;      // fila del Excel (solo al crear)
 }
 
-const ahora = () => new Date().toLocaleString('sv-SE').replace('T', ' ').slice(0, 19); // hora local
 const esFecha = (s: unknown) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
 
 function validar(db: DatabaseSync, d: DatosGastoAjeno) {
@@ -45,7 +45,7 @@ export function crearGastoAjeno(db: DatabaseSync, d: DatosGastoAjeno): number {
     const id = Number(db.prepare(`
       INSERT INTO gasto_ajeno(periodo_id, fecha, codigo, descripcion, importe, origen, creado_en)
       VALUES (:periodo_id, :fecha, :codigo, :descripcion, :importe, :origen, :creado_en)`)
-      .run({ ...v, origen: d.origen ?? null, creado_en: ahora() }).lastInsertRowid);
+      .run({ ...v, origen: d.origen ?? null, creado_en: sello() }).lastInsertRowid);
     auditar(db, 'gasto_ajeno', id, 'alta', null, v);
     return id;
   });

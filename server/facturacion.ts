@@ -4,6 +4,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import QRCode from 'qrcode';
 import { auditar } from './auditoria.ts';
+import { sello } from './sello.ts';
 import { consultarComprobante, ErrorArca, esErrorDeToken, solicitarCAE, ultimoAutorizado } from './arca.ts';
 import { hoyLocal, type Fetch } from './cotizacion.ts';
 import { descartarTicket, emisorConClave, ticketAcceso, type AlmacenClaves, type Emisor } from './emisores.ts';
@@ -195,7 +196,7 @@ async function autorizar(db: DatabaseSync, e: Emisor, keyPem: string, c: {
       c.periodo_id, c.depto_id, c.propietario_id, c.movimiento_id, e.id, cbteTipo, e.punto_venta, x.numero ?? null,
       x.cae ?? null, x.vencimiento ?? null, x.fecha, c.servDesde, c.servHasta, c.importe, JSON.stringify(c.receptor), x.estado, e.ambiente,
       x.motivo ?? null, x.observaciones ?? null, x.request ?? null, x.response ?? null, c.asociado?.id ?? null,
-      new Date().toLocaleString('sv-SE').slice(0, 19),
+      sello(),
     ).lastInsertRowid);
   // Un ticket que ARCA no acepta se borra para que el próximo intento pida otro.
   const fallo = (err: unknown, fecha: string, request: string | null = null) => {

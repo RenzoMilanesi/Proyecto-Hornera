@@ -12,6 +12,7 @@
 import * as XLSX from 'xlsx';
 import { hostname } from 'node:os';
 import type { DatabaseSync } from 'node:sqlite';
+import { sello } from '../sello.ts';
 
 export interface ReporteImportacion {
   mes: string;
@@ -145,7 +146,7 @@ export function importarExcel(db: DatabaseSync, contenido: Buffer, ahora = new D
   const actualizar = ultimo === null || mes > ultimo ? 1 : 0;
 
   const avisos: string[] = [];
-  const creadoEn = ahora.toISOString().slice(0, 19).replace('T', ' ');
+  const creadoEn = sello(ahora);
   const reporte: ReporteImportacion = {
     mes, propietarios: 0, deptos: 0, plataformas: 0, cuentas: 0, movimientos: 0, liquidaciones: 0, historico: 0, avisos,
   };

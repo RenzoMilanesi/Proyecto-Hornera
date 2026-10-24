@@ -2,6 +2,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import Anthropic from '@anthropic-ai/sdk';
 import { capitulosManual, herramientas } from './herramientas.ts';
+import { sello } from '../sello.ts';
 
 // Dónde vive la API key de Anthropic. En Electron, cifrada con safeStorage fuera de la base (no viaja en los backups).
 export interface AlmacenClaveIa {
@@ -179,7 +180,7 @@ export async function preguntar(db: DatabaseSync, cliente: ClienteIa, pc: string
   if (vueltas === MAX_VUELTAS) texto = `${texto}\n\n_Corté después de ${MAX_VUELTAS} consultas: la respuesta puede estar incompleta. Probá con una pregunta más concreta._`.trim();
   else if (respuesta!.stop_reason === 'max_tokens') texto = `${texto}\n\n_La respuesta quedó cortada por larga._`.trim();
 
-  const ahora = new Date().toISOString();
+  const ahora = sello();
   const id = conv?.id ?? Number(db.prepare(`INSERT INTO conversacion_ia(pc, titulo, mensajes_json, creada_en, actualizada_en) VALUES (?, ?, '[]', ?, ?)`)
     .run(pc, p.pregunta.trim().replace(/\s+/g, ' ').slice(0, 60), ahora, ahora).lastInsertRowid);
   db.prepare('UPDATE conversacion_ia SET mensajes_json = ?, actualizada_en = ? WHERE id = ?').run(JSON.stringify(mensajes), ahora, id);
@@ -225,8 +226,8 @@ export function borrarConversacionIa(db: DatabaseSync, pc: string, id: number) {
 
 // Lo gastado desde el 1 del mes (hora local), para Herramientas → Asistente (plan 066). Según PRECIOS: el número real está en la consola.
 export function gastoIaMes(db: DatabaseSync, ahora = new Date()) {
-  const desde = new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString();
-  const filas = db.prepare('SELECT modelo, tokens_entrada, tokens_cache, tokens_salida FROM respuesta_ia WHERE creada_en >= ?').all(desde) as
+  const desde = sello(new Date(ahora.getFullYear(), ahora.getMonth(), 1));
+  const filas = db.prepare('SELECT modelo, tokens_entrada, tokens_cache, tokens_salida FROM respuesta_ia WHERE datetime(creada_en) >= datetime(?)').all(desde) as
     { modelo: string; tokens_entrada: number; tokens_cache: number; tokens_salida: number }[];
   const total = filas.reduce((s, r) => s + (costo(r.modelo, { entrada: r.tokens_entrada, cache: r.tokens_cache, salida: r.tokens_salida }) ?? 0), 0);
   return { preguntas: filas.length, costo: total };

@@ -4,9 +4,9 @@
 // Reabrir borra el snapshot para recalcular (DECISIONES: "mes congelado, reabrible").
 import type { DatabaseSync } from 'node:sqlite';
 import { auditar } from '../auditoria.ts';
+import { sello } from '../sello.ts';
 import { liquidarPeriodo } from './servicio.ts';
 
-const ahora = () => new Date().toLocaleString('sv-SE').replace('T', ' ').slice(0, 19);
 const centavos = (x: number) => Math.round(x) + 0; // los prorrateos del motor no son enteros
 
 function enTransaccion<T>(db: DatabaseSync, fn: () => T): T {
@@ -44,7 +44,7 @@ export function cerrarPeriodo(db: DatabaseSync, mes: string): { liquidaciones: n
       INSERT INTO liquidacion_reserva(liquidacion_id, reserva_id, codigo_interno, noches_totales, noches_periodo, importe_ars,
         importe_periodo_ars, importe_usd, importe_periodo_usd, tarifa, tarifa_periodo, comision_ars, comision_usd, pago_plataforma_usd)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-    const cuando = ahora();
+    const cuando = sello();
     for (const d of calculo.deptos) {
       const r = d.resultado;
       const { id } = altaLiquidacion.get(

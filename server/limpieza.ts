@@ -3,6 +3,7 @@
 // de la empresa: el pago es un gasto de Hornera y no toca las liquidaciones de los deptos.
 import type { DatabaseSync } from 'node:sqlite';
 import { auditar } from './auditoria.ts';
+import { sello } from './sello.ts';
 import { crearMovimiento } from './movimientos.ts';
 
 // Plus por tipo de tarea: horas que se suman (valor en minutos) o pesos por tarea (valor en centavos).
@@ -13,7 +14,6 @@ export const PLUS_INICIAL: Plus = {
 export interface Tarea { operaria: string; tipo: string; minutos: number; depto?: string | null }
 export interface PorOperaria { operaria: string; tareas: number; minutos: number; importe: number }
 
-const ahora = () => new Date().toLocaleString('sv-SE').replace('T', ' ').slice(0, 19); // hora local
 const esFecha = (s: unknown) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
 const ddmm = (f: string) => `${f.slice(8, 10)}/${f.slice(5, 7)}`;
 
@@ -110,7 +110,7 @@ export function crearLiquidacion(db: DatabaseSync, d: DatosLiquidacion): number 
     return sinPisar(db, v, null, () => {
       const id = Number(db.prepare(`
         INSERT INTO liquidacion_limpieza(desde, hasta, precio_hora, plus_json, ajuste, ajuste_nota, creado_en)
-        VALUES (:desde, :hasta, :precio_hora, :plus_json, :ajuste, :ajuste_nota, :creado_en)`).run({ ...v, creado_en: ahora() }).lastInsertRowid);
+        VALUES (:desde, :hasta, :precio_hora, :plus_json, :ajuste, :ajuste_nota, :creado_en)`).run({ ...v, creado_en: sello() }).lastInsertRowid);
       auditar(db, 'liquidacion_limpieza', id, 'alta', null, v);
       return id;
     });

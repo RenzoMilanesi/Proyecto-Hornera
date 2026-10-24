@@ -19,6 +19,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { ClienteStays, DetalleStays, FilaReserva, MedioStays, PagoStays } from './cliente.ts';
 import { enPeriodo, SQL_EN_PERIODO } from '../periodo.ts';
 import { auditar } from '../auditoria.ts';
+import { sello } from '../sello.ts';
 
 export interface ReporteSync {
   mes: string;
@@ -85,7 +86,7 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
   if (!base) throw new Error('No hay ningún período cargado: importá primero el Excel de un mes.');
   const inicio = existente?.fecha_inicio ?? `${mes}-01`;
   const cierre = existente?.fecha_cierre_reservas ?? sumarMeses(inicio, 1);
-  const marca = ahora.toISOString().slice(0, 19).replace('T', ' ');
+  const marca = sello(ahora);
   const avisos: string[] = [];
 
   try {
@@ -460,7 +461,7 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
       db.prepare(`
         INSERT INTO sincronizacion(periodo_id, iniciada_en, terminada_en, resultado, reservas, pagos, avisos_json)
         VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
-        periodoId, marca, new Date().toISOString().slice(0, 19).replace('T', ' '),
+        periodoId, marca, sello(),
         avisos.length ? 'con_avisos' : 'ok', reporte.reservas, reporte.pagos, JSON.stringify(avisos),
       );
       db.exec('COMMIT');
@@ -473,7 +474,7 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
     // Queda registro del intento fallido si el período ya existía.
     if (existente) {
       db.prepare(`INSERT INTO sincronizacion(periodo_id, iniciada_en, terminada_en, resultado, avisos_json) VALUES (?, ?, ?, 'error', ?)`)
-        .run(existente.id, marca, new Date().toISOString().slice(0, 19).replace('T', ' '), JSON.stringify([e instanceof Error ? e.message : String(e)]));
+        .run(existente.id, marca, sello(), JSON.stringify([e instanceof Error ? e.message : String(e)]));
     }
     throw e;
   }

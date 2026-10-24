@@ -9,6 +9,7 @@ import type { AddressInfo } from 'node:net';
 import { DatabaseSync } from 'node:sqlite';
 import { abrirDb, VERSION_ESQUEMA } from './db.ts';
 import { crearApp } from './app.ts';
+import { sello } from './sello.ts';
 import { aplicarRestauracion, carpetaBackups, elegirCarpeta, hacerBackup, prepararBaseVacia, prepararRestauracion, respaldar, ultimasCopias, MAX_BACKUPS } from './backup.ts';
 
 // Carpeta temporal que se borra al terminar el test.
@@ -271,19 +272,21 @@ test('una base del esquema 1 conserva sus datos al migrar', (t) => {
   const v1 = new DatabaseSync(ruta);
   v1.exec(`CREATE TABLE depto (id INTEGER PRIMARY KEY, propietario_id INTEGER) STRICT; -- lo tocan las migraciones 4 → 5 y 7 → 8
            CREATE TABLE propietario (id INTEGER PRIMARY KEY, moneda_liquidacion TEXT) STRICT; -- y la 5 → 6 (y la 12 → 13 la lee)
-           CREATE TABLE reserva (id INTEGER PRIMARY KEY) STRICT; -- y la 6 → 7
-           CREATE TABLE periodo (id INTEGER PRIMARY KEY, usd_cotizacion_fuente TEXT, fecha_cierre_reservas TEXT) STRICT; -- y la 8 → 9 (y la 13 → 14 las lee)
-           CREATE TABLE movimiento (id INTEGER PRIMARY KEY) STRICT; -- y la 11 → 12
-           CREATE TABLE liquidacion (id INTEGER PRIMARY KEY, depto_id INTEGER, conversion_ars INTEGER NOT NULL, saldo_final INTEGER NOT NULL) STRICT;
+           CREATE TABLE reserva (id INTEGER PRIMARY KEY, sincronizada_en TEXT) STRICT; -- y la 6 → 7 (y la 21 → 22 los sellos)
+           CREATE TABLE periodo (id INTEGER PRIMARY KEY, usd_cotizacion_fuente TEXT, fecha_cierre_reservas TEXT, estado TEXT, cerrado_en TEXT) STRICT; -- y la 8 → 9 (y la 13 → 14 las lee)
+           CREATE TABLE movimiento (id INTEGER PRIMARY KEY, creado_en TEXT) STRICT; -- y la 11 → 12
+           CREATE TABLE liquidacion (id INTEGER PRIMARY KEY, depto_id INTEGER, conversion_ars INTEGER NOT NULL, saldo_final INTEGER NOT NULL, calculada_en TEXT) STRICT;
+           CREATE TABLE sincronizacion (id INTEGER PRIMARY KEY, iniciada_en TEXT, terminada_en TEXT) STRICT;
            CREATE TABLE auditoria (id INTEGER PRIMARY KEY, fecha TEXT NOT NULL, pc TEXT NOT NULL, tabla TEXT NOT NULL, registro_id INTEGER,
              accion TEXT NOT NULL, antes_json TEXT, despues_json TEXT) STRICT; -- y la 15 → 16 la rehace
            INSERT INTO auditoria VALUES (1, '2026-04-02 10:00:00', 'PC-1', 'movimiento', 1, 'alta', NULL, '{}');
-           INSERT INTO liquidacion VALUES (1, NULL, 0, 500); PRAGMA user_version = 1;`);
+           INSERT INTO liquidacion VALUES (1, NULL, 0, 500, NULL); PRAGMA user_version = 1;`);
   v1.close();
   const db = abrirDb(ruta);
   assert.deepEqual({ ...(db.prepare('SELECT saldo_final_ars, saldo_final_usd, conversion_usd FROM liquidacion').get() as any) },
     { saldo_final_ars: 500, saldo_final_usd: 0, conversion_usd: 0 });
   assert.equal((db.prepare('SELECT pc FROM auditoria').get() as any).pc, 'PC-1');
+  assert.equal((db.prepare('SELECT fecha FROM auditoria').get() as any).fecha, '2026-04-02T10:00:00-03:00'); // 21 → 22
   db.close();
 });
 
@@ -578,4 +581,41 @@ test('ficha del depto y vencimientos por la API', () => {
     assert.equal(lista.status, 400);
     assert.match((await lista.json()).error, /No existe la lista/);
   });
+});
+
+test('migración 21 → 22: los sellos pasan a ISO con offset y los UTC a hora local', (t) => {
+  const ruta = join(temporal(t), 'vieja.db');
+  const vieja = new DatabaseSync(ruta);
+  vieja.exec(readFileSync(new URL('../schema.sql', import.meta.url), 'utf8'));
+  vieja.exec(`
+    INSERT INTO periodo(mes, fecha_inicio, fecha_cierre_reservas, fecha_corte_gastos, fecha_pago, costo_hora_limpieza, servicio_limpieza,
+      servicio_lavanderia, prestamo_blanqueria, gestion_operativa, mantenimiento, tarifa_base, adicional_huesped, cargo_tramo_1, cargo_tramo_2, cm_fee_usd)
+      VALUES ('2026-04','2026-04-01','2026-05-01','2026-04-28','2026-05-10',1,1,1,1,1,1,1,1,1,1,0);
+    INSERT INTO movimiento(periodo_id, fecha, tipo, importe_ars, creado_en) VALUES (1, '2026-04-02', 'gasto', -1, '2026-05-20 15:00:00');
+    INSERT INTO movimiento(periodo_id, fecha, tipo, importe_ars, creado_en) VALUES (1, '2026-04-03', 'gasto', -1, '2026-05-21 10:00:00');
+    UPDATE periodo SET estado = 'cerrado', cerrado_en = '2026-05-20 15:00:00';
+    INSERT INTO auditoria(fecha, pc, tabla, registro_id, accion, despues_json) VALUES ('2026-05-20 15:00:00', 'PC Uno', 'periodo', 1, 'alta', '{"importacion":"excel"}');
+    INSERT INTO terminal(nombre, token_hash, creada_en) VALUES ('Terminal Uno', 'h', '2026-06-01 09:30:00');
+    INSERT INTO conversacion_ia(pc, titulo, mensajes_json, creada_en, actualizada_en) VALUES ('PC Uno', 'x', '[]', '2026-10-01T02:30:00.000Z', '2026-10-01T02:30:00.000Z');
+    PRAGMA user_version = 21;`);
+  vieja.close();
+
+  const db = abrirDb(ruta);
+  const uno = (sql: string) => Object.values(db.prepare(sql).get()!)[0];
+  assert.equal(uno('SELECT creado_en FROM movimiento WHERE id = 1'), '2026-05-20T12:00:00-03:00'); // Excel: era UTC
+  assert.equal(uno('SELECT creado_en FROM movimiento WHERE id = 2'), '2026-05-21T10:00:00-03:00'); // ya era local
+  assert.equal(uno('SELECT cerrado_en FROM periodo'), '2026-05-20T12:00:00-03:00');
+  assert.equal(uno('SELECT estado FROM periodo'), 'cerrado');
+  assert.equal(uno('SELECT fecha FROM auditoria'), '2026-05-20T12:00:00-03:00');
+  assert.equal(uno('SELECT creada_en FROM terminal'), '2026-06-01T09:30:00-03:00');
+  assert.equal(uno('SELECT revocada_en FROM terminal'), null);
+  assert.equal(uno('SELECT creada_en FROM conversacion_ia'), '2026-09-30T23:30:00-03:00');
+  db.close();
+});
+
+test('sello: ISO 8601 con el offset de la PC, que vuelve al mismo instante', () => {
+  const d = new Date(2026, 9, 24, 15, 30, 5);
+  const s = sello(d);
+  assert.match(s, /^2026-10-24T15:30:05[+-]\d\d:\d\d$/);
+  assert.equal(Date.parse(s), d.getTime());
 });
