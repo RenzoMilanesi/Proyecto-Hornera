@@ -81,6 +81,8 @@ Revisión `improve deep` del plan 066 (`548d5f2..a0accf2`, 2026-10-23): sin hall
 
 Revisión `improve deep` de los sellos con offset (`65956b9`, v0.47.0, 2026-10-24): plan 067. Descartado: `json_extract` de la migración sobre `auditoria.despues_json` (siempre lo escribe `JSON.stringify`); un sello local que coincida justo con el de una importación del Excel (improbable y la diferencia es de 3 h en un dato informativo); offset fijo `-03:00` en la migración contra el de la PC en `sello()` (Argentina no tiene horario de verano).
 
+Revisión `improve deep` del plan 067 (`fca5b75`, v0.47.1, 2026-10-24): sin hallazgos. Verificado: `auditoria` no está entre las tablas ocultas al asistente (`OCULTAS` = terminal, configuracion), así que nombrarla no filtra nada; `substr` pasa el authorizer de `consulta_sql`; la descripción sigue fija entre preguntas (no rompe el caché) y suma unos 60 tokens.
+
 Plan 061: definido con `grill-me` el 2026-10-23 (sobre `7baa8c5`). La fase 2 (acciones con confirmación) va en un plan aparte, después de probar la fase 1.
 
 Plan 060: revisión `improve deep` del grupo HORNERA y Resumen Hornera (definido con `grill-me` el 2026-10-23, sobre `dcc7481`). Descartado: el Disponible no descuenta vencimientos (no tienen importe cargado; la pantalla lo aclara); lo pendiente a propietarios mira solo el último mes cerrado (lo anterior ya se arrastró a ese saldo); NC de factura de crédito electrónica 203/208/213 (marcado `ponytail:` en `SQL_FACTURADO`, Hornera no las usa); evolución recalcula cada mes cerrado (pocos meses, como en el Resumen).
