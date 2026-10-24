@@ -623,3 +623,20 @@ test('sello: ISO 8601 con el offset de la PC, que vuelve al mismo instante', () 
   assert.match(s, /^2026-10-24T15:30:05[+-]\d\d:\d\d$/);
   assert.equal(Date.parse(s), d.getTime());
 });
+
+test('lo guardado desde "Editar" de una tarjeta del asistente queda "con IA" y la propuesta, editada (plan 068)', () => {
+  const db = abrirDb(':memory:');
+  periodo(db, '2026-05', '2026-05-01', '2026-06-01');
+  db.exec(`INSERT INTO conversacion_ia(pc, titulo, mensajes_json, creada_en, actualizada_en) VALUES ('PC Uno', 'x', '[]', 'x', 'x');
+           INSERT INTO propuesta_ia(conversacion_id, tipo, accion, datos_json, creada_en) VALUES (1, 'movimiento', 'alta', '{}', 'x')`);
+  return conApi(db, async (base) => {
+    const mov = { mes: '2026-05', fecha: '2026-05-03', depto: null, tipo: 'gasto', concepto: 'Viáticos', detalle: null, importe_ars: -100000, importe_usd: 0, cuenta_id: null };
+    const guardar = (headers: Record<string, string>) =>
+      fetch(`${base}/api/movimientos`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(mov) });
+    assert.equal((await guardar({})).status, 200);
+    assert.equal((await guardar({ 'X-Hornera-Ia': '1' })).status, 200);
+    const filas = await (await fetch(`${base}/api/auditoria?mes=${sello().slice(0, 7)}`)).json();
+    assert.deepEqual(filas.filter((f: any) => f.tipo === 'Movimiento').map((f: any) => f.conIa), [true, false]); // la más nueva primero
+    assert.equal((db.prepare('SELECT estado FROM propuesta_ia').get() as any).estado, 'editada');
+  });
+});

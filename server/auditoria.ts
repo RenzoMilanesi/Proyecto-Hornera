@@ -9,6 +9,8 @@ type Accion = 'alta' | 'modificacion' | 'anulacion' | 'cierre' | 'reapertura' | 
 
 // Nombre de la terminal que hizo el pedido (lo pone server/terminales.ts); sin terminal, esta PC.
 export const pcActual = new AsyncLocalStorage<string>();
+// Lo confirmado desde el asistente (plan 068): la auditoría lo marca "con IA".
+export const conIa = new AsyncLocalStorage<boolean>();
 
 // Nombre de la PC servidor: el que se le pone en Terminales o, si no, el de Windows.
 export const nombrePc = (db: DatabaseSync) =>
@@ -33,8 +35,9 @@ export function nombrarPc(db: DatabaseSync, nombre: unknown) {
 }
 
 export function auditar(db: DatabaseSync, tabla: string, id: number | null, accion: Accion, antes: unknown, despues: unknown) {
-  db.prepare(`INSERT INTO auditoria(fecha, pc, tabla, registro_id, accion, antes_json, despues_json) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-    .run(sello(), pcActual.getStore() ?? nombrePc(db), tabla, id, accion, antes == null ? null : JSON.stringify(antes), despues == null ? null : JSON.stringify(despues));
+  db.prepare(`INSERT INTO auditoria(fecha, pc, tabla, registro_id, accion, antes_json, despues_json, con_ia) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(sello(), pcActual.getStore() ?? nombrePc(db), tabla, id, accion, antes == null ? null : JSON.stringify(antes), despues == null ? null : JSON.stringify(despues),
+      conIa.getStore() ? 1 : 0);
 }
 
 // ---- Pantalla Herramientas → Auditoría: los cambios de un mes, legibles.
@@ -106,7 +109,7 @@ function cambios(accion: Accion, antes: Record<string, unknown> | null, despues:
     .map(([k, v]) => `${etiqueta(k)}: ${k === 'importe' && typeof v === 'number' ? plata(v, fila.moneda === 'USD') : valor(k, v, n)}`).join(' · ');
 }
 
-export interface FilaAuditoria { id: number; fecha: string; pc: string; tipo: string; referencia: string | null; accion: string; cambios: string }
+export interface FilaAuditoria { id: number; fecha: string; pc: string; conIa: boolean; tipo: string; referencia: string | null; accion: string; cambios: string }
 
 export function listarAuditoria(db: DatabaseSync, mes: string): FilaAuditoria[] {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) throw new Error(`Mes inválido: "${mes}" (se espera AAAA-MM).`);
@@ -118,7 +121,7 @@ export function listarAuditoria(db: DatabaseSync, mes: string): FilaAuditoria[] 
   };
   // A qué se refiere cada renglón, con los datos de hoy (el depto y concepto del movimiento, el código de la reserva…).
   const filas = db.prepare(`
-    SELECT a.id, a.fecha, a.pc, a.tabla, a.accion, a.antes_json, a.despues_json, CASE a.tabla
+    SELECT a.id, a.fecha, a.pc, a.con_ia, a.tabla, a.accion, a.antes_json, a.despues_json, CASE a.tabla
       WHEN 'movimiento' THEN (SELECT COALESCE(d.codigo || ' · ', '') || COALESCE(c.nombre, m.tipo) FROM movimiento m
         LEFT JOIN depto d ON d.id = m.depto_id LEFT JOIN concepto c ON c.id = m.concepto_id WHERE m.id = a.registro_id)
       WHEN 'reserva' THEN (SELECT d.codigo || ' · ' || r.codigo FROM reserva r JOIN depto d ON d.id = r.depto_id WHERE r.id = a.registro_id)
@@ -135,9 +138,9 @@ export function listarAuditoria(db: DatabaseSync, mes: string): FilaAuditoria[] 
       WHEN 'liquidacion_limpieza' THEN (SELECT strftime('%d/%m', desde) || '–' || strftime('%d/%m/%Y', hasta) FROM liquidacion_limpieza WHERE id = a.registro_id)
     END AS referencia
     FROM auditoria a WHERE a.fecha >= ? AND a.fecha < date(?, '+1 month') ORDER BY a.id DESC`)
-    .all(`${mes}-01`, `${mes}-01`) as { id: number; fecha: string; pc: string; tabla: string; accion: Accion; antes_json: string | null; despues_json: string | null; referencia: string | null }[];
+    .all(`${mes}-01`, `${mes}-01`) as { id: number; fecha: string; pc: string; con_ia: number; tabla: string; accion: Accion; antes_json: string | null; despues_json: string | null; referencia: string | null }[];
   return filas.map((f) => ({
-    id: f.id, fecha: f.fecha, pc: f.pc, tipo: TIPOS[f.tabla] ?? f.tabla, referencia: f.referencia, accion: ACCIONES[f.accion] ?? f.accion,
+    id: f.id, fecha: f.fecha, pc: f.pc, conIa: f.con_ia === 1, tipo: TIPOS[f.tabla] ?? f.tabla, referencia: f.referencia, accion: ACCIONES[f.accion] ?? f.accion,
     cambios: cambios(f.accion, f.antes_json && JSON.parse(f.antes_json), f.despues_json && JSON.parse(f.despues_json), n),
   }));
 }

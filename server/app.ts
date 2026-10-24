@@ -12,7 +12,7 @@ import { crearClienteStays, URL_STAYS, type Credenciales } from './stays/cliente
 import { sincronizarMes } from './stays/sync.ts';
 import { SQL_EN_PERIODO } from './periodo.ts';
 import { compararConExcel } from './liquidacion/comparar.ts';
-import { auditar, listarAuditoria, nombrePc, pcActual } from './auditoria.ts';
+import { auditar, conIa, listarAuditoria, nombrePc, pcActual } from './auditoria.ts';
 import { actualizarCotizacion, type Fetch } from './cotizacion.ts';
 import { anularMovimiento, crearMovimiento, editarMovimiento, listarMovimientos, transferir } from './movimientos.ts';
 import { cerrarPeriodo, reabrirPeriodo } from './liquidacion/cierre.ts';
@@ -30,6 +30,7 @@ import { agregar, borrar, editar, ficha, guardarNotas, vencimientos } from './fi
 import { liquidacionDelMes, listarCuentas, listarDeptos, listarPeriodos, listarPropietarios, reservasDelMes } from './consultas.ts';
 import { borrarConversacionIa, clienteAnthropic, configIa, conversacionesIa, conversacionIa, gastoIaMes, guardarConfigIa, preguntar, type AlmacenClaveIa, type ClienteIa } from './ia/asistente.ts';
 import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, soloLocal } from './terminales.ts';
+import { sello } from './sello.ts';
 
 // Dónde viven las credenciales de Stays. En Electron, cifradas con safeStorage
 // (DPAPI de Windows) fuera de la base: no viajan en los backups.
@@ -117,6 +118,16 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   });
   app.use(express.json());
   app.use('/api', autorizar(db));
+  // Guardado desde el formulario que abrió "Editar" en una tarjeta del asistente (plan 068): la auditoría lo marca
+  // "con IA" y, si salió bien, la propuesta queda editada.
+  app.use('/api', (req, res, next) => {
+    const propuesta = Number(req.headers['x-hornera-ia']);
+    if (!propuesta || req.method === 'GET') return next();
+    res.on('finish', () => {
+      if (res.statusCode < 400) db.prepare(`UPDATE propuesta_ia SET estado = 'editada', resuelta_en = ? WHERE id = ? AND estado = 'pendiente'`).run(sello(), propuesta);
+    });
+    conIa.run(true, next);
+  });
   rutasTerminales(app, db);
   if (carpetaBackups) rutasBackup(app, db, carpetaBackups, sistema);
 

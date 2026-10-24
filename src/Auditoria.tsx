@@ -56,7 +56,7 @@ export function Auditoria() {
       <Table<FilaAuditoria> rowKey="id" size="small" sticky tableLayout="fixed" loading={!filas && !error} dataSource={visibles}
         pagination={{ pageSize: 100, hideOnSinglePage: true }} locale={{ emptyText: 'No hubo cambios en este mes.' }} columns={[
           { title: 'Fecha', dataIndex: 'fecha', width: 105, render: (v: string) => <span style={{ whiteSpace: 'nowrap' }}>{fecha(v)}</span> },
-          { title: 'Quién', dataIndex: 'pc', width: 120 },
+          { title: 'Quién', dataIndex: 'pc', width: 120, render: (v: string, f) => f.conIa ? <>{v}<br /><Tag color="purple">con IA</Tag></> : v },
           { title: 'Qué', key: 'que', width: 210, render: (_: unknown, f) => <><b>{f.tipo}</b>{f.referencia && <><br /><Typography.Text type="secondary">{f.referencia}</Typography.Text></>}</> },
           { title: 'Acción', dataIndex: 'accion', width: 125, render: (v: string) => <Tag color={COLORES[v]}>{v}</Tag> },
           { title: 'Qué cambió', dataIndex: 'cambios', render: (v: string) => <Cambios texto={v} /> },

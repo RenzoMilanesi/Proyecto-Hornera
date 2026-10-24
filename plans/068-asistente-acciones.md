@@ -80,6 +80,8 @@ mismas funciones (y validaciones) que usan las pantallas.
 - `server/app.ts`: middleware que, si viene `X-Hornera-Ia`, corre el pedido dentro de `conIa.run(true, …)` y, al terminar
   bien, marca esa propuesta `editada`. Revisar que el chequeo de Sec-Fetch-Site/Host siga aceptando el header.
 - Test: un movimiento creado con el header queda `con_ia = 1`; sin header, 0.
+- **Hecho (v0.48.1):** `conIa` en `server/auditoria.ts`, middleware en `server/app.ts` (también marca la propuesta
+  `editada`) y la etiqueta "con IA" en la columna Quién de Herramientas → Auditoría.
 
 ### 3. Comprobantes en Movimientos (sin IA)
 - Rutas: `POST /api/adjuntos` (`express.raw`, límite 6 MB, valida tipo por los primeros bytes, no por el nombre),
