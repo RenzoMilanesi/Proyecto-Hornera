@@ -71,12 +71,15 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 064 | [Lo que devuelve una herramienta del asistente tiene tope de tamaño](064-ia-tope-tamano-resultados.md) | P2 | S | — | HECHO (v0.42.6) |
 | 065 | [El costo se ve también cuando contesta el modelo de respaldo](065-ia-precios-modelos-respaldo.md) | P3 | S | — | HECHO (v0.42.7) |
 | 066 | [Bajar el costo de cada pregunta al asistente](066-ia-costo-por-pregunta.md) | P2 | S | — | HECHO (v0.46.0; falta probar con la API real) |
+| 067 | [El asistente sabe que los sellos llevan offset](067-ia-sellos-con-offset.md) | P3 | S | — | HECHO (v0.47.1) |
 
 Planes 062–065: revisión `improve deep` de los pasos 0–4 del plan 061 (`fba59f6`, 2026-10-23), a hacer antes del paso 5. Descartado: `dbstat` (solo tamaños de páginas, no datos), `sqlite_dbpage` (no está compilado), `pragma_table_info` y `load_extension` (bloqueados por el authorizer, probado); claves de deptos guardadas en `conversacion_ia` (ya están en la misma base, en `depto_clave`); el esquema de `consulta_sql` se arma en cada pregunta (unas 60 consultas a `sqlite_master`, despreciable); tercera copia del patrón `safeStorage` en `electron/main.ts` (no vale abstraerlo).
 
 Revisión `improve deep` de los pasos 5, 6 y 10 del plan 061 (`9d573eb..e5c69b7`, 2026-10-23): sin hallazgos que justifiquen un plan. Descartado: dos mensajes `user` seguidos tras el tope de 10 vueltas (la API los une); el candado de 409 se toma antes de validar que la conversación sea de la PC (solo demora a quien pregunta por una ajena); `mesVisto` escrito al dibujar (App siempre se redibuja antes que la pantalla); timeout del SDK sin streaming (16000 tokens estiman 450 s, debajo de los 10 min); una terminal re-emparejada con el mismo nombre ve el historial de la anterior (igual que la auditoría: el usuario es el nombre de la PC).
 
 Revisión `improve deep` del plan 066 (`548d5f2..a0accf2`, 2026-10-23): sin hallazgos que justifiquen un plan. Descartado: esfuerzo por mensaje (`mid-conversation-output-config`) para "Pensar más" en la misma conversación (beta, y deja el esfuerzo alto pegado a lo que sigue); recargar el manual sin reiniciar (cambia solo con una versión nueva). Queda para el paso 9 del 061: ver con la API real que las preguntas de uso llamen a `manual` y no contesten de memoria.
+
+Revisión `improve deep` de los sellos con offset (`65956b9`, v0.47.0, 2026-10-24): plan 067. Descartado: `json_extract` de la migración sobre `auditoria.despues_json` (siempre lo escribe `JSON.stringify`); un sello local que coincida justo con el de una importación del Excel (improbable y la diferencia es de 3 h en un dato informativo); offset fijo `-03:00` en la migración contra el de la PC en `sello()` (Argentina no tiene horario de verano).
 
 Plan 061: definido con `grill-me` el 2026-10-23 (sobre `7baa8c5`). La fase 2 (acciones con confirmación) va en un plan aparte, después de probar la fase 1.
 

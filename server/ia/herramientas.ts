@@ -158,7 +158,10 @@ function esquema(db: DatabaseSync) {
 export function herramientas(db: DatabaseSync): Herramienta[] {
   const sql = h('consulta_sql',
     `SELECT de solo lectura sobre la base SQLite, para lo que ninguna otra herramienta cubre. Máximo ${MAX_FILAS} filas y ${MAX_MS / 1000} s. `
-    + `Plata en CENTAVOS (enteros), fechas YYYY-MM-DD, meses YYYY-MM. Para "reservas de un mes" usar la herramienta reservas: `
+    + `Plata en CENTAVOS (enteros), fechas YYYY-MM-DD, meses YYYY-MM. `
+    + `Los sellos de cuándo se hizo algo (columnas *_en y auditoria.fecha) son ISO con offset, p. ej. 2026-10-24T23:30:00-03:00: `
+    + `para el día o el mes local usar substr(col, 1, 10) o substr(col, 1, 7), nunca date()/strftime() (las pasan a UTC). `
+    + `Para "reservas de un mes" usar la herramienta reservas: `
     + `la regla del período no es trivial en SQL. Evitá SELECT * en reserva y pago (raw_json es grande): elegí columnas. Los movimientos anulados tienen estado = 'anulado' y no cuentan.\n\nTablas:\n${esquema(db)}`,
     { sql: { type: 'string', description: 'Una sola sentencia SELECT (o WITH … SELECT)' } },
     (d, e) => consultaSql(d, s(e.sql)));

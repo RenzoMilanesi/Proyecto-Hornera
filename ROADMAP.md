@@ -89,7 +89,7 @@ en la LAN (fase 5d), que sigue a testear.
    defecto y "Pensar más" al pie de la última respuesta (la repite con esfuerzo alto en una conversación nueva). v0.46.0: Herramientas → Asistente muestra el gasto del mes (v0.46.1: también el panel). v0.46.2: las respuestas se ven como en la app de Claude
 . **Sellos con zona horaria** — **A testear** (v0.47.0; 2026-10-24): los campos "cuándo se hizo" (`*_en`, fecha de la auditoría) se guardan
    en ISO 8601 con offset (`2026-10-24T15:30:00-03:00`) para cruzarlos con otras apps o APIs. La migración (esquema 22) unifica
-   los viejos: hora local y UTC sin marca (Stays, importación del Excel, asistente) quedaban mezclados, con 3 h de diferencia.
+   los viejos: hora local y UTC sin marca (Stays, importación del Excel, asistente) quedaban mezclados, con 3 h de diferencia. v0.47.1: el asistente sabe que llevan offset (plan 067).
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.
    - Terminales → "Nombre de esta PC" en el servidor (se guarda en `configuracion`); reemplaza al nombre de Windows en la auditoría.
