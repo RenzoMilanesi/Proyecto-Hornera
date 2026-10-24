@@ -91,7 +91,26 @@ Reglas:
 - El primer renglón de cada pregunta dice en qué pantalla y mes está la persona, y la fecha de hoy.`;
 
 // esfuerzo: el de la configuración salvo "Pensar más", que repite la pregunta con alto en una conversación nueva (plan 066).
-export interface Pregunta { conversacion_id?: number | null; pregunta: string; pantalla: string; mes: string; esfuerzo?: string }
+// adjuntos: comprobantes subidos al panel (plan 068), por id.
+export interface Pregunta { conversacion_id?: number | null; pregunta: string; pantalla: string; mes: string; esfuerzo?: string; adjuntos?: number[] }
+
+// El historial guarda el comprobante como un renglón "[Comprobante adjunto #id: nombre]"; la imagen o el PDF se arman
+// desde la tabla en cada pedido. Así mensajes_json no crece y el prefijo es siempre el mismo (caché).
+const ADJUNTO = /^\[Comprobante adjunto #(\d+): [^\]]*\]$/gm;
+function conAdjuntos(db: DatabaseSync, mensajes: Anthropic.Beta.BetaMessageParam[]): Anthropic.Beta.BetaMessageParam[] {
+  return mensajes.map((m) => {
+    if (m.role !== 'user' || typeof m.content !== 'string' || !m.content.match(ADJUNTO)) return m;
+    const bloques = [...m.content.matchAll(ADJUNTO)].map(([, id]): Anthropic.Beta.BetaContentBlockParam => {
+      const a = db.prepare('SELECT tipo, datos FROM adjunto WHERE id = ?').get(Number(id)) as { tipo: string; datos: Uint8Array } | undefined;
+      if (!a) return { type: 'text', text: `(El comprobante #${id} ya no está en la app.)` };
+      const data = Buffer.from(a.datos).toString('base64');
+      return a.tipo === 'application/pdf'
+        ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data } }
+        : { type: 'image', source: { type: 'base64', media_type: a.tipo as 'image/jpeg' | 'image/png' | 'image/webp', data } };
+    });
+    return { role: 'user', content: [...bloques, { type: 'text', text: m.content }] };
+  });
+}
 export interface Usada { id: string; nombre: string; entrada: unknown; filas: number | null; error?: string }
 
 // Errores de la API en palabras de la oficina. Del más específico al más general (APIConnectionError hereda de APIError).
@@ -130,7 +149,12 @@ export async function preguntar(db: DatabaseSync, cliente: ClienteIa, pc: string
   const resueltas = conv ? db.prepare(`SELECT datos_json, estado, resultado FROM propuesta_ia WHERE conversacion_id = ? AND estado <> 'pendiente'
     AND resuelta_en > (SELECT max(creada_en) FROM respuesta_ia WHERE conversacion_id = ?) ORDER BY id`).all(conv.id, conv.id) as { datos_json: string; estado: string; resultado: string | null }[] : [];
   const tarjetas = resueltas.map((r) => `«${JSON.parse(r.datos_json).titulo}» ${r.estado}${r.estado === 'fallida' && r.resultado ? ` (${r.resultado})` : ''}`).join('; ');
-  mensajes.push({ role: 'user', content: `[Pantalla: ${p.pantalla || '—'} · Mes: ${p.mes || '—'} · Hoy: ${hoy}${tarjetas ? ` · Tarjetas: ${tarjetas}` : ''}]\n\n${p.pregunta.trim()}` });
+  const adjuntos = (p.adjuntos ?? []).map((id) => {
+    const a = db.prepare('SELECT id, nombre FROM adjunto WHERE id = ?').get(Number(id)) as { id: number; nombre: string } | undefined;
+    if (!a) throw new Error('No existe el comprobante adjunto: volvé a subirlo.');
+    return `\n[Comprobante adjunto #${a.id}: ${a.nombre.replace(/[\]\n]/g, ' ')}]`;
+  }).join('');
+  mensajes.push({ role: 'user', content: `[Pantalla: ${p.pantalla || '—'} · Mes: ${p.mes || '—'} · Hoy: ${hoy}${tarjetas ? ` · Tarjetas: ${tarjetas}` : ''}]\n\n${p.pregunta.trim()}${adjuntos ? `\n${adjuntos}` : ''}` });
 
   const tokens = { entrada: 0, cache: 0, salida: 0 };
   const usadas: Usada[] = [];
@@ -151,7 +175,7 @@ export async function preguntar(db: DatabaseSync, cliente: ClienteIa, pc: string
         cache_control: { type: 'ephemeral' }, // la conversación también se reusa en la pregunta siguiente
         tools,
         system,
-        messages: mensajes,
+        messages: conAdjuntos(db, mensajes),
         // Si un clasificador rechaza la pregunta, la API la reintenta en otro modelo (Haiku no lo soporta).
         ...(configurado === 'claude-haiku-5-5'
           ? { betas: ['thinking-binding-controls-2026-08-01'] }

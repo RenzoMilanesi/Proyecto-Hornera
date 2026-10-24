@@ -135,10 +135,10 @@ export function proponerGastoPersonal(db: DatabaseSync, e: Record<string, unknow
 
 // ---- Ficha del depto
 
-const LISTAS: Record<string, { tabla: string; nombre: string; campos: string[] }> = {
-  servicios: { tabla: 'depto_servicio', nombre: 'servicio', campos: ['concepto', 'cuenta', 'titular', 'paga', 'dia', 'cada_meses', 'mes_desde', 'nota'] },
-  claves: { tabla: 'depto_clave', nombre: 'clave', campos: ['nombre', 'usuario', 'clave', 'nota'] },
-  contactos: { tabla: 'depto_contacto', nombre: 'contacto', campos: ['nombre', 'rol', 'telefono', 'nota'] },
+const LISTAS: Record<string, { tabla: string; nombre: string; nuevo: string; campos: string[] }> = {
+  servicios: { tabla: 'depto_servicio', nombre: 'servicio', nuevo: 'Nuevo servicio', campos: ['concepto', 'cuenta', 'titular', 'paga', 'dia', 'cada_meses', 'mes_desde', 'nota'] },
+  claves: { tabla: 'depto_clave', nombre: 'clave', nuevo: 'Nueva clave', campos: ['nombre', 'usuario', 'clave', 'nota'] },
+  contactos: { tabla: 'depto_contacto', nombre: 'contacto', nuevo: 'Nuevo contacto', campos: ['nombre', 'rol', 'telefono', 'nota'] },
 };
 const vistaFila = (l: (typeof LISTAS)[string], f: Record<string, unknown>): [string, string][] =>
   l.campos.map((k) => [k.charAt(0).toUpperCase() + k.slice(1).replace('_', ' '), txt(f[k]) ?? '—']);
@@ -171,12 +171,12 @@ export function proponerFicha(db: DatabaseSync, e: Record<string, unknown>): Pro
   };
   if (accion === 'alta') {
     ensayar(db, () => agregar(db, lista, deptoId, campos));
-    return { tipo: 'ficha', accion, args: { lista, depto_id: deptoId, campos }, antes: null, titulo: `Nuevo ${l.nombre} en ${codigo}`, campos: vistaFila(l, campos) };
+    return { tipo: 'ficha', accion, args: { lista, depto_id: deptoId, campos }, antes: null, titulo: `${l.nuevo} en ${codigo}`, campos: vistaFila(l, campos) };
   }
   if (accion === 'edicion') {
     const antes = actual();
     ensayar(db, () => editar(db, lista, Number(e.id), campos));
-    return { tipo: 'ficha', accion, args: { lista, id: Number(e.id), campos }, antes, titulo: `Corregir ${l.nombre} de ${codigo}`, campos: comparar(vistaFila(l, campos), vistaFila(l, antes)) };
+    return { tipo: 'ficha', accion, args: { lista, id: Number(e.id), depto_id: deptoId, campos }, antes, titulo: `Corregir ${l.nombre} de ${codigo}`, campos: comparar(vistaFila(l, campos), vistaFila(l, antes)) };
   }
   if (accion === 'borrado') {
     const antes = actual();

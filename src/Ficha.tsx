@@ -5,13 +5,13 @@ import { Alert, AutoComplete, Button, Col, Form, Input, InputNumber, Modal, Popc
 import type { TableColumnsType } from 'antd';
 import { enviar, get, useUnaVez } from './api.ts';
 
-type Lista = 'servicios' | 'claves' | 'contactos';
+export type Lista = 'servicios' | 'claves' | 'contactos';
 interface Servicio { id: number; concepto: string; cuenta: string | null; titular: string | null; paga: 'hornera' | 'propietario';
   dia: number | null; cada_meses: number | null; mes_desde: number | null; nota: string | null }
 interface Clave { id: number; nombre: string; usuario: string | null; clave: string | null; nota: string | null }
 interface Contacto { id: number; nombre: string; rol: string | null; telefono: string | null; nota: string | null }
 interface DatosFicha { notas: string | null; servicios: Servicio[]; claves: Clave[]; contactos: Contacto[] }
-type Renglon = Servicio | Clave | Contacto;
+export type Renglon = Servicio | Clave | Contacto;
 
 export const PERIODOS: Record<number, string> = { 1: 'Mensual', 2: 'Bimestral', 3: 'Trimestral', 4: 'Cuatrimestral', 6: 'Semestral', 12: 'Anual' };
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -88,8 +88,9 @@ export function Ficha({ depto }: { depto: { id: number; codigo: string; nombre: 
   );
 }
 
-function FormRenglon({ depto, abierto, alCerrar }: {
-  depto: { id: number; codigo: string; nombre: string }; abierto?: { lista: Lista; fila?: Renglon }; alCerrar: (guardado: boolean) => void;
+// abierto.inicial: un renglón nuevo ya completo (tarjeta del asistente, plan 068).
+export function FormRenglon({ depto, abierto, alCerrar }: {
+  depto: { id: number; codigo: string; nombre: string }; abierto?: { lista: Lista; fila?: Renglon; inicial?: Record<string, unknown> }; alCerrar: (guardado: boolean) => void;
 }) {
   const [form] = Form.useForm();
   const [error, setError] = useState<string>();
@@ -100,7 +101,7 @@ function FormRenglon({ depto, abierto, alCerrar }: {
     if (!abierto) return;
     setError(undefined);
     form.resetFields();
-    const f = abierto.fila as Servicio | undefined;
+    const f = (abierto.fila ?? abierto.inicial) as Servicio | undefined;
     form.setFieldsValue(f ? { ...f, mes_desde: f.cada_meses === 1 ? undefined : f.mes_desde } : abierto.lista === 'servicios' ? { paga: 'hornera' } : {});
     if (abierto.lista === 'servicios') get<{ nombre: string }[]>('conceptos').then((cs) => setConceptos(cs.map((c) => c.nombre)), () => {});
   }, [abierto, form]);
@@ -184,7 +185,7 @@ function FormRenglon({ depto, abierto, alCerrar }: {
   );
 }
 
-function FormNotas({ depto, abierto, notas, alCerrar }: {
+export function FormNotas({ depto, abierto, notas, alCerrar }: {
   depto: { id: number; codigo: string; nombre: string }; abierto: boolean; notas: string | null; alCerrar: (guardado: boolean) => void;
 }) {
   const [valor, setValor] = useState('');

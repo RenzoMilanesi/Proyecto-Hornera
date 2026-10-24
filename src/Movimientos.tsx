@@ -33,9 +33,9 @@ const COLOR_TIPO: Record<string, string> = {
 };
 const importe = (v: number, moneda?: 'USD') => (v ? <Typography.Text type={v < 0 ? 'danger' : undefined}>{pesos(v, moneda)}</Typography.Text> : '');
 
-// `depto`: el que se propone para uno nuevo (desde el detalle de la liquidación).
-export function FormMovimiento({ abierto, mes, editando, depto, deptos, cuentas, conceptos, alCerrar }: {
-  abierto: boolean; mes: string; editando?: Movimiento; depto?: string; deptos: string[]; cuentas: Cuenta[]; conceptos: string[];
+// `depto`: el que se propone para uno nuevo (desde el detalle de la liquidación). `inicial`: uno nuevo ya completo (tarjeta del asistente).
+export function FormMovimiento({ abierto, mes, editando, inicial, depto, deptos, cuentas, conceptos, alCerrar }: {
+  abierto: boolean; mes: string; editando?: Movimiento; inicial?: Partial<Movimiento>; depto?: string; deptos: string[]; cuentas: Cuenta[]; conceptos: string[];
   alCerrar: (guardado: boolean) => void;
 }) {
   const [form] = Form.useForm();
@@ -48,14 +48,14 @@ export function FormMovimiento({ abierto, mes, editando, depto, deptos, cuentas,
   useEffect(() => {
     if (!abierto) return;
     setError(undefined);
-    const m = editando;
+    const m = editando ?? (inicial as Movimiento | undefined);
     setAdjunto(m?.adjunto_id ?? null);
     const importe = m ? (m.importe_ars || m.importe_usd) : 0;
     form.setFieldsValue(m ? {
       fecha: m.fecha, depto: m.depto ?? EMPRESA, tipo: m.tipo, concepto: m.concepto ?? '', detalle: m.detalle ?? '',
       moneda: m.importe_usd ? 'USD' : 'ARS', importe: Math.abs(importe) / 100, signo: importe < 0 ? -1 : 1, cuenta_id: m.cuenta_id,
     } : { fecha: fechaPorDefecto(mes), depto, tipo: 'gasto', concepto: '', detalle: '', moneda: 'ARS', importe: null, signo: -1, cuenta_id: null });
-  }, [abierto, editando, depto, form, mes]);
+  }, [abierto, editando, inicial, depto, form, mes]);
   useEffect(() => { if (tipo && SIGNO_FIJO[tipo]) form.setFieldValue('signo', SIGNO_FIJO[tipo]); }, [tipo, form]);
   // La cuenta tiene que ser de la moneda del importe.
   useEffect(() => {

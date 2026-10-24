@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Button, Card, Drawer, Form, Input, Select, Space, Typography } from 'antd';
+import { Alert, Button, Card, Drawer, Form, Input, Select, Space, Tag, Typography } from 'antd';
 import { Marked } from 'marked';
-import { enviar, get } from './api.ts';
+import { enviar, get, propuestaEnEdicion, subirComprobante } from './api.ts';
+import { FormMovimiento, type Cuenta } from './Movimientos.tsx';
+import { FormGastoAjeno } from './GastosAjenos.tsx';
+import { FormNotas, FormRenglon, type Lista } from './Ficha.tsx';
 
 interface Config { modelo: string; esfuerzo: string }
 
@@ -98,7 +101,12 @@ export function ConfigAsistente() {
 // ---- Panel del asistente (plan 061 paso 6): un Drawer abrible desde cualquier pantalla.
 
 interface Usada { id: string; nombre: string; entrada: Record<string, unknown>; filas: number | null; error?: string }
-interface Turno { pregunta: string; texto: string; modelo?: string; esfuerzo?: string; costo?: number | null; herramientas?: Usada[] }
+// Una tarjeta: lo que el asistente propone hacer (plan 068). Se guarda con Confirmar o con el formulario de Editar.
+interface Propuesta {
+  id: number; tipo: 'movimiento' | 'gasto_personal' | 'ficha' | 'mes'; accion: string; titulo: string; campos: [string, string, string?][];
+  args: Record<string, any>; estado: string; resultado: string | null;
+}
+interface Turno { pregunta: string; texto: string; modelo?: string; esfuerzo?: string; costo?: number | null; herramientas?: Usada[]; propuestas?: Propuesta[] }
 interface Conversacion { id: number; titulo: string }
 
 // El mes que muestra la pantalla actual: lo escribe cada pantalla con selector de mes y App lo borra al cambiar de sección.
@@ -156,7 +164,65 @@ function Pie({ t, pensarMas }: { t: Turno; pensarMas?: () => void }) {
 
 const textoError = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-export function PanelAsistente({ abierto, alCerrar, pantalla }: { abierto: boolean; alCerrar: () => void; pantalla: string }) {
+const ESTADOS: Record<string, [string, string]> = {
+  confirmada: ['green', 'Guardada'], editada: ['blue', 'Guardada desde el formulario'], descartada: ['default', 'Descartada'], fallida: ['red', 'No se guardó'],
+};
+// Editar abre el formulario de la pantalla: solo para cargar o corregir (anular o borrar no tienen formulario; el mes, tampoco).
+const editable = (p: Propuesta) => p.tipo !== 'mes' && ['alta', 'edicion', 'notas'].includes(p.accion);
+
+function Tarjeta({ p, ocupada, confirmar, descartar, editar }: {
+  p: Propuesta; ocupada: boolean; confirmar: () => void; descartar: () => void; editar: () => void;
+}) {
+  const estado = ESTADOS[p.estado];
+  return (
+    <Card size="small" title={p.titulo} style={{ marginTop: 12, borderColor: p.estado === 'pendiente' ? '#A8461F' : undefined }}
+      extra={estado && <Tag color={estado[0]}>{estado[1]}</Tag>}>
+      <dl className="ficha" style={{ marginBottom: p.estado === 'pendiente' || p.resultado ? 12 : 0 }}>
+        {p.campos.map(([k, v, antes]) => (
+          <span key={k} style={{ display: 'contents' }}>
+            <dt>{k}</dt>
+            <dd>{antes != null ? <><Typography.Text delete type="secondary">{antes}</Typography.Text> → <b>{v}</b></> : v}</dd>
+          </span>
+        ))}
+      </dl>
+      {p.estado === 'fallida' && p.resultado && <Alert type="error" showIcon title={p.resultado} />}
+      {p.estado === 'pendiente' && (
+        <Space>
+          <Button type="primary" loading={ocupada} onClick={confirmar}>Confirmar</Button>
+          {editable(p) && <Button disabled={ocupada} onClick={editar}>Editar</Button>}
+          <Button type="text" disabled={ocupada} onClick={descartar}>Descartar</Button>
+        </Space>
+      )}
+    </Card>
+  );
+}
+
+// El formulario de la pantalla con lo propuesto, para corregirlo antes de guardar. Lo guardado queda "con IA".
+function EditorPropuesta({ p, alCerrar }: { p: Propuesta | null; alCerrar: (guardado: boolean) => void }) {
+  const [listas, setListas] = useState<{ deptos: { id: number; codigo: string; nombre: string }[]; cuentas: Cuenta[]; conceptos: string[] }>();
+  useEffect(() => {
+    if (!p) return;
+    Promise.all([get<{ id: number; codigo: string; nombre: string }[]>('deptos'), get<Cuenta[]>('cuentas'), get<{ nombre: string }[]>('conceptos')])
+      .then(([deptos, cuentas, conceptos]) => setListas({ deptos, cuentas, conceptos: conceptos.map((c) => c.nombre) }), () => alCerrar(false));
+  }, [p]);
+  if (!p || !listas) return null;
+  const a = p.args;
+  if (p.tipo === 'movimiento') {
+    return <FormMovimiento abierto mes={a.mes} editando={p.accion === 'edicion' ? (a as any) : undefined} inicial={p.accion === 'alta' ? a : undefined}
+      deptos={listas.deptos.map((d) => d.codigo)} cuentas={listas.cuentas} conceptos={listas.conceptos} alCerrar={alCerrar} />;
+  }
+  if (p.tipo === 'gasto_personal') {
+    return <FormGastoAjeno abierto mes={String(a.fecha).slice(0, 7)} editando={p.accion === 'edicion' ? (a as any) : undefined}
+      inicial={p.accion === 'alta' ? a : undefined} alCerrar={alCerrar} />;
+  }
+  const depto = listas.deptos.find((d) => d.id === a.depto_id);
+  if (!depto) return null;
+  if (p.accion === 'notas') return <FormNotas depto={depto} abierto notas={a.notas} alCerrar={alCerrar} />;
+  return <FormRenglon depto={depto} abierto={{ lista: a.lista as Lista, ...(p.accion === 'edicion' ? { fila: { id: a.id, ...a.campos } } : { inicial: a.campos }) }} alCerrar={alCerrar} />;
+}
+
+// alGuardar: después de confirmar o editar una tarjeta, para que la pantalla abierta muestre lo nuevo.
+export function PanelAsistente({ abierto, alCerrar, pantalla, alGuardar }: { abierto: boolean; alCerrar: () => void; pantalla: string; alGuardar?: () => void }) {
   const [estado, setEstado] = useState<{ disponible: boolean; motivo?: string }>();
   const [conversaciones, setConversaciones] = useState<Conversacion[]>([]);
   const [convId, setConvId] = useState<number | null>(null);
@@ -165,7 +231,50 @@ export function PanelAsistente({ abierto, alCerrar, pantalla }: { abierto: boole
   const [esperando, setEsperando] = useState<string>();
   const [error, setError] = useState<string>();
   const [gasto, setGasto] = useState<number>();
+  const [adjuntos, setAdjuntos] = useState<{ id: number; nombre: string }[]>([]);
+  const [subiendo, setSubiendo] = useState(false);
+  const [ocupadas, setOcupadas] = useState<number[]>([]);
+  const [editando, setEditando] = useState<Propuesta | null>(null);
   const fin = useRef<HTMLDivElement>(null);
+  const archivo = useRef<HTMLInputElement>(null);
+
+  // Las tarjetas viven dentro de los turnos: se reemplaza la que cambió.
+  const cambiar = (id: number, cambios: Partial<Propuesta>) =>
+    setTurnos((ts) => ts.map((t) => (t.propuestas?.some((x) => x.id === id) ? { ...t, propuestas: t.propuestas.map((x) => (x.id === id ? { ...x, ...cambios } : x)) } : t)));
+  const confirmar = async (p: Propuesta) => {
+    setOcupadas((o) => [...o, p.id]);
+    try {
+      const r = await enviar<{ estado: string; resultado: unknown }>(`ia/propuestas/${p.id}/confirmar`, 'POST', {});
+      cambiar(p.id, { estado: r.estado, resultado: r.estado === 'fallida' ? String(r.resultado) : null });
+      if (r.estado === 'confirmada') alGuardar?.();
+    } catch (e) {
+      setError(textoError(e));
+    } finally {
+      setOcupadas((o) => o.filter((x) => x !== p.id));
+    }
+  };
+  // De a una y en orden: si una falla, las demás se guardan igual.
+  const confirmarTodas = async (ps: Propuesta[]) => { for (const p of ps) await confirmar(p); };
+  const descartar = (p: Propuesta) => enviar(`ia/propuestas/${p.id}/descartar`, 'POST', {}).then(() => cambiar(p.id, { estado: 'descartada' }), (e) => setError(textoError(e)));
+  const editar = (p: Propuesta) => { propuestaEnEdicion.id = p.id; setEditando(p); };
+  const finEdicion = (guardado: boolean) => {
+    if (guardado && editando) { cambiar(editando.id, { estado: 'editada' }); alGuardar?.(); }
+    propuestaEnEdicion.id = null;
+    setEditando(null);
+  };
+  const adjuntar = async (lista: FileList | null | undefined) => {
+    setSubiendo(true);
+    try {
+      for (const a of Array.from(lista ?? [])) {
+        const id = await subirComprobante(a);
+        setAdjuntos((xs) => [...xs, { id, nombre: a.name }]);
+      }
+    } catch (e) {
+      setError(textoError(e));
+    } finally {
+      setSubiendo(false);
+    }
+  };
 
   const listar = () => get<Conversacion[]>('ia/conversaciones').then(setConversaciones, (e) => setError(textoError(e)));
   // ponytail: si falla, el título queda sin el gasto; no vale un error en el panel.
@@ -200,21 +309,23 @@ export function PanelAsistente({ abierto, alCerrar, pantalla }: { abierto: boole
   // Sin esfuerzo, la pregunta del cuadro en esta conversación. "Pensar más" repite la última con esfuerzo alto en una
   // conversación nueva: cambiar el esfuerzo en la misma invalidaría su caché, y así es una segunda opinión (plan 066).
   const preguntar = async (repetir?: string) => {
-    const p = (repetir ?? pregunta).trim();
-    if (!p || esperando) return;
+    const conAdjunto = !repetir && adjuntos.length > 0;
+    const p = (repetir ?? pregunta).trim() || (conAdjunto ? 'Leé el comprobante y proponé el gasto.' : '');
+    if (!p || esperando || subiendo) return;
+    const enviados = repetir ? [] : adjuntos;
     const conv = repetir ? null : convId;
     if (repetir) { setConvId(null); setTurnos([]); }
     setEsperando(p);
-    if (!repetir) setPregunta('');
+    if (!repetir) { setPregunta(''); setAdjuntos([]); }
     setError(undefined);
     try {
       const r = await enviar<Turno & { conversacion_id: number | null }>('ia/preguntar', 'POST',
-        { conversacion_id: conv, pregunta: p, pantalla, mes: mesVisto.valor, esfuerzo: repetir ? 'high' : undefined });
+        { conversacion_id: conv, pregunta: p, pantalla, mes: mesVisto.valor, esfuerzo: repetir ? 'high' : undefined, adjuntos: enviados.map((a) => a.id) });
       setTurnos((ts) => [...ts, { ...r, pregunta: p }]);
       leerGasto();
       if (r.conversacion_id != null && r.conversacion_id !== conv) { setConvId(r.conversacion_id); listar(); }
     } catch (e) {
-      if (!repetir) setPregunta(p); // para reintentar sin volver a escribirla
+      if (!repetir) { setPregunta(p); setAdjuntos(enviados); } // para reintentar sin volver a cargarla
       setError(textoError(e));
     } finally {
       setEsperando(undefined);
@@ -233,18 +344,28 @@ export function PanelAsistente({ abierto, alCerrar, pantalla }: { abierto: boole
         </Space>
       }
       footer={<>
+        {adjuntos.length > 0 && (
+          <div style={{ marginBottom: 6 }}>
+            {adjuntos.map((a) => <Tag key={a.id} closable onClose={() => setAdjuntos((xs) => xs.filter((x) => x.id !== a.id))}>📎 {a.nombre}</Tag>)}
+          </div>
+        )}
+        <input ref={archivo} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" hidden
+          onChange={(e) => { void adjuntar(e.target.files); e.target.value = ''; }} />
         <Space.Compact style={{ width: '100%' }}>
+          <Button title="Adjuntar un ticket o una factura (foto o PDF)" loading={subiendo} disabled={noDisponible} onClick={() => archivo.current?.click()}>📎</Button>
           <Input.TextArea value={pregunta} onChange={(e) => setPregunta(e.target.value)} autoSize={{ minRows: 1, maxRows: 6 }} disabled={noDisponible}
-            placeholder="Preguntá sobre los datos, el uso de la app o pedí un análisis" onPressEnter={(e) => { if (!e.shiftKey) { e.preventDefault(); preguntar(); } }} />
-          <Button type="primary" onClick={() => preguntar()} loading={!!esperando} disabled={noDisponible}>Preguntar</Button>
+            placeholder="Preguntá, pedí que cargue algo o arrastrá un ticket" onPressEnter={(e) => { if (!e.shiftKey) { e.preventDefault(); preguntar(); } }} />
+          <Button type="primary" onClick={() => preguntar()} loading={!!esperando} disabled={noDisponible || subiendo}>Preguntar</Button>
         </Space.Compact>
         {gasto != null && <div style={{ fontSize: 12, color: '#8A7E74', textAlign: 'right', marginTop: 4 }}>Gastado este mes: {dolares(gasto)}</div>}
       </>}>
+      <div style={{ minHeight: '100%' }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if (!noDisponible) void adjuntar(e.dataTransfer.files); }}>
       {noDisponible && <Alert type="warning" showIcon title="El asistente no está disponible" description={estado.motivo} style={{ marginBottom: 12 }} />}
       {turnos.length === 0 && !esperando && !noDisponible && (
         <Typography.Paragraph type="secondary">
-          Contesta con los datos de la app (solo los lee, no cambia nada), cómo se usa y análisis. Sabe en qué pantalla y mes estás.
-          Lo que preguntás y los datos que consulta se mandan a Anthropic.
+          Contesta con los datos de la app, cómo se usa y análisis, y sabe en qué pantalla y mes estás. Si le pedís cargar o corregir
+          algo, arma una tarjeta: no se guarda nada hasta que tocás Confirmar. Podés arrastrar acá la foto o el PDF de un ticket.
+          Lo que preguntás, los comprobantes y los datos que consulta se mandan a Anthropic.
         </Typography.Paragraph>
       )}
       {[...turnos, ...(esperando ? [{ pregunta: esperando, texto: '' }] : [])].map((t, i) => (
@@ -252,12 +373,21 @@ export function PanelAsistente({ abierto, alCerrar, pantalla }: { abierto: boole
           <div className="pregunta-ia">{t.pregunta}</div>
           <div>
             {t.texto ? <Markdown texto={t.texto} /> : <Typography.Text type="secondary">Pensando…</Typography.Text>}
+            {t.propuestas?.map((p) => (
+              <Tarjeta key={p.id} p={p} ocupada={ocupadas.includes(p.id)} confirmar={() => confirmar(p)} descartar={() => descartar(p)} editar={() => editar(p)} />
+            ))}
+            {(t.propuestas?.filter((p) => p.estado === 'pendiente').length ?? 0) > 1 && (
+              <Button style={{ marginTop: 8 }} disabled={ocupadas.length > 0}
+                onClick={() => confirmarTodas(t.propuestas!.filter((p) => p.estado === 'pendiente'))}>Confirmar todas</Button>
+            )}
             <Pie t={t} pensarMas={i === turnos.length - 1 && !esperando && t.esfuerzo !== 'high' ? () => preguntar(t.pregunta) : undefined} />
           </div>
         </div>
       ))}
       {error && <Alert type="error" showIcon title={error} />}
       <div ref={fin} />
+      </div>
+      <EditorPropuesta p={editando} alCerrar={finEdicion} />
     </Drawer>
   );
 }

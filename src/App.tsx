@@ -54,6 +54,7 @@ export function App() {
   const [local, setLocal] = useState(false);
   const [emparejar, setEmparejar] = useState(false);
   const [asistente, setAsistente] = useState(false);
+  const [refresco, setRefresco] = useState(0);
   useEffect(() => {
     // fetch directo: el 401 de una terminal sin emparejar se distingue de cualquier otro error.
     fetch('/api/estado').then(async (r) => {
@@ -96,9 +97,10 @@ export function App() {
       <Layout.Content style={{ padding: '24px 28px', minWidth: 0 }}>
         <Typography.Title level={3} style={{ marginBottom: 4 }}>{actual.titulo}</Typography.Title>
         <Typography.Paragraph style={{ marginBottom: 20, color: '#4A3F37' }}>{actual.ayuda}</Typography.Paragraph>
-        <div key={seccion}>{actual.vista}</div>{/* key: estado nuevo por sección */}
+        {/* key: estado nuevo por sección, y al guardar algo desde el asistente (ponytail: se vuelve a montar y relee todo) */}
+        <div key={`${seccion}-${refresco}`}>{actual.vista}</div>
       </Layout.Content>
-      <PanelAsistente abierto={asistente} alCerrar={() => setAsistente(false)} pantalla={actual.titulo} />
+      <PanelAsistente abierto={asistente} alCerrar={() => setAsistente(false)} pantalla={actual.titulo} alGuardar={() => setRefresco((n) => n + 1)} />
     </Layout>
   );
 }

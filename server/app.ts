@@ -381,7 +381,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     if (id != null) enCurso.add(id);
     try {
       res.json(await preguntar(db, cliente, pcIa(), { conversacion_id: id, pregunta: b.pregunta, pantalla: String(b.pantalla ?? ''), mes: String(b.mes ?? ''),
-        esfuerzo: b.esfuerzo == null ? undefined : String(b.esfuerzo) }));
+        esfuerzo: b.esfuerzo == null ? undefined : String(b.esfuerzo), adjuntos: Array.isArray(b.adjuntos) ? b.adjuntos.map(Number) : [] }));
     } catch (e) {
       res.status(400).json({ error: mensaje(e) });
     } finally {

@@ -135,6 +135,13 @@ mismas funciones (y validaciones) que usan las pantallas.
 - Adjuntar en el panel: arrastrar o elegir archivo; se sube a `/api/adjuntos` (foto achicada) y viaja como id con la
   pregunta. Miniatura en la burbuja de la pregunta.
 - Después de confirmar, refrescar la pantalla abierta si es la afectada (el mismo evento que usan las pantallas al guardar).
+- **Hecho (v0.51.0):** `Tarjeta` y `EditorPropuesta` en `src/Asistente.tsx`. Editar reusa `FormMovimiento`, `FormGastoAjeno`, `FormRenglon`
+  y `FormNotas` (exportados, con valores iniciales); el header lo pone `pedir` de `src/api.ts` mientras hay una propuesta en
+  edición (`propuestaEnEdicion`, salvo al subir el comprobante). Adjuntos: 📎 y arrastrar al panel; el servidor guarda en el
+  historial solo el renglón `[Comprobante adjunto #id: nombre]` y arma la imagen o el PDF en cada pedido. No había un evento
+  de refresco: `App` vuelve a montar la pantalla abierta al guardar (`refresco` en la key). Probado en una instancia con la
+  base de demo: Confirmar (gasto nuevo, corrección, cotización) y Editar (clave) guardan con "con IA" en la auditoría.
+  Sin probar: la subida real de una foto desde el formulario (se probó la ruta con tests) y las tarjetas generadas por la API.
 
 ### 7. Validación (como el paso 9 del plan 061)
 - `plans/068-pedidos.local.md` (ignorado): 15–20 pedidos sobre la base de prueba con la tarjeta esperada. Incluir

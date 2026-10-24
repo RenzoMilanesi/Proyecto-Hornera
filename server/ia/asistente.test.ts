@@ -166,3 +166,17 @@ test('propuestas (plan 068): se arma la tarjeta sin escribir nada; un error vuel
   assert.match(String(segundo.pedidos[0].messages.at(-1)!.content), /· Tarjetas: «Nuevo gasto» descartada\]/);
   assert.equal(((await import('./asistente.ts')).conversacionIa(db, 'PC Uno', r.conversacion_id!).turnos[0] as { propuestas: unknown[] }).propuestas.length, 1);
 });
+
+test('comprobante adjunto (plan 068): viaja como imagen o PDF y el historial guarda solo el renglón con su número', async () => {
+  const db = base();
+  db.prepare(`INSERT INTO adjunto(nombre, tipo, datos, bytes, creado_en) VALUES ('ticket.pdf', 'application/pdf', ?, 9, 'x')`).run(Buffer.from('%PDF-1.4 '));
+  const { cliente, pedidos } = falso([mensaje([texto('Leí el ticket.')], 'end_turn')]);
+  const r = await preguntar(db, cliente, 'PC Uno', { pregunta: 'Cargá este gasto', pantalla: '', mes: '', adjuntos: [1] });
+  const contenido = pedidos[0].messages[0].content as Anthropic.Beta.BetaContentBlockParam[];
+  assert.deepEqual(contenido.map((b) => b.type), ['document', 'text']);
+  assert.equal((contenido[0] as Anthropic.Beta.BetaRequestDocumentBlock).source.type, 'base64');
+  const guardado = JSON.parse((db.prepare('SELECT mensajes_json FROM conversacion_ia').get() as { mensajes_json: string }).mensajes_json);
+  assert.match(guardado[0].content, /Cargá este gasto\n\n\[Comprobante adjunto #1: ticket\.pdf\]$/);
+  assert.equal(r.texto, 'Leí el ticket.');
+  await assert.rejects(preguntar(db, cliente, 'PC Uno', { pregunta: 'x', pantalla: '', mes: '', adjuntos: [99] }), /No existe el comprobante/);
+});

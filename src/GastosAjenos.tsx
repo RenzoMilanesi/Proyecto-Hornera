@@ -7,7 +7,7 @@ import type { TableColumnsType } from 'antd';
 import { entradaPlata, enviar, get, pesos, useUnaVez } from './api.ts';
 
 interface Periodo { mes: string; estado: string }
-interface GastoAjeno { id: number; fecha: string; codigo: string; descripcion: string | null; importe: number; estado: string }
+export interface GastoAjeno { id: number; fecha: string; codigo: string; descripcion: string | null; importe: number; estado: string }
 interface Listado { gastos: GastoAjeno[]; totales: { porCodigo: Record<string, number>; amancay: number; lautaro: number } }
 
 export const NOMBRES: Record<string, string> = {
@@ -21,19 +21,20 @@ const fechaPorDefecto = (mes: string) => {
 };
 const derecha = { align: 'right' as const, onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }) };
 
-function FormGastoAjeno({ abierto, mes, editando, alCerrar }: {
-  abierto: boolean; mes: string; editando?: GastoAjeno; alCerrar: (guardado: boolean) => void;
+// `inicial`: uno nuevo ya completo (tarjeta del asistente, plan 068).
+export function FormGastoAjeno({ abierto, mes, editando, inicial, alCerrar }: {
+  abierto: boolean; mes: string; editando?: GastoAjeno; inicial?: Partial<GastoAjeno>; alCerrar: (guardado: boolean) => void;
 }) {
   const [form] = Form.useForm();
   const [error, setError] = useState<string>();
   useEffect(() => {
     if (!abierto) return;
     setError(undefined);
-    const g = editando;
+    const g = editando ?? (inicial as GastoAjeno | undefined);
     form.setFieldsValue(g
       ? { fecha: g.fecha, codigo: g.codigo, descripcion: g.descripcion ?? '', importe: g.importe / 100 }
       : { fecha: fechaPorDefecto(mes), codigo: undefined, descripcion: '', importe: null });
-  }, [abierto, editando, form, mes]);
+  }, [abierto, editando, inicial, form, mes]);
 
   const guardar = async () => {
     const v = await form.validateFields();

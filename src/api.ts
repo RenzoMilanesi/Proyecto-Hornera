@@ -1,7 +1,14 @@
 import { useRef, useState } from 'react';
 
 // Cliente de la API. Rutas relativas: sirve igual en la PC servidor y en una terminal.
+// La tarjeta del asistente cuyo formulario está abierto ("Editar", plan 068): lo que se guarde va "con IA".
+// ponytail: un objeto suelto, como mesVisto; hay un solo formulario abierto por vez.
+export const propuestaEnEdicion = { id: null as number | null };
+
 async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
+  if (propuestaEnEdicion.id != null && init?.method && init.method !== 'GET' && !ruta.startsWith('adjuntos')) {
+    init = { ...init, headers: { ...(init.headers as Record<string, string>), 'X-Hornera-Ia': String(propuestaEnEdicion.id) } };
+  }
   const res = await fetch(`/api/${ruta}`, init);
   if (!res.ok) {
     const cuerpo = await res.json().catch(() => null);
