@@ -1,8 +1,7 @@
 // Asistente con IA (plan 061): contesta preguntas con Claude, solo lectura.
-import { existsSync, readFileSync } from 'node:fs';
 import type { DatabaseSync } from 'node:sqlite';
 import Anthropic from '@anthropic-ai/sdk';
-import { herramientas } from './herramientas.ts';
+import { capitulosManual, herramientas } from './herramientas.ts';
 
 // Dónde vive la API key de Anthropic. En Electron, cifrada con safeStorage fuera de la base (no viaja en los backups).
 export interface AlmacenClaveIa {
@@ -78,24 +77,8 @@ Reglas:
 - Las herramientas devuelven la plata en CENTAVOS: dividí por 100. Mostrá los montos con $ (o US$), punto de miles y coma decimal: $ 1.234.567,89.
 - No menciones ids internos ni nombres de tablas; hablá de deptos por su código y de propietarios por su nombre.
 - Solo podés consultar: no podés cargar, cambiar ni borrar nada. Si te piden hacerlo, explicá en qué pantalla se hace.
-- Para dudas de cómo se usa la app, respondé con el manual de abajo.
+- Para dudas de cómo se usa la app, leé el capítulo que corresponda con la herramienta manual (índice abajo): no contestes de memoria.
 - El primer renglón de cada pregunta dice en qué pantalla y mes está la persona, y la fecha de hoy.`;
-
-// El manual como texto, leído una vez. Sin el archivo el asistente anda igual, sin la ayuda de uso.
-let manual: string | undefined;
-function textoManual() {
-  if (manual !== undefined) return manual;
-  const ruta = new URL('../../manual/manual.html', import.meta.url);
-  if (!existsSync(ruta)) {
-    console.warn('Asistente: no está manual/manual.html; contesta sin la ayuda de uso.');
-    return (manual = '');
-  }
-  return (manual = readFileSync(ruta, 'utf8')
-    .replace(/<(style|script|head)[\s\S]*?<\/\1>/gi, '').replace(/<img[^>]*>/gi, '')
-    .replace(/<\/(p|h[1-6]|li|tr|div|section)>|<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&')
-    .replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n\n').trim());
-}
 
 export interface Pregunta { conversacion_id?: number | null; pregunta: string; pantalla: string; mes: string }
 export interface Usada { id: string; nombre: string; entrada: unknown; filas: number | null; error?: string }
@@ -122,11 +105,11 @@ export async function preguntar(db: DatabaseSync, cliente: ClienteIa, pc: string
 
   const { modelo: configurado, esfuerzo } = configIa(db);
   const lista = herramientas(db);
-  // Orden fijo para el caché: herramientas → system (reglas + manual) → mensajes. Lo variable (la fecha) va en el mensaje.
+  // Orden fijo para el caché: herramientas → system (reglas + índice del manual) → mensajes. Lo variable (la fecha) va en el mensaje.
   const tools = lista.map((h) => h.definicion);
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
     { type: 'text', text: REGLAS },
-    { type: 'text', text: `Manual de usuario de la app:\n\n${textoManual() || '(no disponible)'}`, cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: `Índice del manual de usuario:\n${capitulosManual().map((c) => c.titulo).join('\n') || '(no disponible)'}`, cache_control: { type: 'ephemeral' } },
   ];
   // Historial tal cual vino de la API (incluidos los bloques de thinking): solo se agrega al final.
   const mensajes: Anthropic.Beta.BetaMessageParam[] = conv ? JSON.parse(conv.mensajes_json) : [];
@@ -175,7 +158,7 @@ export async function preguntar(db: DatabaseSync, cliente: ClienteIa, pc: string
           const r = await h.correr(db, b.input as Record<string, unknown>);
           const filas = Array.isArray(r) ? r.length : Array.isArray((r as { filas?: unknown[] })?.filas) ? (r as { filas: unknown[] }).filas.length : null;
           usadas.push({ id: b.id, nombre: b.name, entrada: b.input, filas });
-          resultados.push({ type: 'tool_result', tool_use_id: b.id, content: acotar(JSON.stringify(r)) });
+          resultados.push({ type: 'tool_result', tool_use_id: b.id, content: acotar(typeof r === 'string' ? r : JSON.stringify(r)) });
         } catch (e) {
           const error = e instanceof Error ? e.message : String(e);
           usadas.push({ id: b.id, nombre: b.name, entrada: b.input, filas: null, error });

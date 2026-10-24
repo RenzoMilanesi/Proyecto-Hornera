@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { abrirDb } from '../db.ts';
-import { consultaSql, herramientas, MAX_FILAS } from './herramientas.ts';
+import { capitulosManual, consultaSql, herramientas, MAX_FILAS } from './herramientas.ts';
 
 // consulta_sql abre la base aparte en solo lectura: necesita un archivo.
 function base(t: TestContext) {
@@ -62,7 +62,7 @@ test('herramientas: la descripción del SQL no nombra las tablas ocultas y un de
   // Sin acciones de escritura en la lista: si se suma una herramienta, que sea a propósito.
   assert.deepEqual(todas.map((x) => x.definicion.name), ['listar_deptos', 'listar_propietarios', 'periodos', 'cuentas', 'liquidacion',
     'hoja_depto', 'reservas', 'resumen_mes', 'evolucion', 'resumen_hornera', 'movimientos', 'gastos_personales', 'transferencias',
-    'historial_pagos', 'ficha_depto', 'vencimientos', 'limpieza_horas', 'limpieza_liquidaciones', 'comprobantes', 'mis_comprobantes', 'consulta_sql']);
+    'historial_pagos', 'ficha_depto', 'vencimientos', 'limpieza_horas', 'limpieza_liquidaciones', 'comprobantes', 'mis_comprobantes', 'manual', 'consulta_sql']);
   const ficha = todas.find((x) => x.definicion.name === 'ficha_depto')!;
   assert.throws(() => ficha.correr(db, { depto: 'ZZZ' }), /No existe el depto ZZZ/);
   assert.equal((ficha.correr(db, { depto: 'aaa' }) as { notas: null }).notas, null);
@@ -80,4 +80,12 @@ test('herramientas: la descripción del SQL no nombra las tablas ocultas y un de
   const r = reservas.correr(db, { mes: '2026-09', depto: null }) as { filas: unknown[]; aviso: string };
   assert.deepEqual(r.filas, []);
   assert.match(r.aviso, /vino del Excel.*registró 7/);
+});
+
+test('manual: va por capítulo, a pedido', (t) => {
+  const db = base(t);
+  const manual = herramientas(db).find((x) => x.definicion.name === 'manual')!;
+  assert.equal(capitulosManual()[6].titulo, '7. Liquidación');
+  assert.match(manual.correr(db, { capitulo: 7 }) as string, /^7\. Liquidación\n[\s\S]*Cerrar el mes/);
+  assert.throws(() => manual.correr(db, { capitulo: 99 }), /No existe el capítulo 99/);
 });

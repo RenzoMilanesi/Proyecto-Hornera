@@ -1,6 +1,7 @@
 // Herramientas del asistente (plan 061): todas de solo lectura. Cada una reusa la función que está detrás de su ruta GET;
 // la IA nunca toca la base de otra forma. consulta_sql es la única libre, con tres cercos (ver sqlProceso.ts).
 import { fork } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import type { DatabaseSync } from 'node:sqlite';
 import type Anthropic from '@anthropic-ai/sdk';
 import { liquidacionDelMes, listarCuentas, listarDeptos, listarPeriodos, listarPropietarios, reservasDelMes } from '../consultas.ts';
@@ -98,7 +99,32 @@ const HERRAMIENTAS: Herramienta[] = [
     { mes: MES }, (db, e) => listarComprobantes(db, s(e.mes), false)),
   h('mis_comprobantes', `Comprobantes de ARCA importados de Mis Comprobantes (incluye lo facturado por fuera de la app) en un mes. ${PLATA}`,
     { mes: MES }, (db, e) => listarMisComprobantes(db, s(e.mes))),
+  h('manual', 'Un capítulo del manual de usuario: cómo se usa la app, pantalla por pantalla. El índice está en las instrucciones.',
+    { capitulo: { type: 'integer', description: 'Número de capítulo del índice' } }, (_, e) => {
+      const c = capitulosManual()[Number(e.capitulo) - 1];
+      if (!c) throw new Error(`No existe el capítulo ${e.capitulo} del manual.`);
+      return c.texto;
+    }),
 ];
+
+// El manual por capítulos (los <h1> numerados), leído una vez. Va a pedido y no en cada pregunta: entero eran ~21.000
+// de los ~28.500 tokens fijos (plan 066). Sin el archivo el asistente anda igual, sin la ayuda de uso.
+let capitulos: { titulo: string; texto: string }[] | undefined;
+export function capitulosManual() {
+  if (capitulos) return capitulos;
+  const ruta = new URL('../../manual/manual.html', import.meta.url);
+  if (!existsSync(ruta)) {
+    console.warn('Asistente: no está manual/manual.html; contesta sin la ayuda de uso.');
+    return (capitulos = []);
+  }
+  return (capitulos = readFileSync(ruta, 'utf8').split(/(?=<h1[^>]*>\s*\d+\.)/).slice(1).map((html) => {
+    const texto = html.replace(/<(style|script|head)[\s\S]*?<\/\1>/gi, '').replace(/<img[^>]*>/gi, '')
+      .replace(/<\/(p|h[1-6]|li|tr|div|section)>|<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&')
+      .replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n\n').trim();
+    return { titulo: texto.split('\n')[0], texto };
+  }));
+}
 
 // Cada consulta en un proceso aparte, que se mata si pasa el tope de tiempo (plan 063): el servidor sigue atendiendo.
 export function consultaSql(db: DatabaseSync, sql: string, maxMs = MAX_MS) {
