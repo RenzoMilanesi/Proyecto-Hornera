@@ -50,9 +50,10 @@ const MANUAL = app.isPackaged ? join(process.resourcesPath, 'manual.pdf') : join
 // (/api/adjuntos/:id del mismo servidor) se ve en una ventana aparte que no navega ni abre nada.
 function crearVentana() {
   const ventana = new BrowserWindow({ width: 1280, height: 800, title: 'Hornera', autoHideMenuBar: true });
-  ventana.webContents.on('did-create-window', (hija) => {
+  ventana.webContents.on('did-create-window', (hija, { url: abierta }) => {
     hija.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-    hija.webContents.on('will-navigate', (e) => e.preventDefault());
+    // La carga inicial del comprobante también pasa por will-navigate: solo esa se deja.
+    hija.webContents.on('will-navigate', (e, url) => { if (url !== abierta) e.preventDefault(); });
   });
   ventana.webContents.setWindowOpenHandler(({ url }) => {
     if (URL.canParse(url)) {
