@@ -205,6 +205,21 @@ Lo hace cada uno con su clave fiscal; el detalle está en el manual del certific
 
 ---
 
+## 10. Asistente con IA — necesita la API key, en la PC servidor
+1. *Herramientas → Asistente*: pegar la API key de `console.anthropic.com` y **Guardar** (detalle en el
+   manual, capítulo 22). Poner un tope de gasto mensual en la consola de Anthropic.
+2. Preguntar algo con respuesta conocida (*"¿cuánto le transferimos a un propietario el mes pasado?"*)
+   y comparar con la pantalla. En **Cómo lo calculé** se ven las consultas que hizo.
+3. Pedir una carga (*"cargale $ 5.000 de lavandería a un depto, salió de Efectivo"*): aparece una
+   **tarjeta** y no se guarda nada hasta **Confirmar**. Confirmada, el movimiento aparece en Movimientos
+   y en la Auditoría con la etiqueta **con IA**. **Descartar** no guarda nada.
+4. Adjuntar la foto de un ticket (📎 o arrastrarla al panel): la tarjeta trae fecha e importe del ticket
+   y, confirmada, en Movimientos el 📎 del gasto abre la foto.
+5. Con una tarjeta sin confirmar, preguntar *"¿ya lo guardaste?"*: tiene que decir que falta confirmar.
+6. *"Cerrá el mes"*: no lo hace; dice que se cierra en Liquidación.
+
+---
+
 ## Cómo reportar un problema
 Anotar para cada cosa rara:
 - **Versión** (abajo a la izquierda) y **pantalla**.
