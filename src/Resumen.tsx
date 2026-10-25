@@ -76,7 +76,7 @@ export function Resumen() {
           sin la tarifa por estadía. RevPAR: lo mismo por noche a la venta (ADR × ocupación); es el número para comparar deptos.
           Neto por noche: lo que le queda al propietario (valor liquidación inicial) por noche vendida.
         </Typography.Paragraph>
-        <Table<KpiDepto> rowKey="codigo" size="small" pagination={false} loading={!datos && !error} dataSource={datos?.deptos} columns={[
+        <Table<KpiDepto> rowKey="codigo" size="small" pagination={false} scroll={{ x: 'max-content' }}loading={!datos && !error} dataSource={datos?.deptos} columns={[
           { title: 'Depto', dataIndex: 'codigo', width: 80, sorter: (a, b) => a.codigo.localeCompare(b.codigo) },
           { title: 'Nombre', dataIndex: 'nombre' },
           { title: 'Ocupación', dataIndex: 'ocupacion', ...derecha, render: pct, sorter: orden('ocupacion') },

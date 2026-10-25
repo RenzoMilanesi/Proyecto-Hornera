@@ -2,6 +2,7 @@
 // directos, saldos iniciales y transferencias entre cuentas. No se borran: se anulan.
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, AutoComplete, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Radio, Select, Space, Switch, Table, Tag, Typography } from 'antd';
+import { PaperClipOutlined } from '@ant-design/icons';
 import { mesVisto } from './Asistente.tsx';
 import type { TableColumnsType } from 'antd';
 import { entradaPlata, enviar, get, pesos, simbolo, subirComprobante, useUnaVez, verComprobante } from './api.ts';
@@ -128,7 +129,7 @@ export function FormMovimiento({ abierto, mes, editando, inicial, depto, deptos,
         </Form.Item>
         <Form.Item label="Comprobante" extra="Foto o PDF del ticket o la factura (opcional).">
           {adjunto ? (
-            <Space><Button onClick={() => verComprobante(adjunto)}>📎 Ver</Button><Button danger type="text" onClick={() => setAdjunto(null)}>Quitar</Button></Space>
+            <Space><Button icon={<PaperClipOutlined />} onClick={() => verComprobante(adjunto)}>Ver</Button><Button danger type="text" onClick={() => setAdjunto(null)}>Quitar</Button></Space>
           ) : (
             <Button loading={subiendo} onClick={() => document.getElementById('comprobante-movimiento')?.click()}>Adjuntar foto o PDF</Button>
           )}
@@ -245,7 +246,7 @@ export function Movimientos() {
     { title: 'Depto', dataIndex: 'depto', render: (v: string | null) => v ?? <Typography.Text type="secondary">INT</Typography.Text> },
     { title: 'Tipo', dataIndex: 'tipo', render: (v: string) => <Tag color={COLOR_TIPO[v]}>{TIPOS[v] ?? v}</Tag> },
     { title: 'Concepto', dataIndex: 'concepto' },
-    { title: 'Detalle', dataIndex: 'detalle', ellipsis: true, render: (v: string | null, m) => <>{m.adjunto_id ? <Typography.Link onClick={() => verComprobante(m.adjunto_id!)} title="Ver el comprobante">📎 </Typography.Link> : null}{v}</> },
+    { title: 'Detalle', dataIndex: 'detalle', ellipsis: true, render: (v: string | null, m) => <>{m.adjunto_id ? <Typography.Link onClick={() => verComprobante(m.adjunto_id!)} title="Ver el comprobante"><PaperClipOutlined /> </Typography.Link> : null}{v}</> },
     { title: 'ARS', dataIndex: 'importe_ars', ...derecha, render: (v: number) => importe(v) },
     { title: 'USD', dataIndex: 'importe_usd', ...derecha, render: (v: number) => importe(v, 'USD') },
     { title: 'Cuenta', dataIndex: 'cuenta' },

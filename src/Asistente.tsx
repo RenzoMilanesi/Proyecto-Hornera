@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Card, Drawer, Form, Input, Select, Space, Tag, Typography } from 'antd';
+import { ArrowUpOutlined, PaperClipOutlined } from '@ant-design/icons';
 import { Marked } from 'marked';
 import { enviar, get, propuestaEnEdicion, subirComprobante } from './api.ts';
 import { FormMovimiento, type Cuenta } from './Movimientos.tsx';
@@ -107,7 +108,7 @@ interface Propuesta {
   args: Record<string, any>; estado: string; resultado: string | null;
 }
 interface Turno { pregunta: string; texto: string; modelo?: string; esfuerzo?: string; costo?: number | null; herramientas?: Usada[]; propuestas?: Propuesta[] }
-interface Conversacion { id: number; titulo: string }
+interface Conversacion { id: number; titulo: string; actualizada_en: string }
 
 // El mes que muestra la pantalla actual: lo escribe cada pantalla con selector de mes y App lo borra al cambiar de sección.
 // ponytail: un objeto suelto y no un contexto de React; el panel solo lo lee al preguntar.
@@ -115,6 +116,14 @@ export const mesVisto = { valor: '' };
 
 // claude-sonnet-5-5 → Sonnet 5.5
 const nombreModelo = (m: string) => m.replace(/^claude-/, '').replace(/^(\w+?)-(.*)$/, (_, n: string, v: string) => `${n[0].toUpperCase()}${n.slice(1)} ${v.replace(/-/g, '.')}`);
+// 'YYYY-MM-DD HH:MM:SS' → hoy / ayer / 22/10 (ponytail: la fecha de SQLite es UTC; a la noche puede correrse un día)
+const cuando = (f: string) => {
+  const dia = (d: Date) => d.toISOString().slice(0, 10);
+  const hoy = new Date();
+  if (f.startsWith(dia(hoy))) return 'hoy';
+  if (f.startsWith(dia(new Date(hoy.getTime() - 86400000)))) return 'ayer';
+  return `${f.slice(8, 10)}/${f.slice(5, 7)}`;
+};
 const dolares = (c: number) => `US$ ${c.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: c < 0.01 ? 3 : 2 })}`;
 
 // Markdown completo (GFM: títulos, tablas, listas anidadas, código), como en la app de Claude. Sin HTML crudo, imágenes
@@ -222,7 +231,8 @@ function EditorPropuesta({ p, alCerrar }: { p: Propuesta | null; alCerrar: (guar
 }
 
 // alGuardar: después de confirmar o editar una tarjeta, para que la pantalla abierta muestre lo nuevo.
-export function PanelAsistente({ abierto, alCerrar, pantalla, alGuardar }: { abierto: boolean; alCerrar: () => void; pantalla: string; alGuardar?: () => void }) {
+export function PanelAsistente({ abierto, alCerrar, ancho, alRedimensionar, pantalla, alGuardar }:
+  { abierto: boolean; alCerrar: () => void; ancho: number; alRedimensionar: (ancho: number) => void; pantalla: string; alGuardar?: () => void }) {
   const [estado, setEstado] = useState<{ disponible: boolean; motivo?: string }>();
   const [conversaciones, setConversaciones] = useState<Conversacion[]>([]);
   const [convId, setConvId] = useState<number | null>(null);
@@ -235,6 +245,7 @@ export function PanelAsistente({ abierto, alCerrar, pantalla, alGuardar }: { abi
   const [subiendo, setSubiendo] = useState(false);
   const [ocupadas, setOcupadas] = useState<number[]>([]);
   const [editando, setEditando] = useState<Propuesta | null>(null);
+  const [verTodas, setVerTodas] = useState(false);
   const fin = useRef<HTMLDivElement>(null);
   const archivo = useRef<HTMLInputElement>(null);
 
@@ -333,40 +344,69 @@ export function PanelAsistente({ abierto, alCerrar, pantalla, alGuardar }: { abi
   };
 
   const noDisponible = estado?.disponible === false;
+  // Sin conversación abierta el campo va arriba, con las conversaciones recientes debajo; en una conversación, al pie.
+  const vacio = turnos.length === 0 && !esperando;
+  const campo = (
+    <div className="campo-ia">
+      {adjuntos.length > 0 && (
+        <div style={{ marginBottom: 6 }}>
+          {adjuntos.map((a) => <Tag key={a.id} closable onClose={() => setAdjuntos((xs) => xs.filter((x) => x.id !== a.id))} icon={<PaperClipOutlined />}>{a.nombre}</Tag>)}
+        </div>
+      )}
+      <Input.TextArea variant="borderless" value={pregunta} onChange={(e) => setPregunta(e.target.value)} autoSize={{ minRows: vacio ? 2 : 1, maxRows: 6 }}
+        disabled={noDisponible} style={{ padding: '2px 4px' }} autoFocus
+        placeholder="Preguntá, pedí que cargue algo o arrastrá un ticket" onPressEnter={(e) => { if (!e.shiftKey) { e.preventDefault(); preguntar(); } }} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+        <Button type="text" size="small" title="Adjuntar un ticket o una factura (foto o PDF)" loading={subiendo} disabled={noDisponible}
+          icon={<PaperClipOutlined />} onClick={() => archivo.current?.click()} />
+        <Button type="primary" shape="circle" size="small" title="Preguntar (Enter)" onClick={() => preguntar()} loading={!!esperando}
+          disabled={noDisponible || subiendo} icon={<ArrowUpOutlined />} />
+      </div>
+    </div>
+  );
   return (
-    <Drawer open={abierto} onClose={alCerrar} size={560} mask={false} title="Asistente"
-      extra={
-        <Space>
-          <Select style={{ width: 200 }} placeholder="Conversaciones anteriores" value={convId ?? undefined} onChange={abrir} disabled={!!esperando}
-            options={conversaciones.map((c) => ({ value: c.id, label: c.titulo }))} />
-          <Button onClick={() => abrir(null)} disabled={!!esperando}>Nueva</Button>
-          {convId != null && <Button danger onClick={borrar} disabled={!!esperando}>Borrar</Button>}
+    <Drawer open={abierto} onClose={alCerrar} size={ancho} maxSize={900} mask={false}
+      resizable={{ onResize: (n) => alRedimensionar(Math.max(360, n)) }}
+      title={vacio ? 'Asistente' : <Typography.Text ellipsis>{conversaciones.find((c) => c.id === convId)?.titulo ?? 'Conversación nueva'}</Typography.Text>}
+      extra={!vacio && (
+        <Space size={4}>
+          <Button type="text" title="Volver a las conversaciones" onClick={() => abrir(null)} disabled={!!esperando}>＋ Nueva</Button>
+          {convId != null && <Button type="text" danger title="Borrar esta conversación" onClick={borrar} disabled={!!esperando}>Borrar</Button>}
         </Space>
-      }
+      )}
       footer={<>
-        {adjuntos.length > 0 && (
-          <div style={{ marginBottom: 6 }}>
-            {adjuntos.map((a) => <Tag key={a.id} closable onClose={() => setAdjuntos((xs) => xs.filter((x) => x.id !== a.id))}>📎 {a.nombre}</Tag>)}
-          </div>
-        )}
         <input ref={archivo} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" hidden
           onChange={(e) => { void adjuntar(e.target.files); e.target.value = ''; }} />
-        <Space.Compact style={{ width: '100%' }}>
-          <Button title="Adjuntar un ticket o una factura (foto o PDF)" loading={subiendo} disabled={noDisponible} onClick={() => archivo.current?.click()}>📎</Button>
-          <Input.TextArea value={pregunta} onChange={(e) => setPregunta(e.target.value)} autoSize={{ minRows: 1, maxRows: 6 }} disabled={noDisponible}
-            placeholder="Preguntá, pedí que cargue algo o arrastrá un ticket" onPressEnter={(e) => { if (!e.shiftKey) { e.preventDefault(); preguntar(); } }} />
-          <Button type="primary" onClick={() => preguntar()} loading={!!esperando} disabled={noDisponible || subiendo}>Preguntar</Button>
-        </Space.Compact>
-        {gasto != null && <div style={{ fontSize: 12, color: '#8A7E74', textAlign: 'right', marginTop: 4 }}>Gastado este mes: {dolares(gasto)}</div>}
+        {!vacio && campo}
+        <div style={{ fontSize: 11.5, color: '#A39588', marginTop: vacio ? 0 : 6 }}>
+          Lo que preguntás y los datos que consulta se envían a Anthropic{gasto != null && ` · ${dolares(gasto)} este mes`}
+        </div>
       </>}>
       <div style={{ minHeight: '100%' }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if (!noDisponible) void adjuntar(e.dataTransfer.files); }}>
       {noDisponible && <Alert type="warning" showIcon title="El asistente no está disponible" description={estado.motivo} style={{ marginBottom: 12 }} />}
-      {turnos.length === 0 && !esperando && !noDisponible && (
-        <Typography.Paragraph type="secondary">
-          Contesta con los datos de la app, cómo se usa y análisis, y sabe en qué pantalla y mes estás. Si le pedís cargar o corregir
-          algo, arma una tarjeta: no se guarda nada hasta que tocás Confirmar. Podés arrastrar acá la foto o el PDF de un ticket.
-          Lo que preguntás, los comprobantes y los datos que consulta se mandan a Anthropic.
-        </Typography.Paragraph>
+      {vacio && (
+        <>
+          {campo}
+          <Typography.Paragraph type="secondary" style={{ fontSize: 12.5, margin: '8px 2px 20px' }}>
+            Sabe en qué pantalla y mes estás. Si le pedís cargar algo, arma una tarjeta: no se guarda nada hasta que tocás Confirmar.
+          </Typography.Paragraph>
+          {conversaciones.length > 0 && (
+            <>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#8A7E74', margin: '0 6px 4px' }}>Recientes</div>
+              {conversaciones.slice(0, verTodas ? undefined : 5).map((c) => (
+                <div key={c.id} className="reciente-ia" onClick={() => abrir(c.id)}>
+                  <Typography.Text ellipsis style={{ flex: 1 }}>{c.titulo}</Typography.Text>
+                  <span style={{ color: '#A39588', fontSize: 12 }}>{cuando(c.actualizada_en)}</span>
+                </div>
+              ))}
+              {conversaciones.length > 5 && (
+                <Typography.Link style={{ display: 'block', padding: '8px 6px', fontSize: 13 }} onClick={() => setVerTodas((v) => !v)}>
+                  {verTodas ? 'Ver menos' : `Ver todas (${conversaciones.length})`}
+                </Typography.Link>
+              )}
+            </>
+          )}
+        </>
       )}
       {[...turnos, ...(esperando ? [{ pregunta: esperando, texto: '' }] : [])].map((t, i) => (
         <div key={i} style={{ marginBottom: 24 }}>

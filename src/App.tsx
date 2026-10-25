@@ -55,6 +55,13 @@ export function App() {
   const [local, setLocal] = useState(false);
   const [emparejar, setEmparejar] = useState(false);
   const [asistente, setAsistente] = useState(false);
+  // Ancho del panel del asistente: lo cambia el usuario arrastrando el borde y queda guardado en esta PC.
+  const [anchoAsistente, setAnchoAsistente] = useState(() => {
+    try { return Number(localStorage.getItem('anchoAsistente')) || 420; } catch { return 420; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('anchoAsistente', String(anchoAsistente)); } catch { /* sin storage: vuelve a 420 */ }
+  }, [anchoAsistente]);
   const [refresco, setRefresco] = useState(0);
   useEffect(() => {
     // fetch directo: el 401 de una terminal sin emparejar se distingue de cualquier otro error.
@@ -105,7 +112,8 @@ export function App() {
         <Typography.Link href="/manual.pdf" target="_blank" style={{ display: 'block', padding: '16px 24px 0', color: '#E8C9A8' }}>Manual de usuario</Typography.Link>
         <Typography.Text style={{ display: 'block', padding: '8px 24px 16px', color: '#B3A698' }}>v{version}</Typography.Text>
       </Layout.Sider>
-      <Layout.Content style={{ padding: '24px 28px', minWidth: 0 }}>
+      {/* marginRight: con el asistente abierto la pantalla se corre a su lado en vez de quedar tapada */}
+      <Layout.Content style={{ padding: '24px 28px', minWidth: 0, marginRight: asistente ? anchoAsistente : 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
           <Typography.Title level={3} style={{ margin: '0 0 4px' }}>{actual.titulo}</Typography.Title>
           <Space size="small">
@@ -117,7 +125,7 @@ export function App() {
         {/* key: estado nuevo por sección, y al guardar algo desde el asistente (ponytail: se vuelve a montar y relee todo) */}
         <div key={`${seccion}-${refresco}`}>{actual.vista}</div>
       </Layout.Content>
-      <PanelAsistente abierto={asistente} alCerrar={() => setAsistente(false)} pantalla={actual.titulo} alGuardar={() => setRefresco((n) => n + 1)} />
+      <PanelAsistente abierto={asistente} alCerrar={() => setAsistente(false)} ancho={anchoAsistente} alRedimensionar={setAnchoAsistente} pantalla={actual.titulo} alGuardar={() => setRefresco((n) => n + 1)} />
     </Layout>
   );
 }
