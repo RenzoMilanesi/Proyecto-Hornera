@@ -1,8 +1,7 @@
 // Resumen interno (fase 6): KPIs del mes por depto y evolución. Lo de Hornera misma está en ResumenHornera.tsx.
 import { useEffect, useState } from 'react';
-import { Alert, Card, Segmented, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from 'antd';
+import { Alert, Card, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from 'antd';
 import { mesVisto } from './Asistente.tsx';
-import { LineasPorAnio, Ranking } from './Graficos.tsx';
 import type { elasticidadDelMes, evolucion, resumenDelMes } from '../server/resumen.ts';
 import { get, pesos } from './api.ts';
 
@@ -15,16 +14,6 @@ const pct = (x: number | null) => (x == null ? '' : `${Math.round(100 * x)} %`);
 const chico = { content: { fontSize: 20 } }; // seis tarjetas: la plata entra en un renglón
 const coef = (x: number | null | undefined) => (x == null ? '' : x.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }));
 const plata = (x: number | null) => (x == null ? '' : pesos(x));
-// Pesos sin centavos, para ejes y barras (los centavos no se leen en un gráfico).
-const pesosRedondos = (c: number) => `$ ${Math.round(c / 100).toLocaleString('es-AR')}`;
-// Qué se grafica en la evolución. Noches primero: es lo único con años de historia (hoja OCUPACION).
-const METRICAS = {
-  noches: { label: 'Noches ocupadas', valor: (m: Mes) => m.noches_ocupadas, formato: (v: number) => Math.round(v).toLocaleString('es-AR'), tope: undefined },
-  ocupacion: { label: 'Ocupación', valor: (m: Mes) => m.ocupacion, formato: (v: number) => `${Math.round(100 * v)} %`, tope: 1 },
-  adr: { label: 'ADR', valor: (m: Mes) => m.adr, formato: pesosRedondos, tope: undefined },
-  revpar: { label: 'RevPAR', valor: (m: Mes) => m.revpar, formato: pesosRedondos, tope: undefined },
-};
-type Metrica = keyof typeof METRICAS;
 // Título de tarjeta con un ⓘ que explica la cuenta al pasar el mouse.
 const ayuda = (titulo: string, texto: string) => (
   <Tooltip title={texto}><span style={{ cursor: 'help' }}>{titulo} <sup>ⓘ</sup></span></Tooltip>
@@ -38,7 +27,6 @@ export function Resumen() {
   mesVisto.valor = mes ?? ''; // para el asistente
   const [datos, setDatos] = useState<Resumen>();
   const [historia, setHistoria] = useState<Mes[]>();
-  const [metrica, setMetrica] = useState<Metrica>('noches');
   const [error, setError] = useState<string>();
 
   useEffect(() => {
@@ -83,24 +71,6 @@ export function Resumen() {
           suffix={t?.honorario_efectivo != null && <Typography.Text type="secondary" style={{ fontSize: 13, marginLeft: 6 }}>{(100 * t.honorario_efectivo).toLocaleString('es-AR', { maximumFractionDigits: 1 })} %</Typography.Text>} /></Card>
       </div></div>
 
-      <Card size="small" title={ayuda('Ranking por RevPAR',
-        'RevPAR = lo que pagaron los huéspedes por las noches ÷ noches a la venta. Junta precio y ocupación: es el número para comparar deptos. La línea punteada es la mediana; las barras claras, los deptos por debajo de ella.')}>
-        {datos && (
-          <>
-            <Ranking mediana={datos.totales.revpar_mediana} formato={pesosRedondos}
-              filas={datos.deptos.flatMap((d) => (d.revpar == null ? [] : [{
-                clave: d.codigo, etiqueta: `${d.codigo} · ${d.nombre}`, valor: d.revpar,
-                detalle: `Ocupación ${pct(d.ocupacion)} · ADR ${plata(d.adr)} · ${d.noches_vendidas} / ${d.noches_venta} noches`,
-              }]))} />
-            {datos.deptos.some((d) => d.revpar == null) && (
-              <Typography.Paragraph type="secondary" style={{ margin: '10px 0 0' }}>
-                Sin noches a la venta este mes: {datos.deptos.filter((d) => d.revpar == null).map((d) => d.codigo).join(', ')}.
-              </Typography.Paragraph>
-            )}
-          </>
-        )}
-      </Card>
-
       <Card size="small" title="Por depto">
         <Typography.Paragraph type="secondary">
           Noches vendidas / a la venta: sin bloqueos ni estadías del propietario. ADR: lo que pagaron los huéspedes por noche vendida,
@@ -141,18 +111,9 @@ export function Resumen() {
       </Card>
 
       <Card size="small" title="Evolución mensual">
-        <Space orientation="vertical" style={{ width: '100%', marginBottom: 16 }}>
-          <Segmented value={metrica} onChange={setMetrica}
-            options={Object.entries(METRICAS).map(([value, m]) => ({ value: value as Metrica, label: m.label }))} />
-          {historia && <LineasPorAnio filas={historia} valor={METRICAS[metrica].valor} formato={METRICAS[metrica].formato}
-            tope={METRICAS[metrica].tope} />}
-          <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-            Una línea por año: el último en terracota, el anterior en marrón. Meses cerrados; antes de usar la app solo hay
-            noches ocupadas (hoja OCUPACION del Excel). Las noches ocupadas crecen con la cantidad de deptos: para comparar
-            años, mirá la ocupación.
-            {(metrica === 'adr' || metrica === 'revpar') && ' En pesos de cada mes, sin ajustar por inflación: entre un año y otro, la suba en pesos no es una suba real.'}
-          </Typography.Paragraph>
-        </Space>
+        <Typography.Paragraph type="secondary">
+          Meses cerrados. Antes de usar la app solo hay noches ocupadas (hoja OCUPACION del Excel).
+        </Typography.Paragraph>
         <Table<Mes> rowKey="mes" size="small" pagination={false} loading={!historia && !error} scroll={{ x: 'max-content', y: 480 }}
           dataSource={historia ? [...historia].reverse() : undefined} columns={[
             { title: 'Mes', dataIndex: 'mes', width: 90 },
