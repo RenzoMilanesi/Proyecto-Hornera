@@ -85,8 +85,8 @@ const pasos = {
   },
   async movimientos() {
     await tam(1440, 1000); await ir('Movimientos'); await esperar(800); await foto('movimientos');
-    await click('Nuevo movimiento'); await foto('nuevo-movimiento', '.ant-modal-container'); await cerrarModal();
-    await click('Transferencia entre cuentas'); await foto('transferencia-cuentas', '.ant-modal-container'); await cerrarModal();
+    await click('Nuevo movimiento'); await tam(1440, 1100); await foto('nuevo-movimiento', '.ant-modal-container'); await cerrarModal();
+    await tam(1440, 1000); await click('Transferencia entre cuentas'); await foto('transferencia-cuentas', '.ant-modal-container'); await cerrarModal();
   },
   async deptos() {
     await tam(1440, 900); await ir('Deptos'); await foto('deptos');

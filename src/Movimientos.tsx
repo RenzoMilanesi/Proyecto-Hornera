@@ -132,7 +132,7 @@ export function FormMovimiento({ abierto, mes, editando, inicial, depto, deptos,
           ) : (
             <Button loading={subiendo} onClick={() => document.getElementById('comprobante-movimiento')?.click()}>Adjuntar foto o PDF</Button>
           )}
-          <input id="comprobante-movimiento" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" hidden
+          <input id="comprobante-movimiento" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" style={{ display: 'none' }} // hidden no alcanza: antd muestra los input file de un Form.Item
             onChange={(e) => { void adjuntar(e.target.files?.[0]); e.target.value = ''; }} />
         </Form.Item>
       </Form>
