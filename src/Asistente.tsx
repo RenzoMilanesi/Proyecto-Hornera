@@ -116,9 +116,9 @@ export const mesVisto = { valor: '' };
 
 // claude-sonnet-5-5 → Sonnet 5.5
 const nombreModelo = (m: string) => m.replace(/^claude-/, '').replace(/^(\w+?)-(.*)$/, (_, n: string, v: string) => `${n[0].toUpperCase()}${n.slice(1)} ${v.replace(/-/g, '.')}`);
-// 'YYYY-MM-DD HH:MM:SS' → hoy / ayer / 22/10 (ponytail: la fecha de SQLite es UTC; a la noche puede correrse un día)
+// sello local con offset ('2026-10-24T22:05:00-03:00') → hoy / ayer / 22/10
 const cuando = (f: string) => {
-  const dia = (d: Date) => d.toISOString().slice(0, 10);
+  const dia = (d: Date) => d.toLocaleDateString('sv-SE');
   const hoy = new Date();
   if (f.startsWith(dia(hoy))) return 'hoy';
   if (f.startsWith(dia(new Date(hoy.getTime() - 86400000)))) return 'ayer';

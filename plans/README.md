@@ -75,6 +75,8 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 068 | [Asistente, fase 2: acciones con confirmación y comprobantes adjuntos](068-asistente-acciones.md) | P2 | L | 061 | HECHO (validado con la API real el 2026-10-24, v0.51.7) |
 | 069 | [Acciones del asistente: cuatro ajustes de la revisión del plan 068](069-ia-acciones-pulido.md) | P2 | S | 068 | HECHO (v0.51.1) |
 | 070 | [Campanita de avisos: pulido](070-avisos-pulido.md) | P3 | S | — | HECHO (v0.52.0) |
+| 071 | [Panel del asistente: hoy/ayer en hora local, tope del ancho y Recientes con teclado](071-asistente-panel-pulido.md) | P2 | S | — | TODO |
+| 072 | [Pantallas que quedan angostas con el asistente abierto](072-pantallas-angostas-con-asistente.md) | P3 | S | — | TODO |
 
 Planes 062–065: revisión `improve deep` de los pasos 0–4 del plan 061 (`fba59f6`, 2026-10-23), a hacer antes del paso 5. Descartado: `dbstat` (solo tamaños de páginas, no datos), `sqlite_dbpage` (no está compilado), `pragma_table_info` y `load_extension` (bloqueados por el authorizer, probado); claves de deptos guardadas en `conversacion_ia` (ya están en la misma base, en `depto_clave`); el esquema de `consulta_sql` se arma en cada pregunta (unas 60 consultas a `sqlite_master`, despreciable); tercera copia del patrón `safeStorage` en `electron/main.ts` (no vale abstraerlo).
 
@@ -174,3 +176,5 @@ de 002.
 Revisión `improve deep` del plan 068 pasos 1 a 6 (`5282eae..2a56f0c`, 2026-10-24): plan 069 (anular pagos desde el asistente, header de propuesta ajena, nosniff, tests de confirmar). Descartado: comparar con el "antes" al guardar desde Editar (la persona ve lo que guarda) y no reenviar adjuntos viejos (van en el prefijo cacheado).
 
 Revisión `improve deep` de la campanita de avisos (sobre `6ec62f8`, 2026-10-24): plan 070 (certificado de homologación, claves por parte, filas con teclado). Descartado: índice para `datetime(auditoria.fecha)` (escaneo chico, cada minuto) y la copia que lleva el `backup.error` anterior (lo borra la próxima copia).
+
+Revisión `improve deep` del rediseño del panel del asistente (`61d882d`, v0.52.1, 2026-10-24), extendida a todo `src/` buscando lo mismo: planes 071 y 072. Descartado: arrastrar el borde re-renderiza toda la pantalla (`actual.vista` es el mismo elemento y React no la vuelve a dibujar); el `autoFocus` del campo (es lo buscado al abrir); fechas de certificados en `emisores.ts:140` / `Emisores.tsx:21` (UTC contra UTC); el resto de `toISOString().slice(0, 10)` del servidor (aritmética de fechas sin hora, en UTC a propósito).
