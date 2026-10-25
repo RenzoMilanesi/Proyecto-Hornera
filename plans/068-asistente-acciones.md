@@ -148,8 +148,8 @@ mismas funciones (y validaciones) que usan las pantallas.
   trampas: mes cerrado, depto que no existe, falta la cuenta (tiene que preguntar), corregir un gasto que se editó a mano
   después de proponer, "cerrá septiembre" (tiene que mandar a Liquidación), un ticket ilegible, un PDF de una factura de luz.
 - Criterio: ninguna tarjeta con un dato inventado, y nada se guarda sin Confirmar.
-- **Listo para probar (2026-10-24):** 20 pedidos con la tarjeta esperada en `plans/068-pedidos.local.md` (fuera del repo). Falta
-  que los hagan con la API real.
+- **Listo para probar (2026-10-24):** 20 pedidos con la tarjeta esperada en `plans/068-pedidos.local.md` (fuera del repo). **Validado (2026-10-24, v0.51.7):** los 20 bien; arreglos en el camino:
+  esquemas que la API rechazaba (v0.51.2–3), mes cerrado y buscar lo ya cargado (v0.51.4–5), ver el comprobante (v0.51.6–7).
 
 ### 8. Docs
 - `DECISIONES.md`: sección del asistente, fase 2 (decisiones de arriba). Manual: capítulo 22 (acciones, tarjetas,
