@@ -1,4 +1,4 @@
-// Copia de seguridad: al cerrar y cada 6 h con la app abierta. Se conservan las últimas 60
+// Copia de seguridad: al salir (Salir de la bandeja o apagar Windows) y cada 6 h con la app abierta. Se conservan las últimas 60
 // (unas 2 semanas aunque la app quede abierta día y noche).
 import { DatabaseSync } from 'node:sqlite';
 import { copyFileSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';

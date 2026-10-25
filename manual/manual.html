@@ -828,7 +828,10 @@ cambios en la Auditoría; al cambiarlo, lo ya registrado con el nombre anterior 
   <figcaption>La pantalla de la terminal para elegir el servidor.</figcaption>
 </figure>
 <ul>
-  <li>Si el servidor está apagado o Hornera está cerrada en el servidor, la terminal avisa que no puede conectar. Al volver a abrirlo, tocar
+  <li>En el servidor, cerrar la ventana no cierra Hornera: queda en la bandeja de Windows (los íconos junto al reloj) y las terminales siguen
+    andando. Para volver a verla, clic en ese ícono; para cerrarla del todo, clic derecho → <span class="boton">Salir</span>. En el servidor,
+    Hornera arranca sola al entrar a Windows.</li>
+  <li>Si el servidor está apagado o se salió de Hornera en el servidor, la terminal avisa que no puede conectar. Al volver a abrirlo, tocar
     <span class="boton">Conectar</span>.</li>
   <li><span class="boton">Revocar</span> desconecta una terminal: esa PC deja de poder usar la app hasta que se vuelva a emparejar.</li>
   <li>Las claves (Stays, certificados) solo se cargan en el servidor. Los PDF que se generan desde una terminal se guardan en el servidor.</li>
@@ -838,7 +841,7 @@ cambios en la Auditoría; al cambiarlo, lo ya registrado con el nombre anterior 
 <!-- ============================================================ -->
 <h1>21. Copias de seguridad y recuperación</h1>
 <ul>
-  <li>Hornera hace una copia de la base <b>al cerrar la app</b> y <b>cada 6 horas</b> mientras está abierta, en
+  <li>Hornera hace una copia de la base <b>al salir de Hornera</b> (clic derecho en su ícono de la bandeja → Salir), <b>al apagar Windows</b> y <b>cada 6 horas</b> mientras está abierta, en
     <code>%APPDATA%\Hornera\backups</code> (archivos <code>hornera-&lt;fecha&gt;.db</code>). Se guardan las últimas 60.</li>
   <li>Las copias no incluyen la clave de Stays ni las de los certificados.</li>
 </ul>
@@ -921,7 +924,7 @@ pueden estar abiertas a la vez.</div>
   <tr><td>Limpieza: no deja marcar pagada</td><td>El mes de la fecha de pago está cerrado: elegir una fecha del mes abierto.</td></tr>
   <tr><td>Limpieza: "el período se pisa con otro"</td><td>Las fechas se superponen con otra liquidación: empezar el día siguiente a la anterior.</td></tr>
   <tr><td>Los honorarios no dan el 20 % del bruto</td><td>Es correcto: el 20 % se aplica sobre la base de honorarios (bruto − costos operativos − comisiones). Ver el ⓘ de Honorarios en Resumen.</td></tr>
-  <tr><td>La terminal no conecta</td><td>Que Hornera esté abierta en el servidor, que estén en la misma red, la dirección tal cual la muestra Terminales y el firewall con redes privadas permitidas.</td></tr>
+  <tr><td>La terminal no conecta</td><td>Que el servidor esté prendido y con la sesión de Windows iniciada (Hornera arranca sola, en la bandeja), que estén en la misma red, la dirección tal cual la muestra Terminales y el firewall con redes privadas permitidas.</td></tr>
 </table>
 <h2>Cómo reportar un problema</h2>
 <ul>

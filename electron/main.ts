@@ -1,7 +1,7 @@
 // Proceso principal. La PC es servidor (abre la base, levanta la API en la red, hace backups y
 // muestra la ventana) o terminal (solo una ventana con la app de otra PC servidor, fase 5d).
 // En desarrollo, Vite corre como middleware del mismo Express (un solo puerto, con HMR).
-import { app, BrowserWindow, dialog, safeStorage, session, shell } from 'electron';
+import { app, BrowserWindow, dialog, Menu, safeStorage, session, shell, Tray } from 'electron';
 import express from 'express';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -45,11 +45,20 @@ async function rolDeEstaPc(): Promise<Rol> {
 // Manual de usuario: viaja dentro del instalador (extraResources). Cada PC abre su copia, también una terminal.
 const MANUAL = app.isPackaged ? join(process.resourcesPath, 'manual.pdf') : join(RAIZ, 'manual', 'Manual de usuario Hornera.pdf');
 
+let principal: BrowserWindow | undefined;
+function mostrarPrincipal() {
+  if (!principal) return;
+  if (principal.isMinimized()) principal.restore();
+  principal.show();
+  principal.focus();
+}
+
 // La ventana solo muestra la app: sin ventanas nuevas, sin permisos. Navegar fuera, lo decide cada rol.
 // Excepciones: el link /manual.pdf abre el manual con el visor de PDF de Windows, y un comprobante
 // (/api/adjuntos/:id del mismo servidor) se ve en una ventana aparte que no navega ni abre nada.
-function crearVentana() {
-  const ventana = new BrowserWindow({ width: 1280, height: 800, title: 'Hornera', autoHideMenuBar: true });
+function crearVentana(mostrar = true) {
+  const ventana = new BrowserWindow({ show: mostrar, width: 1280, height: 800, title: 'Hornera', autoHideMenuBar: true });
+  principal = ventana;
   ventana.webContents.on('did-create-window', (hija, { url: abierta }) => {
     hija.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     // La carga inicial del comprobante también pasa por will-navigate: solo esa se deja.
@@ -71,7 +80,8 @@ function crearVentana() {
     return { action: 'deny' };
   });
   session.defaultSession.setPermissionRequestHandler((_wc, _permiso, responder) => responder(false));
-  ventana.maximize();
+  if (mostrar) ventana.maximize();
+  else ventana.once('show', () => ventana.maximize());
   return ventana;
 }
 
@@ -172,7 +182,8 @@ async function iniciarServidor() {
     rutaDb,
     elegirArchivo: async (carpeta) => (await dialog.showOpenDialog({ title: 'Elegir la copia a restaurar', defaultPath: carpeta, filters: filtros, properties: ['openFile'] })).filePaths[0],
     guardarComo: async (nombre) => (await dialog.showSaveDialog({ title: 'Guardar una copia de la base', defaultPath: join(app.getPath('documents'), nombre), filters: filtros })).filePath || undefined,
-    reiniciar: () => { app.relaunch(); app.quit(); },
+    // Sin --oculto: tras restaurar (abierta desde la bandeja) la ventana tiene que volver a verse.
+    reiniciar: () => { app.relaunch({ args: process.argv.slice(1).filter((a) => a !== '--oculto') }); app.quit(); },
   };
   const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales(), claves: almacenClaves(), pdf: generadorPdf(ORIGEN_LOCAL), desarrollo: !app.isPackaged, carpetaBackups, sistema, claveIa: almacenClaveIa() });
   const http = createServer(api);
@@ -212,10 +223,37 @@ async function iniciarServidor() {
   };
   app.on('before-quit', () => cerrar(true));
 
-  const ventana = crearVentana();
+  const ventana = crearVentana(!process.argv.includes('--oculto'));
   ventana.on('session-end', () => cerrar(false)); // evento de ventana, solo Windows
+  enBandeja(ventana).catch(console.error);
   ventana.webContents.on('will-navigate', (e, url) => { if (new URL(url).origin !== ORIGEN_LOCAL) e.preventDefault(); });
   await ventana.loadURL(ORIGEN_LOCAL);
+}
+
+// Servidor en segundo plano: cerrar la ventana la oculta y la API sigue para las terminales.
+// Se sale de verdad con "Salir" de la bandeja (o al reiniciar/apagar). Al entrar a Windows arranca oculta.
+let bandeja: Tray | undefined; // referencia global: si la junta el GC, el ícono desaparece
+let saliendo = false;
+async function enBandeja(ventana: BrowserWindow) {
+  app.on('before-quit', () => { saliendo = true; });
+  ventana.on('query-session-end', () => { saliendo = true; }); // apagar o cerrar sesión: no trabarlo
+  let avisado = false;
+  ventana.on('close', (e) => {
+    if (saliendo || !bandeja) return; // sin ícono no habría forma de volver a abrirla
+    e.preventDefault();
+    ventana.hide();
+    if (!avisado) bandeja?.displayBalloon({ title: 'Hornera sigue abierta', content: 'Las terminales siguen funcionando. Para cerrarla del todo: clic derecho en este ícono, Salir.' });
+    avisado = true;
+  });
+  // ponytail: el ícono es el del .exe (en desarrollo, el de Electron); uno propio si se agrega al build.
+  bandeja = new Tray(await app.getFileIcon(process.execPath));
+  bandeja.setToolTip('Hornera (servidor)');
+  bandeja.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Abrir Hornera', click: mostrarPrincipal },
+    { type: 'separator' },
+    { label: 'Salir (las terminales se desconectan)', click: () => app.quit() },
+  ]));
+  bandeja.on('click', mostrarPrincipal);
 }
 
 // "PC-OFICINA", "192.168.0.10:4310" o "http://pc-oficina" → "http://pc-oficina:4310".
@@ -271,21 +309,19 @@ function iniciarTerminal(rol: Rol) {
 
 async function iniciar() {
   const rol = await rolDeEstaPc();
+  // Solo el servidor arranca con Windows; en desarrollo no (registraría electron.exe).
+  if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: rol.rol === 'servidor', args: ['--oculto'] });
   if (rol.rol === 'terminal') iniciarTerminal(rol);
   else await iniciarServidor();
 }
 
-// Una sola instancia por PC: si ya está abierta, la segunda trae esa ventana al frente y sale.
+// Una sola instancia por PC: si ya está abierta (también oculta en la bandeja), la segunda la trae al frente y sale.
 if (!app.requestSingleInstanceLock()) {
   // `npm run dev` comparte la carpeta de datos con la app instalada: si esa está abierta, se ve la instalada.
   console.log('Hornera ya está abierta en esta PC (¿la versión instalada?): se trae esa ventana al frente. Cerrala para abrir esta.');
   app.quit();
 } else {
-  app.on('second-instance', () => {
-    const ventana = BrowserWindow.getAllWindows()[0];
-    if (ventana?.isMinimized()) ventana.restore();
-    ventana?.focus();
-  });
+  app.on('second-instance', mostrarPrincipal);
   app.whenReady().then(iniciar).catch((e) => {
     dialog.showErrorBox('Hornera no pudo iniciar', String(e?.stack ?? e));
     app.quit();

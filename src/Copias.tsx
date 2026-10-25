@@ -39,7 +39,7 @@ export function Copias() {
       {aviso && <Alert type="success" showIcon closable title={aviso} onClose={() => setAviso(undefined)} />}
       <Card size="small" title="Carpeta de las copias">
         <Typography.Paragraph type="secondary">
-          Hornera hace una copia de la base al cerrar y cada 6 horas. Conviene una carpeta de Google Drive u OneDrive:
+          Hornera hace una copia de la base al salir, al apagar Windows y cada 6 horas. Conviene una carpeta de Google Drive u OneDrive:
           así la copia queda también fuera de esta PC. Al guardar se hace una copia de prueba; si no se puede, la carpeta no cambia.
           Las copias que ya existen no se mueven.
         </Typography.Paragraph>

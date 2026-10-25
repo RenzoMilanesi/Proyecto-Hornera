@@ -163,7 +163,7 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - **Convenciones de Roble:** importes en centavos INTEGER, fechas ISO, bajas lógicas, saldos por vistas `v_*`. La "capa repos" de Roble no se adoptó: el SQL vive junto a cada módulo (`server/app.ts`, `server/importador/`, `server/stays/`).
 - **Instalador** (`npm run dist`): electron-builder con NSIS, como Roble. Lista explícita de archivos en `package.json` ("build.files"): solo `electron/`, `server/` sin tests, `dist/`, `schema.sql` y las dependencias de producción (express, xlsx, node-forge, qrcode); React y Ant Design van compilados en `dist/`. Nunca entra `Archivos Originales/`. Sin firma de código (Windows avisa "protegió su PC") ni ícono propio. Los datos quedan en `%APPDATA%\Hornera`, fuera de la carpeta de instalación: reinstalar o actualizar no los toca.
 - **PDF:** `printToPDF` de Electron (patrón `HojaImpresion`).
-- **Backups:** como Roble pero al cerrar, al apagar Windows y cada 6 h con la app abierta; se conservan 60 copias (unas 2 semanas en el peor caso), con `VACUUM INTO`, con carpeta de destino configurable (Drive/OneDrive) en `configuracion.backup.carpeta`.
+- **Backups:** como Roble pero al salir (cerrar la ventana del servidor solo la oculta en la bandeja), al apagar Windows y cada 6 h con la app abierta; se conservan 60 copias (unas 2 semanas en el peor caso), con `VACUUM INTO`, con carpeta de destino configurable (Drive/OneDrive) en `configuracion.backup.carpeta`.
 
 ## Pendiente
 Preguntas para los dueños, para más adelante:

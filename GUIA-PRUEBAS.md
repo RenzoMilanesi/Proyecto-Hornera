@@ -24,7 +24,7 @@ Todo se prueba **en paralelo con el Excel**: el Excel sigue siendo el que manda 
 
 ### Dónde quedan los datos
 - Base y configuración: `%APPDATA%\Hornera` (pegarlo en la barra del Explorador de archivos).
-- Copias de seguridad: `%APPDATA%\Hornera\backups` (al cerrar la app y cada 6 h con la app abierta;
+- Copias de seguridad: `%APPDATA%\Hornera\backups` (al salir de Hornera, al apagar Windows y cada 6 h con la app abierta;
   se guardan las últimas 60).
 - PDF de las liquidaciones: `Documentos\Hornera\Liquidaciones\<mes>\`.
 
@@ -121,7 +121,8 @@ copia aparte que no toque los datos de verdad:
    la terminal junto con un nombre (p. ej. "PC de la oficina").
 4. Cargar un movimiento desde la terminal y verlo en el servidor (al entrar a la pantalla).
 5. En el servidor, **Revocar** la terminal: la terminal tiene que volver a pedir el código.
-6. Cerrar Hornera en el servidor: la terminal muestra que no puede conectar. Abrirlo de nuevo y
+6. En el servidor, cerrar la ventana: la terminal sigue andando. Después, clic derecho en el ícono de la
+   bandeja → Salir: la terminal muestra que no puede conectar. Abrir Hornera de nuevo y
    tocar *Conectar*: vuelve a entrar.
 7. Escribir mal la dirección (p. ej. otro nombre): tiene que volver a la pantalla de conectar con un
    mensaje, no quedarse trabada.
