@@ -24,8 +24,9 @@
       .campo-ia:focus-within { border-color: #A8461F; box-shadow: 0 0 0 3px rgba(168, 70, 31, .12); }
       /* Un solo borde: el del recuadro. El texto de adentro no marca su propio foco. */
       .campo-ia textarea, .campo-ia textarea:focus, .campo-ia textarea:hover { border: 0 !important; outline: none !important; box-shadow: none !important; background: transparent !important; }
-      .reciente-ia { display: flex; gap: 8px; padding: 8px 6px; border-bottom: 1px solid #EDE6DE; cursor: pointer; border-radius: 6px; }
+      .reciente-ia { all: unset; box-sizing: border-box; width: 100%; display: flex; gap: 8px; padding: 8px 6px; border-bottom: 1px solid #EDE6DE; cursor: pointer; border-radius: 6px; }
       .reciente-ia:hover { background: #F5EFE9; }
+      .reciente-ia:focus-visible { outline: 2px solid #B5835A; }
       .md-ia { font-size: 14.5px; line-height: 1.65; overflow-x: auto; }
       .md-ia > :first-child { margin-top: 0; }
       .md-ia > :last-child { margin-bottom: 0; }

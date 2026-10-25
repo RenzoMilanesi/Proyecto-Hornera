@@ -394,10 +394,10 @@ export function PanelAsistente({ abierto, alCerrar, ancho, maxAncho, alRedimensi
             <>
               <div style={{ fontSize: 12, fontWeight: 600, color: '#8A7E74', margin: '0 6px 4px' }}>Recientes</div>
               {conversaciones.slice(0, verTodas ? undefined : 5).map((c) => (
-                <div key={c.id} className="reciente-ia" onClick={() => abrir(c.id)}>
+                <button key={c.id} type="button" className="reciente-ia" onClick={() => abrir(c.id)}>
                   <Typography.Text ellipsis style={{ flex: 1 }}>{c.titulo}</Typography.Text>
                   <span style={{ color: '#A39588', fontSize: 12 }}>{cuando(c.actualizada_en)}</span>
-                </div>
+                </button>
               ))}
               {conversaciones.length > 5 && (
                 <Typography.Link style={{ display: 'block', padding: '8px 6px', fontSize: 13 }} onClick={() => setVerTodas((v) => !v)}>
