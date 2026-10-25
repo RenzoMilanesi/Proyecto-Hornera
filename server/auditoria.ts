@@ -109,19 +109,8 @@ function cambios(accion: Accion, antes: Record<string, unknown> | null, despues:
     .map(([k, v]) => `${etiqueta(k)}: ${k === 'importe' && typeof v === 'number' ? plata(v, fila.moneda === 'USD') : valor(k, v, n)}`).join(' · ');
 }
 
-export interface FilaAuditoria { id: number; fecha: string; pc: string; conIa: boolean; tipo: string; referencia: string | null; accion: string; cambios: string }
-
-export function listarAuditoria(db: DatabaseSync, mes: string): FilaAuditoria[] {
-  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) throw new Error(`Mes inválido: "${mes}" (se espera AAAA-MM).`);
-  const mapa = (sql: string) => new Map((db.prepare(sql).all() as { id: number; n: string }[]).map((f) => [f.id, f.n]));
-  const n: Nombres = {
-    depto_id: mapa('SELECT id, codigo AS n FROM depto'), concepto_id: mapa('SELECT id, nombre AS n FROM concepto'),
-    cuenta_id: mapa('SELECT id, nombre AS n FROM cuenta'), periodo_id: mapa('SELECT id, mes AS n FROM periodo'),
-    propietario_id: mapa('SELECT id, nombre AS n FROM propietario'),
-  };
-  // A qué se refiere cada renglón, con los datos de hoy (el depto y concepto del movimiento, el código de la reserva…).
-  const filas = db.prepare(`
-    SELECT a.id, a.fecha, a.pc, a.con_ia, a.tabla, a.accion, a.antes_json, a.despues_json, CASE a.tabla
+// A qué se refiere cada renglón, con los datos de hoy (el depto y concepto del movimiento, el código de la reserva…).
+const REFERENCIA = `CASE a.tabla
       WHEN 'movimiento' THEN (SELECT COALESCE(d.codigo || ' · ', '') || COALESCE(c.nombre, m.tipo) FROM movimiento m
         LEFT JOIN depto d ON d.id = m.depto_id LEFT JOIN concepto c ON c.id = m.concepto_id WHERE m.id = a.registro_id)
       WHEN 'reserva' THEN (SELECT d.codigo || ' · ' || r.codigo FROM reserva r JOIN depto d ON d.id = r.depto_id WHERE r.id = a.registro_id)
@@ -134,13 +123,37 @@ export function listarAuditoria(db: DatabaseSync, mes: string): FilaAuditoria[] 
       WHEN 'liquidacion' THEN (SELECT d.codigo || ' · ' || p.mes FROM liquidacion l JOIN depto d ON d.id = l.depto_id
         JOIN periodo p ON p.id = l.periodo_id WHERE l.id = a.registro_id)
       WHEN 'depto_clave' THEN (SELECT d.codigo || ' · ' || k.nombre FROM depto_clave k JOIN depto d ON d.id = k.depto_id WHERE k.id = a.registro_id)
+      WHEN 'comprobante' THEN (SELECT d.codigo FROM comprobante c JOIN depto d ON d.id = c.depto_id WHERE c.id = a.registro_id)
       WHEN 'terminal' THEN (SELECT nombre FROM terminal WHERE id = a.registro_id)
       WHEN 'liquidacion_limpieza' THEN (SELECT strftime('%d/%m', desde) || '–' || strftime('%d/%m/%Y', hasta) FROM liquidacion_limpieza WHERE id = a.registro_id)
-    END AS referencia
+    END AS referencia`;
+
+export interface FilaAuditoria { id: number; fecha: string; pc: string; conIa: boolean; tipo: string; referencia: string | null; accion: string; cambios: string }
+
+export function listarAuditoria(db: DatabaseSync, mes: string): FilaAuditoria[] {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) throw new Error(`Mes inválido: "${mes}" (se espera AAAA-MM).`);
+  const mapa = (sql: string) => new Map((db.prepare(sql).all() as { id: number; n: string }[]).map((f) => [f.id, f.n]));
+  const n: Nombres = {
+    depto_id: mapa('SELECT id, codigo AS n FROM depto'), concepto_id: mapa('SELECT id, nombre AS n FROM concepto'),
+    cuenta_id: mapa('SELECT id, nombre AS n FROM cuenta'), periodo_id: mapa('SELECT id, mes AS n FROM periodo'),
+    propietario_id: mapa('SELECT id, nombre AS n FROM propietario'),
+  };
+  const filas = db.prepare(`
+    SELECT a.id, a.fecha, a.pc, a.con_ia, a.tabla, a.accion, a.antes_json, a.despues_json, ${REFERENCIA}
     FROM auditoria a WHERE a.fecha >= ? AND a.fecha < date(?, '+1 month') ORDER BY a.id DESC`)
     .all(`${mes}-01`, `${mes}-01`) as { id: number; fecha: string; pc: string; con_ia: number; tabla: string; accion: Accion; antes_json: string | null; despues_json: string | null; referencia: string | null }[];
   return filas.map((f) => ({
     id: f.id, fecha: f.fecha, pc: f.pc, conIa: f.con_ia === 1, tipo: TIPOS[f.tabla] ?? f.tabla, referencia: f.referencia, accion: ACCIONES[f.accion] ?? f.accion,
     cambios: cambios(f.accion, f.antes_json && JSON.parse(f.antes_json), f.despues_json && JSON.parse(f.despues_json), n),
   }));
+}
+
+// Campanita (avisos.ts): lo importante que hicieron otras PCs desde `desde` (sello). Altas y ediciones comunes, no.
+export function cambiosDeOtrasPcs(db: DatabaseSync, pc: string, desde: string) {
+  return (db.prepare(`
+    SELECT a.id, a.fecha, a.pc, a.tabla, a.accion, ${REFERENCIA}
+    FROM auditoria a WHERE a.pc <> ? AND datetime(a.fecha) >= datetime(?)
+      AND (a.accion IN ('cierre', 'reapertura', 'importacion', 'anulacion') OR (a.tabla = 'comprobante' AND a.accion = 'alta'))
+    ORDER BY a.id DESC LIMIT 20`).all(pc, desde) as { id: number; fecha: string; pc: string; tabla: string; accion: Accion; referencia: string | null }[])
+    .map((f) => ({ id: f.id, fecha: f.fecha, pc: f.pc, texto: [ACCIONES[f.accion], TIPOS[f.tabla] ?? f.tabla, f.referencia].filter(Boolean).join(' · ') }));
 }

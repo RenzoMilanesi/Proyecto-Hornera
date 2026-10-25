@@ -87,6 +87,11 @@ en la LAN (fase 5d), que sigue a testear.
    conversaciones anteriores, tablas de la respuesta y, al pie, modelo, consultas, costo y "Cómo lo calculé". v0.44.3: el manual se lee por capítulo, a pedido (plan 066): la primera
    pregunta de cada conversación manda unos 7.000 tokens fijos en vez de 28.500. v0.45.0: Sonnet con esfuerzo bajo por
    defecto y "Pensar más" al pie de la última respuesta (la repite con esfuerzo alto en una conversación nueva). v0.46.0: Herramientas → Asistente muestra el gasto del mes (v0.46.1: también el panel). v0.46.2: las respuestas se ven como en la app de Claude
+   v0.52.0: botón "✦ Asistente" junto al título de cada pantalla y atajo Ctrl+K para abrirlo y cerrarlo.
+15. **Campanita de avisos** — **A testear** (v0.52.0; definida con grill-me el 2026-10-24; pulido en plan 070): junto al título,
+   un contador de lo que esta PC no vio y la lista: servicios vencidos o que vencen en 3 días, certificado de ARCA vencido o por vencer
+   en 30 días, facturas o notas de crédito que no salieron, copia de seguridad fallada (solo en la PC servidor) y, de otras PCs, cierres,
+   reaperturas, importaciones, anulaciones y facturas de los últimos 7 días. Cada aviso lleva a su pantalla; se actualiza cada minuto.
 . **Sellos con zona horaria** — **A testear** (v0.47.0; 2026-10-24): los campos "cuándo se hizo" (`*_en`, fecha de la auditoría) se guardan
    en ISO 8601 con offset (`2026-10-24T15:30:00-03:00`) para cruzarlos con otras apps o APIs. La migración (esquema 22) unifica
    los viejos: hora local y UTC sin marca (Stays, importación del Excel, asistente) quedaban mezclados, con 3 h de diferencia. v0.47.1: el asistente sabe que llevan offset (plan 067).

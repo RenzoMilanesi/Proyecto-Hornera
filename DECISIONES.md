@@ -139,6 +139,13 @@ Grill-me del 2026-10-11 (reinicio desde cero). Fuentes: `Archivos Originales/`.
 - **Costo (plan 066):** Sonnet 5.5 con esfuerzo bajo por defecto; "Pensar más" repite la última pregunta con esfuerzo alto en una conversación nueva. No se filtra la pregunta para elegir modelo antes de mandarla: un filtro que se equivoca da un número mal, y el pensamiento adaptativo ya piensa poco en lo fácil. Caché de 1 hora: a decidir con un mes de uso real.
 - **Respuestas como en la app de Claude:** Markdown completo con `marked` (GFM), sin caja alrededor y la pregunta en una burbuja. Sin HTML crudo, imágenes ni links: la respuesta puede repetir datos de la base (una imagen remota los sacaría al cargarse; un link `javascript:` correría en la app).
 
+## Campanita de avisos (`server/avisos.ts`, `src/Avisos.tsx`; 2026-10-24)
+- **Se calcula, no se guarda:** cada aviso sale de lo que la app ya sabe (vencimientos, emisores, comprobantes, auditoría). Un problema se va solo al resolverlo; no se puede posponer ni tapar.
+- **Visto, por PC:** abrir la lista baja el número (en el navegador de cada PC). Pagar uno de dos servicios no hace nuevo al otro.
+- **Umbrales fijos:** servicio 3 días antes, certificado 30. Solo el mes en curso (lo del mes pasado pagado con fecha de este seguiría "vencido"). La copia avisa si falló la última (`configuracion.backup.error`), no por antigüedad: con la app cerrada el fin de semana no hay copias y avisaría en falso cada lunes.
+- **Otras PCs, solo lo importante:** cierres, reaperturas, importaciones, anulaciones y facturas emitidas, de los últimos 7 días. Altas y ediciones comunes, no.
+- **Para más adelante:** recordatorios cargados a mano, cuando haya un caso concreto.
+
 ## Técnico
 - **Desktop** como Roble: Electron + React/Vite + Express + SQLite. Proyecto nuevo, se copia de Roble solo lo que sirva.
 - **SQLite con `node:sqlite`** (incluido en Node/Electron) en vez de `better-sqlite3`: sin módulo nativo ni `electron-rebuild`. Electron corre los `.ts` directo (type stripping); solo Vite compila la interfaz. `tsc` se usa únicamente para chequear tipos.

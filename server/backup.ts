@@ -106,7 +106,20 @@ export function hacerBackup(db: DatabaseSync, carpeta: string, ahora = new Date(
 // Copia en la carpeta configurable (Drive/OneDrive, `configuracion.backup.carpeta`).
 // Si esa falla (Drive desmontado), la copia queda en la por defecto y se avisa con
 // un error que dice dónde quedó: mejor una copia local que ninguna.
+// La falla queda en `backup.error` (fecha y mensaje) para la campanita (avisos.ts); la próxima que anda la borra.
 export function respaldar(db: DatabaseSync, porDefecto: string, prefijo?: string): string {
+  try {
+    const destino = copiarDondeSe(db, porDefecto, prefijo);
+    db.prepare(`DELETE FROM configuracion WHERE clave = 'backup.error'`).run();
+    return destino;
+  } catch (e) {
+    db.prepare(`INSERT INTO configuracion(clave, valor) VALUES ('backup.error', ?) ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor`)
+      .run(JSON.stringify({ fecha: new Date().toLocaleDateString('sv'), mensaje: e instanceof Error ? e.message : String(e) }));
+    throw e;
+  }
+}
+
+function copiarDondeSe(db: DatabaseSync, porDefecto: string, prefijo?: string): string {
   const { carpeta } = carpetaBackups(db, porDefecto);
   try {
     // Una carpeta de otra PC de la red (ruta UNC, \\servidor\carpeta) haría que Windows se conecte a ella.

@@ -26,6 +26,7 @@ import { desvincular, importarMisComprobantes, listarMisComprobantes, vincular }
 import { datosComprobante, detalleComprobante, emitir, ErrorRevisar, facturaVigente, listarComprobantes, notaCredito, propuesta } from './facturacion.ts';
 import { datosDePago, datosFiscales, guardarDatosDePago, guardarDatosFiscales, padronDePropietario } from './propietarios.ts';
 import { rutasBackup, type Sistema } from './backup.ts';
+import { calcularAvisos } from './avisos.ts';
 import { agregar, borrar, editar, ficha, guardarNotas, vencimientos } from './ficha.ts';
 import { liquidacionDelMes, listarCuentas, listarDeptos, listarPeriodos, listarPropietarios, reservasDelMes } from './consultas.ts';
 import { borrarConversacionIa, clienteAnthropic, configIa, conversacionesIa, conversacionIa, gastoIaMes, guardarConfigIa, preguntar, type AlmacenClaveIa, type ClienteIa } from './ia/asistente.ts';
@@ -319,6 +320,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   app.put('/api/ficha/:lista/:id', (req, res) => intentar(res, () => { editar(db, req.params.lista, Number(req.params.id), req.body); return { ok: true }; }));
   app.delete('/api/ficha/:lista/:id', (req, res) => intentar(res, () => { borrar(db, req.params.lista, Number(req.params.id)); return { ok: true }; }));
   app.get('/api/vencimientos', (req, res) => intentar(res, () => vencimientos(db, String(req.query.mes ?? ''))));
+  app.get('/api/avisos', (req, res) => intentar(res, () => calcularAvisos(db, { pc: pcActual.getStore() ?? nombrePc(db), local: esLocal(req), desarrollo })));
 
   app.get('/api/liquidacion', (req, res) => intentar(res, () => liquidacionDelMes(db, String(req.query.mes ?? ''))));
 

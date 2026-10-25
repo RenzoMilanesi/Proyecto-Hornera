@@ -339,9 +339,12 @@ test('si la carpeta de backup configurada falla o es de otra PC, la copia queda 
   configurar('\\\\servidor\\backups'); // \\servidor\backups: no se toca la red
   assert.throws(() => respaldar(db, porDefecto), (e: Error) => e.message.includes('otras PCs de la red') && e.message.includes(porDefecto));
   assert.equal(readdirSync(porDefecto).length, 2);
+  const error = () => db.prepare(`SELECT valor FROM configuracion WHERE clave = 'backup.error'`).get() as { valor: string } | undefined;
+  assert.match(error()!.valor, /otras PCs de la red/); // para la campanita (avisos.ts)
 
-  db.prepare(`DELETE FROM configuracion`).run();
+  db.prepare(`DELETE FROM configuracion WHERE clave = 'backup.carpeta'`).run();
   assert.match(respaldar(db, porDefecto), /hornera-.*\.db$/); // sin configurar: va directo a la por defecto
+  assert.equal(error(), undefined); // la que anduvo borra la falla
 });
 
 test('elegir la carpeta de las copias: se guarda solo si la copia de prueba anda', (t) => {

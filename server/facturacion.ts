@@ -109,6 +109,14 @@ interface Factura {
 export const SQL_FACTURA_VIGENTE = `c.estado = 'aprobado' AND c.asociado_id IS NULL
   AND NOT EXISTS (SELECT 1 FROM comprobante nc WHERE nc.asociado_id = c.id AND nc.estado = 'aprobado')`;
 
+// Un rechazo que sigue pendiente (c, con su pago m): el último intento de ese pago y tipo, de una factura cuyo pago
+// sigue vigente o de una NC cuya factura sigue sin anular.
+export const SQL_RECHAZO_PENDIENTE = `c.estado = 'rechazado'
+  AND NOT EXISTS (SELECT 1 FROM comprobante o WHERE o.movimiento_id = c.movimiento_id AND o.cbte_tipo = c.cbte_tipo AND o.ambiente = c.ambiente
+    AND (o.estado = 'aprobado' OR o.id > c.id))
+  AND CASE WHEN c.asociado_id IS NULL THEN m.estado = 'vigente'
+    ELSE NOT EXISTS (SELECT 1 FROM comprobante nc WHERE nc.asociado_id = c.asociado_id AND nc.estado = 'aprobado') END`;
+
 /** La factura vigente de un pago (la de producción antes que la de prueba), o null. */
 export function facturaVigente(db: DatabaseSync, movimientoId: number) {
   return (db.prepare(`SELECT c.id, c.punto_venta, c.numero, c.importe, c.ambiente, e.nombre AS emisor FROM comprobante c
@@ -287,11 +295,7 @@ export function listarComprobantes(db: DatabaseSync, mes: string, desarrollo: bo
     FROM comprobante c JOIN depto d ON d.id = c.depto_id JOIN emisor e ON e.id = c.emisor_id
     JOIN movimiento m ON m.id = c.movimiento_id JOIN propietario pr ON pr.id = c.propietario_id
     WHERE c.fecha >= ? AND c.fecha < ? AND (? OR c.ambiente = 'produccion')
-      AND (c.estado = 'aprobado' OR (
-        NOT EXISTS (SELECT 1 FROM comprobante o WHERE o.movimiento_id = c.movimiento_id AND o.cbte_tipo = c.cbte_tipo AND o.ambiente = c.ambiente
-          AND (o.estado = 'aprobado' OR o.id > c.id))
-        AND CASE WHEN c.asociado_id IS NULL THEN m.estado = 'vigente'
-          ELSE NOT EXISTS (SELECT 1 FROM comprobante nc WHERE nc.asociado_id = c.asociado_id AND nc.estado = 'aprobado') END))
+      AND (c.estado = 'aprobado' OR (${SQL_RECHAZO_PENDIENTE}))
     ORDER BY c.fecha, c.id`).all(`${mes}-01`, `${siguiente}-01`, desarrollo ? 1 : 0) as any[];
   // "3-16" → "00003-00000016"
   const formato = (s: string | null) => s && numeroCbte(...(s.split('-').map(Number) as [number, number]));
