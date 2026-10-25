@@ -34,18 +34,19 @@ copia aparte que no toque los datos de verdad:
 1. Copiar el acceso directo **Hornera** y renombrarlo **Hornera (prueba)**.
 2. Clic derecho → *Propiedades* → en **Destino**, agregar al final (después de las comillas):
    ` --user-data-dir=C:\HorneraPrueba`
-3. Esa copia usa su propia base en `C:\HorneraPrueba`. Para **empezar de cero**, cerrar la app y
+3. Esa copia usa su propia base en `C:\HorneraPrueba`. Para **empezar de cero**, salir de la app y
    borrar esa carpeta.
 
-> Las dos no pueden estar abiertas a la vez en la misma PC (usan el mismo puerto): cerrar una antes
-> de abrir la otra.
+> Las dos no pueden estar abiertas a la vez en la misma PC (usan el mismo puerto): salir de una antes
+> de abrir la otra. En el servidor, cerrar la ventana **no** sale: queda en la bandeja de Windows (junto al
+> reloj); para salir, clic derecho en su ícono → **Salir**.
 
 ---
 
 ## 1. App y copias de seguridad (fase 2)
 1. Abrir Hornera. Volver a hacer doble clic en el acceso directo: **no** se abre otra ventana, vuelve
    al frente la que estaba.
-2. Cerrar la app y mirar `%APPDATA%\Hornera\backups`: tiene que haber un archivo
+2. Salir de la app (clic derecho en el ícono de la bandeja → **Salir**) y mirar `%APPDATA%\Hornera\backups`: tiene que haber un archivo
    `hornera-<fecha>.db` nuevo.
 3. Abajo a la izquierda se ve la versión (p. ej. `v0.8.1`): es la que hay que anotar al reportar.
 4. *Herramientas → Copias de seguridad* (en la carpeta de prueba): **Guardar una copia en…** → guardar en
