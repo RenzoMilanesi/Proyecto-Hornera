@@ -196,7 +196,10 @@ async function iniciarServidor() {
     const vite = await crearVite({ root: RAIZ, server: { middlewareMode: true, hmr: { server: http }, allowedHosts: true }, appType: 'spa' });
     api.use(vite.middlewares);
   }
-  await new Promise<void>((ok, error) => http.once('error', error).listen(PUERTO, HOST, ok));
+  const ocupado = `El puerto ${PUERTO} ya está en uso: hay otra Hornera abierta en esta PC (¿la instalada y la de desarrollo?). Cerrala y volvé a abrir.`;
+  // stack = el texto: el diálogo de "no pudo iniciar" muestra el stack, y acá no ayuda.
+  await new Promise<void>((ok, error) => http.once('error', (e: NodeJS.ErrnoException) => error(e.code === 'EADDRINUSE'
+    ? Object.assign(new Error(ocupado), { stack: ocupado }) : e)).listen(PUERTO, HOST, ok));
 
   const backup = (avisar: boolean) => {
     try {
@@ -316,9 +319,9 @@ function iniciarTerminal(rol: Rol) {
     guardarRol(rol);
     conectar();
   });
-  ventana.webContents.on('did-fail-load', (_e, codigo, descripcion, url, principal) => {
-    // -3: navegación reemplazada por otra, no es una falla.
-    if (principal && codigo !== -3 && url.startsWith('http')) configurar(`No se pudo conectar con ${rol.servidor} (${descripcion}). ¿Está abierta Hornera en el servidor?`);
+  ventana.webContents.on('did-fail-load', (_e, codigo, _descripcion, url, principal) => {
+    // -3: navegación reemplazada por otra, no es una falla. Sin servidor (también al recargar): a esperar que vuelva.
+    if (principal && codigo !== -3 && url.startsWith('http')) conectar();
   });
 
   // Algo responde en esa dirección pero con error (p. ej. 403 por un nombre que el servidor no

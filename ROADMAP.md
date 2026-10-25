@@ -106,6 +106,7 @@ en la LAN (fase 5d), que sigue a testear.
    apenas responde; "Cambiar el servidor" vuelve al formulario (plan 074).
    v0.53.2: la pantalla de la terminal (conectar y "Conectando…") con los colores y la fuente de la app.
    v0.53.3: si el servidor se corta con la terminal en uso, aviso "Sin conexión" que se va solo al volver y errores en español; una terminal revocada vuelve a pedir el código (plan 075).
+   v0.53.4: recargar la terminal sin servidor pasa a "Conectando…" y reintenta; el puerto 4310 ocupado se explica (plan 076).
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.
    - Terminales → "Nombre de esta PC" en el servidor (se guarda en `configuracion`); reemplaza al nombre de Windows en la auditoría.
