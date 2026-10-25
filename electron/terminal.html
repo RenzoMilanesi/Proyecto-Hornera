@@ -11,11 +11,19 @@
     button { padding: 8px 18px; font-size: 15px; }
     .error { color: #c00; }
     .otro { margin-top: 28px; font-size: 13px; color: #666; }
+    .girando { display: inline-block; width: 14px; height: 14px; border: 2px solid #ccc; border-top-color: #555; border-radius: 50%; animation: g 0.8s linear infinite; vertical-align: -2px; margin-right: 8px; }
+    @keyframes g { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
   <!-- Al enviar, electron/main.ts intercepta la navegación (?conectar=… o ?rol=servidor). -->
-  <main>
+  <main id="esperando" hidden>
+    <h1><span class="girando"></span>Conectando con <span id="nombre"></span>…</h1>
+    <p id="demora" hidden>Todavía no responde (<span id="segundos"></span> s). Se sigue intentando solo: revisá que la
+      PC servidor esté prendida, con Hornera abierta, y en la misma red que esta.</p>
+    <p class="otro"><a href="?cambiar=1">Cambiar el servidor</a></p>
+  </main>
+  <main id="formulario">
     <h1>Conectar con la PC servidor</h1>
     <p class="error" id="error" hidden></p>
     <form>
@@ -29,6 +37,15 @@
     const q = new URLSearchParams(location.search);
     if (q.get('error')) { error.textContent = q.get('error'); error.hidden = false; }
     if (q.get('servidor')) conectar.value = new URL(q.get('servidor')).host;
+    if (q.get('conectando')) {
+      formulario.hidden = true; esperando.hidden = false;
+      nombre.textContent = new URL(q.get('conectando')).hostname;
+      const inicio = Date.now();
+      setInterval(() => {
+        const s = Math.round((Date.now() - inicio) / 1000);
+        segundos.textContent = s; demora.hidden = s < 5;
+      }, 1000);
+    }
   </script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 // Proceso principal. La PC es servidor (abre la base, levanta la API en la red, hace backups y
 // muestra la ventana) o terminal (solo una ventana con la app de otra PC servidor, fase 5d).
 // En desarrollo, Vite corre como middleware del mismo Express (un solo puerto, con HMR).
-import { app, BrowserWindow, dialog, Menu, safeStorage, session, shell, Tray } from 'electron';
+import { app, BrowserWindow, dialog, Menu, net, safeStorage, session, shell, Tray } from 'electron';
 import express from 'express';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -268,7 +268,27 @@ function origenServidor(texto: string) {
 function iniciarTerminal(rol: Rol) {
   const ventana = crearVentana();
   const pantalla = join(import.meta.dirname, 'terminal.html');
-  const configurar = (error?: string) => ventana.loadFile(pantalla, { query: { ...(error && { error }), ...(rol.servidor && { servidor: rol.servidor }) } });
+  let intento = 0; // cambia al conectar o volver al formulario: corta la espera anterior
+  const configurar = (error?: string) => {
+    intento++;
+    ventana.loadFile(pantalla, { query: { ...(error && { error }), ...(rol.servidor && { servidor: rol.servidor }) } });
+  };
+  // Con el servidor apagado (o la red que no deja pasar) loadURL tarda en fallar y la ventana queda en
+  // blanco: mientras tanto se ve "Conectando…" y se reintenta hasta que algo responda en esa dirección.
+  const conectar = async () => {
+    const este = ++intento;
+    const servidor = rol.servidor!;
+    await ventana.loadFile(pantalla, { query: { conectando: servidor } }).catch(() => {}); // reemplazada por otra carga
+    while (este === intento) {
+      try {
+        await net.fetch(servidor, { method: 'HEAD', signal: AbortSignal.timeout(4000) });
+        break; // cualquier respuesta sirve: un 403 lo explica did-navigate
+      } catch {
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    }
+    if (este === intento) ventana.loadURL(servidor);
+  };
 
   ventana.webContents.on('will-navigate', (e, url) => {
     const u = new URL(url);
@@ -277,6 +297,10 @@ function iniciarTerminal(rol: Rol) {
       return;
     }
     e.preventDefault(); // el formulario de terminal.html: se resuelve acá
+    if (u.searchParams.has('cambiar')) {
+      configurar();
+      return;
+    }
     if (u.searchParams.get('rol') === 'servidor') {
       guardarRol({ rol: 'servidor' });
       app.relaunch();
@@ -290,7 +314,7 @@ function iniciarTerminal(rol: Rol) {
       return;
     }
     guardarRol(rol);
-    ventana.loadURL(rol.servidor);
+    conectar();
   });
   ventana.webContents.on('did-fail-load', (_e, codigo, descripcion, url, principal) => {
     // -3: navegación reemplazada por otra, no es una falla.
@@ -303,7 +327,7 @@ function iniciarTerminal(rol: Rol) {
     if (url.startsWith('http') && codigo >= 400) configurar(`El servidor ${rol.servidor} respondió con error ${codigo}. Revisá la dirección (usá el nombre que muestra Terminales en el servidor).`);
   });
 
-  if (rol.servidor) ventana.loadURL(rol.servidor);
+  if (rol.servidor) conectar();
   else configurar();
 }
 

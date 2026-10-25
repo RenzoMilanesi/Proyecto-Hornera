@@ -102,6 +102,8 @@ en la LAN (fase 5d), que sigue a testear.
 . **Servidor en la bandeja** — **A testear** (v0.53.0; 2026-10-24; pulido en plan 073): en el servidor, cerrar la ventana la oculta en la
    bandeja de Windows y la API sigue para las terminales; el ícono tiene Abrir y Salir (Salir hace la copia de seguridad). Arranca solo
    al entrar a Windows, oculto. Restaurar una copia o borrar todo reinicia con la ventana visible.
+   v0.53.1: con el servidor apagado la terminal muestra "Conectando con …" (antes quedaba en blanco), reintenta sola y entra
+   apenas responde; "Cambiar el servidor" vuelve al formulario (plan 074).
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.
    - Terminales → "Nombre de esta PC" en el servidor (se guarda en `configuracion`); reemplaza al nombre de Windows en la auditoría.

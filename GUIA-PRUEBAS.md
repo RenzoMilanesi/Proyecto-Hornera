@@ -123,9 +123,10 @@ copia aparte que no toque los datos de verdad:
 4. Cargar un movimiento desde la terminal y verlo en el servidor (al entrar a la pantalla).
 5. En el servidor, **Revocar** la terminal: la terminal tiene que volver a pedir el código.
 6. En el servidor, cerrar la ventana: la terminal sigue andando. Después, clic derecho en el ícono de la
-   bandeja → Salir: la terminal muestra que no puede conectar. Abrir Hornera de nuevo y
-   tocar *Conectar*: vuelve a entrar.
-7. Escribir mal la dirección (p. ej. otro nombre): tiene que volver a la pantalla de conectar con un
+   bandeja → Salir. Cerrar y abrir la terminal: muestra *Conectando con …* con los segundos. Abrir Hornera
+   en el servidor: la terminal entra sola en unos segundos.
+7. Con la terminal en *Conectando…*, tocar *Cambiar el servidor*: vuelve al formulario con la dirección cargada.
+8. Escribir mal la dirección (p. ej. otro nombre): tiene que volver a la pantalla de conectar con un
    mensaje, no quedarse trabada.
 
 ## 8. Resumen (fase 6)
