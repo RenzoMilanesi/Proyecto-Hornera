@@ -231,8 +231,8 @@ function EditorPropuesta({ p, alCerrar }: { p: Propuesta | null; alCerrar: (guar
 }
 
 // alGuardar: después de confirmar o editar una tarjeta, para que la pantalla abierta muestre lo nuevo.
-export function PanelAsistente({ abierto, alCerrar, ancho, alRedimensionar, pantalla, alGuardar }:
-  { abierto: boolean; alCerrar: () => void; ancho: number; alRedimensionar: (ancho: number) => void; pantalla: string; alGuardar?: () => void }) {
+export function PanelAsistente({ abierto, alCerrar, ancho, maxAncho, alRedimensionar, pantalla, alGuardar }:
+  { abierto: boolean; alCerrar: () => void; ancho: number; maxAncho: number; alRedimensionar: (ancho: number) => void; pantalla: string; alGuardar?: () => void }) {
   const [estado, setEstado] = useState<{ disponible: boolean; motivo?: string }>();
   const [conversaciones, setConversaciones] = useState<Conversacion[]>([]);
   const [convId, setConvId] = useState<number | null>(null);
@@ -365,7 +365,7 @@ export function PanelAsistente({ abierto, alCerrar, ancho, alRedimensionar, pant
     </div>
   );
   return (
-    <Drawer open={abierto} onClose={alCerrar} size={ancho} maxSize={900} mask={false}
+    <Drawer open={abierto} onClose={alCerrar} size={ancho} maxSize={Math.min(900, maxAncho)} mask={false}
       resizable={{ onResize: (n) => alRedimensionar(Math.max(360, n)) }}
       title={vacio ? 'Asistente' : <Typography.Text ellipsis>{conversaciones.find((c) => c.id === convId)?.titulo ?? 'Conversación nueva'}</Typography.Text>}
       extra={!vacio && (

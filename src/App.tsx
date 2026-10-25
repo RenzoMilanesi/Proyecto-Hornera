@@ -62,6 +62,13 @@ export function App() {
   useEffect(() => {
     try { localStorage.setItem('anchoAsistente', String(anchoAsistente)); } catch { /* sin storage: vuelve a 420 */ }
   }, [anchoAsistente]);
+  // Al cambiar el tamaño de la ventana se recalcula el tope del panel (anchoPanel, abajo).
+  const [, setVentana] = useState(0);
+  useEffect(() => {
+    const alCambiar = () => setVentana((n) => n + 1);
+    window.addEventListener('resize', alCambiar);
+    return () => window.removeEventListener('resize', alCambiar);
+  }, []);
   const [refresco, setRefresco] = useState(0);
   useEffect(() => {
     // fetch directo: el 401 de una terminal sin emparejar se distingue de cualquier otro error.
@@ -100,6 +107,9 @@ export function App() {
     return g ? [{ type: 'group' as const, key: g, label: <span style={{ fontWeight: 600, letterSpacing: 0.5 }}>{g.toUpperCase()}</span>, children: hijos }] : hijos;
   });
   const actual = secciones[seccion];
+  // El panel nunca deja la pantalla con menos de 560 px (+ 200 del menú); lo guardado no se toca, vuelve si la ventana crece.
+  const maxPanel = Math.max(360, window.innerWidth - 760);
+  const anchoPanel = Math.min(anchoAsistente, maxPanel);
   mesVisto.valor = ''; // la pantalla con selector de mes lo vuelve a escribir al dibujarse
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -113,7 +123,7 @@ export function App() {
         <Typography.Text style={{ display: 'block', padding: '8px 24px 16px', color: '#B3A698' }}>v{version}</Typography.Text>
       </Layout.Sider>
       {/* marginRight: con el asistente abierto la pantalla se corre a su lado en vez de quedar tapada */}
-      <Layout.Content style={{ padding: '24px 28px', minWidth: 0, marginRight: asistente ? anchoAsistente : 0 }}>
+      <Layout.Content style={{ padding: '24px 28px', minWidth: 0, marginRight: asistente ? anchoPanel : 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
           <Typography.Title level={3} style={{ margin: '0 0 4px' }}>{actual.titulo}</Typography.Title>
           <Space size="small">
@@ -125,7 +135,7 @@ export function App() {
         {/* key: estado nuevo por sección, y al guardar algo desde el asistente (ponytail: se vuelve a montar y relee todo) */}
         <div key={`${seccion}-${refresco}`}>{actual.vista}</div>
       </Layout.Content>
-      <PanelAsistente abierto={asistente} alCerrar={() => setAsistente(false)} ancho={anchoAsistente} alRedimensionar={setAnchoAsistente} pantalla={actual.titulo} alGuardar={() => setRefresco((n) => n + 1)} />
+      <PanelAsistente abierto={asistente} alCerrar={() => setAsistente(false)} ancho={anchoPanel} maxAncho={maxPanel} alRedimensionar={setAnchoAsistente} pantalla={actual.titulo} alGuardar={() => setRefresco((n) => n + 1)} />
     </Layout>
   );
 }
