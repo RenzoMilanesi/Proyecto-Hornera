@@ -194,7 +194,7 @@ export function Propietarios() {
         ]} />
         <Typography.Text type="secondary">{visibles.length} {visibles.length === 1 ? 'propietario' : 'propietarios'}</Typography.Text>
       </Space>
-      <Table<Propietario> rowKey="id" size="small" pagination={false} sticky loading={!filas} dataSource={visibles} columns={[
+      <Table<Propietario> rowKey="id" size="small" pagination={false} sticky scroll={{ x: 'max-content' }} loading={!filas} dataSource={visibles} columns={[
         { title: 'Nombre', dataIndex: 'nombre', sorter: (a, b) => a.nombre.localeCompare(b.nombre), defaultSortOrder: 'ascend' },
         { title: 'Deptos', dataIndex: 'deptos', render: (v: string | null) => v?.split(',').map((d) => <Tag key={d}>{d.trim()}</Tag>) },
         { title: 'Liquida en', dataIndex: 'moneda_liquidacion', width: 110, render: (v: string) => <Tag color={v === 'USD' ? 'green' : 'default'}>{v}</Tag> },

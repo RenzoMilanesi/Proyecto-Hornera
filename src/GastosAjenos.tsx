@@ -161,7 +161,7 @@ export function GastosAjenos() {
       </Card>
       {!abierto && mes && <Alert type="info" showIcon title={`El período ${mes} está cerrado: solo lectura.`} />}
       {error && <Alert type="error" showIcon closable title={error} onClose={() => setError(undefined)} />}
-      <Table<GastoAjeno> rowKey="id" size="small" pagination={false} sticky loading={!!mes && !listado && !error}
+      <Table<GastoAjeno> rowKey="id" size="small" pagination={false} sticky scroll={{ x: 'max-content' }} loading={!!mes && !listado && !error}
         dataSource={visibles} columns={columnas}
         rowClassName={(g) => (g.estado === 'vigente' ? '' : 'ant-typography-secondary')}
         summary={() => visibles.length ? (

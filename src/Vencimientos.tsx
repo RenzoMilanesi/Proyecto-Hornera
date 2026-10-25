@@ -29,7 +29,7 @@ export function Vencimientos() {
         <Segmented value={ver} onChange={setVer} options={[{ value: 'faltan', label: `Por pagar (${faltan.length})` }, { value: 'todos', label: `Todos (${filas?.length ?? 0})` }]} />
         <Typography.Text type="secondary">Se cargan en Deptos → Ficha. Se dan por pagados al cargar el gasto en Movimientos.</Typography.Text>
       </Space>
-      <Table<Vencimiento> rowKey="servicio_id" size="small" pagination={false} sticky loading={!filas} dataSource={ver === 'faltan' ? faltan : filas}
+      <Table<Vencimiento> rowKey="servicio_id" size="small" pagination={false} sticky scroll={{ x: 'max-content' }} loading={!filas} dataSource={ver === 'faltan' ? faltan : filas}
         locale={{ emptyText: ver === 'faltan' ? 'No falta pagar nada este mes.' : 'No vence nada este mes.' }} columns={[
           { title: 'Vence', dataIndex: 'vence', width: 110, render: (v: string) => v.split('-').reverse().join('/') },
           { title: 'Depto', dataIndex: 'codigo', width: 220, render: (v: string, f) => <><b>{v}</b> · {f.depto}</> },

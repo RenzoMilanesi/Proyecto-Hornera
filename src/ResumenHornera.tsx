@@ -163,7 +163,7 @@ export function ResumenHornera() {
 
       <Card size="small" title="Evolución mensual">
         <Typography.Paragraph type="secondary">Meses cerrados.</Typography.Paragraph>
-        <Table<Mes> rowKey="mes" size="small" pagination={false} loading={!historia && !error} scroll={{ y: 480 }}
+        <Table<Mes> rowKey="mes" size="small" pagination={false} loading={!historia && !error} scroll={{ x: 'max-content', y: 480 }}
           dataSource={historia ? [...historia].reverse() : undefined} columns={[
             { title: 'Mes', dataIndex: 'mes', width: 90 },
             { title: 'Honorarios', dataIndex: 'honorarios', ...derecha, render: plata },

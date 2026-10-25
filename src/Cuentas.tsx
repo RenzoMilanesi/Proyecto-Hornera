@@ -50,7 +50,7 @@ export function Cuentas() {
           <Form.Item name="moneda"><Radio.Group optionType="button" options={['ARS', 'USD']} /></Form.Item>
           <Form.Item><Button htmlType="submit">Agregar</Button></Form.Item>
         </Form>
-        <Table<Cuenta> rowKey="id" size="small" pagination={false} loading={!cuentas} dataSource={cuentas} columns={[
+        <Table<Cuenta> rowKey="id" size="small" pagination={false} scroll={{ x: 'max-content' }} loading={!cuentas} dataSource={cuentas} columns={[
           { title: 'Cuenta', dataIndex: 'nombre', render: (v: string, c) => <>{v} {!c.activo && <Tag>de baja</Tag>}</> },
           { title: 'Moneda', dataIndex: 'moneda', width: 90, render: (v: string) => <Tag color={v === 'USD' ? 'green' : 'default'}>{v}</Tag> },
           { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (v: number, c) => <Typography.Text type={v < 0 ? 'danger' : undefined}>{pesos(v, c.moneda)}</Typography.Text> },

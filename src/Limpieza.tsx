@@ -237,7 +237,7 @@ function Liquidaciones({ version, recargar }: { version: number; recargar: () =>
         <Typography.Text type="secondary">Para cambiar una pagada, anulá su pago en Movimientos: vuelve a quedar pendiente.</Typography.Text>
       </Space>
       {error && <Alert type="error" showIcon closable title={error} onClose={() => setError(undefined)} />}
-      <Table<Liquidacion> rowKey="id" size="small" pagination={false} loading={!lista && !error} dataSource={lista} columns={columnas} />
+      <Table<Liquidacion> rowKey="id" size="small" pagination={false} scroll={{ x: 'max-content' }} loading={!lista && !error} dataSource={lista} columns={columnas} />
       <FormLiquidacion abierto={!!form} editando={form?.editando} sugerida={sugerida} alCerrar={alCerrar} />
       <FormPagar liquidacion={pagando} cuentas={cuentas} alCerrar={alCerrar} />
       <DetalleLiquidacion id={viendo} alCerrar={() => setViendo(undefined)} />

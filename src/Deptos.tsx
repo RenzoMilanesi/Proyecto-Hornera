@@ -87,7 +87,7 @@ export function Deptos() {
         <Segmented value={estado} onChange={setEstado} options={opciones} />
         <Typography.Text type="secondary">{visibles.length} {visibles.length === 1 ? 'depto' : 'deptos'}</Typography.Text>
       </Space>
-      <Table<Depto> rowKey="id" size="small" pagination={false} sticky loading={!deptos} dataSource={visibles} columns={columnas(setHistorial, setEditando, setFicha)} />
+      <Table<Depto> rowKey="id" size="small" pagination={false} sticky scroll={{ x: 'max-content' }} loading={!deptos} dataSource={visibles} columns={columnas(setHistorial, setEditando, setFicha)} />
       <VariablesDepto depto={editando} alCerrar={(guardado) => { setEditando(undefined); if (guardado) cargar(); }} />
       <Drawer open={!!historial} onClose={() => setHistorial(undefined)} size={900} destroyOnHidden
         title={historial && `Historial de ${historial.codigo} · ${historial.nombre}`}>
