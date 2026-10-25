@@ -79,6 +79,8 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 072 | [Pantallas que quedan angostas con el asistente abierto](072-pantallas-angostas-con-asistente.md) | P3 | S | — | HECHO (v0.52.6) |
 | 073 | [Servidor en la bandeja: reinicio visible y textos al día](073-bandeja-pulido.md) | P2 | S | — | HECHO (v0.53.0) |
 | 074 | [Terminal "Conectando…": textos al día y sin rechazos sueltos](074-terminal-conectando-pulido.md) | P3 | S | — | HECHO |
+| 075 | [La terminal avisa el corte del servidor en pleno uso y vuelve al código si la revocan](075-terminal-corte-en-uso.md) | P1 | M | — | HECHO (v0.53.3) |
+| 076 | [Recargar sin servidor reintenta solo, y el puerto ocupado se explica](076-terminal-recarga-y-puerto.md) | P2 | S | — | TODO |
 
 Planes 062–065: revisión `improve deep` de los pasos 0–4 del plan 061 (`fba59f6`, 2026-10-23), a hacer antes del paso 5. Descartado: `dbstat` (solo tamaños de páginas, no datos), `sqlite_dbpage` (no está compilado), `pragma_table_info` y `load_extension` (bloqueados por el authorizer, probado); claves de deptos guardadas en `conversacion_ia` (ya están en la misma base, en `depto_clave`); el esquema de `consulta_sql` se arma en cada pregunta (unas 60 consultas a `sqlite_master`, despreciable); tercera copia del patrón `safeStorage` en `electron/main.ts` (no vale abstraerlo).
 
@@ -184,3 +186,5 @@ Revisión `improve deep` del rediseño del panel del asistente (`61d882d`, v0.52
 Revisión `improve deep` del modo bandeja del servidor (sin commitear sobre `c6b62fd`, 2026-10-24): plan 073 (reiniciar sin `--oculto`, textos de "al cerrar"). Descartado: la entrada de inicio que queda al desinstalar (Windows la ignora).
 
 Revisión `improve deep` de la pantalla "Conectando…" de la terminal (sin commitear sobre `71c7adc`, 2026-10-25): plan 074 (textos del manual y la guía, `loadFile` reemplazada sin rechazo suelto). Descartado: un `HEAD` que no llega a la app (cualquier respuesta sirve; un 403 lo explica `did-navigate`) y el loop con la ventana cerrada (cerrar la última ventana sale de la app).
+
+Revisión `improve deep` de terminales y reconexión al servidor (`2752357`, v0.53.2, 2026-10-25; `electron/main.ts`, `electron/terminal.html`, `server/terminales.ts`, middleware de `server/app.ts`, `src/api.ts`, `src/App.tsx`, `src/Emparejar.tsx`, `src/Terminales.tsx`): planes 075 y 076, independientes. Descartado: el token por HTTP sin cifrar en la LAN (decisión de la fase 5d en DECISIONES.md; la clave de Stays ya no viaja), quemar el código de emparejamiento con 5 errores (lo regenera el servidor), probar el loop de `conectar` con tests (es Electron puro; se prueba a mano) y mDNS/WebSocket (DECISIONES.md los deja para cuando hagan falta).

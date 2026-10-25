@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Layout, Menu, Space, Typography } from 'antd';
+import { Alert, Button, Layout, Menu, Space, Typography } from 'antd';
 import type { MenuProps } from 'antd';
 import { Importar } from './Importar.tsx';
 import { Stays } from './Stays.tsx';
@@ -70,6 +70,22 @@ export function App() {
     return () => window.removeEventListener('resize', alCambiar);
   }, []);
   const [refresco, setRefresco] = useState(0);
+  const [conexion, setConexion] = useState<'ok' | 'cortada' | 'volvio'>('ok');
+  useEffect(() => {
+    const alCortarse = () => setConexion('cortada');
+    window.addEventListener('hornera:sin-conexion', alCortarse);
+    return () => window.removeEventListener('hornera:sin-conexion', alCortarse);
+  }, []);
+  // Cortada: se prueba cada 3 s; al volver, aviso unos segundos. No se recarga la pantalla: se perdería lo que se estaba escribiendo.
+  useEffect(() => {
+    if (conexion === 'ok') return;
+    if (conexion === 'volvio') {
+      const t = setTimeout(() => setConexion('ok'), 5000);
+      return () => clearTimeout(t);
+    }
+    const t = setInterval(() => fetch('/api/estado').then((r) => r.ok && setConexion('volvio'), () => {}), 3000);
+    return () => clearInterval(t);
+  }, [conexion]);
   useEffect(() => {
     // fetch directo: el 401 de una terminal sin emparejar se distingue de cualquier otro error.
     fetch('/api/estado').then(async (r) => {
@@ -133,6 +149,9 @@ export function App() {
         </div>
         <Typography.Paragraph style={{ marginBottom: 20, color: '#4A3F37' }}>{actual.ayuda}</Typography.Paragraph>
         {/* key: estado nuevo por sección, y al guardar algo desde el asistente (ponytail: se vuelve a montar y relee todo) */}
+        {conexion === 'cortada' && <Alert type="warning" showIcon style={{ marginBottom: 16 }}
+          title="Sin conexión con el servidor. Se sigue intentando solo; lo que no se guardó, hay que volver a guardarlo cuando vuelva." />}
+        {conexion === 'volvio' && <Alert type="success" showIcon style={{ marginBottom: 16 }} title="Volvió la conexión con el servidor." />}
         <div key={`${seccion}-${refresco}`}>{actual.vista}</div>
       </Layout.Content>
       <PanelAsistente abierto={asistente} alCerrar={() => setAsistente(false)} ancho={anchoPanel} maxAncho={maxPanel} alRedimensionar={setAnchoAsistente} pantalla={actual.titulo} alGuardar={() => setRefresco((n) => n + 1)} />

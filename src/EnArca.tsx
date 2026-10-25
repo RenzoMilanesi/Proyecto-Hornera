@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Button, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Typography, Upload } from 'antd';
 import type { TableColumnsType } from 'antd';
 import type { FilaMisComprobantes } from '../server/misComprobantes.ts';
-import { enviar, get, pesos } from './api.ts';
+import { enviar, get, pesos, red } from './api.ts';
 
 interface Lista { filas: FilaMisComprobantes[]; importados: { emisor_id: number; emisor: string; ultima: string; hasta: string }[] }
 interface EmisorLista { id: number; nombre: string; cuit: string }
@@ -36,7 +36,7 @@ function FormImportar({ abierto, alCerrar }: { abierto: boolean; alCerrar: (camb
     if (!v || !archivo) return;
     setError(undefined);
     // Texto aparte del JSON: un año de comprobantes pasa su límite.
-    const r = await fetch(`/api/emisores/${v.emisor_id}/mis-comprobantes?nombre=${encodeURIComponent(archivo.name)}`,
+    const r = await red(`/api/emisores/${v.emisor_id}/mis-comprobantes?nombre=${encodeURIComponent(archivo.name)}`,
       { method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: await archivo.text() }).catch(() => null);
     if (!r) return setError('No se pudo conectar con Hornera: revisá la conexión y probá de nuevo.');
     const cuerpo = await r.json().catch(() => null);

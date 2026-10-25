@@ -5,13 +5,26 @@ import { useRef, useState } from 'react';
 // ponytail: un objeto suelto, como mesVisto; hay un solo formulario abierto por vez.
 export const propuestaEnEdicion = { id: null as number | null };
 
+// Sin conexión con el servidor (terminal con el servidor apagado o la red cortada): fetch tira TypeError.
+// Se avisa a App (banner "Sin conexión") y el error dice qué pasó.
+export const SIN_CONEXION = 'Se cortó la conexión con el servidor: no se guardó ni se trajo nada. Revisá que la PC servidor esté prendida, con Hornera abierta.';
+export async function red(url: string, init?: RequestInit) {
+  try {
+    return await fetch(url, init);
+  } catch {
+    globalThis.dispatchEvent?.(new Event('hornera:sin-conexion'));
+    throw new Error(SIN_CONEXION);
+  }
+}
+
 async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
   if (propuestaEnEdicion.id != null && init?.method && init.method !== 'GET' && !ruta.startsWith('adjuntos')) {
     init = { ...init, headers: { ...(init.headers as Record<string, string>), 'X-Hornera-Ia': String(propuestaEnEdicion.id) } };
   }
-  const res = await fetch(`/api/${ruta}`, init);
+  const res = await red(`/api/${ruta}`, init);
   if (!res.ok) {
     const cuerpo = await res.json().catch(() => null);
+    if (res.status === 401 && cuerpo?.emparejar) globalThis.location?.reload(); // revocada: App vuelve a pedir el código
     throw Object.assign(new Error(cuerpo?.error ?? `${res.status} ${res.statusText}`), { cuerpo }); // el cuerpo, por si trae más que el error
   }
   return res.json();
@@ -24,7 +37,7 @@ export const enviar = <T>(ruta: string, metodo: 'POST' | 'PUT' | 'DELETE', datos
 
 // PDF suelto de un comprobante: lo arma la PC servidor y baja como archivo. Devuelve el error, si hubo.
 export async function descargarPdfComprobante(id: number) {
-  const r = await fetch(`/api/comprobantes/${id}/pdf`);
+  const r = await red(`/api/comprobantes/${id}/pdf`);
   if (!r.ok) return ((await r.json().catch(() => null))?.error ?? `${r.status} ${r.statusText}`) as string;
   const nombre = /filename="([^"]+)"/.exec(r.headers.get('Content-Disposition') ?? '')?.[1] ?? 'factura.pdf';
   const enlace = Object.assign(document.createElement('a'), { href: URL.createObjectURL(await r.blob()), download: nombre });

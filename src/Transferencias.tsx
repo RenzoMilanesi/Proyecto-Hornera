@@ -6,7 +6,7 @@ import { mesVisto } from './Asistente.tsx';
 import type { TableColumnsType } from 'antd';
 import type { FacturaDePago, FacturaExterna, Transferencia } from '../server/liquidacion/pagos.ts';
 import type { FacturaExterna as Externa } from '../server/misComprobantes.ts';
-import { descargarPdfComprobante, entradaPlata, enviar, get, pesos, simbolo, useUnaVez } from './api.ts';
+import { descargarPdfComprobante, entradaPlata, enviar, get, pesos, red, simbolo, useUnaVez } from './api.ts';
 
 interface Periodo { mes: string; estado: string; fecha_pago: string }
 interface Cuenta { id: number; nombre: string; moneda: 'ARS' | 'USD'; activo: number }
@@ -325,7 +325,8 @@ export function Transferencias() {
     }
   };
   const exportar = async () => {
-    const r = await fetch(`/api/transferencias/excel?mes=${mes}`);
+    const r = await red(`/api/transferencias/excel?mes=${mes}`).catch((e: Error) => { setError(e.message); return null; });
+    if (!r) return;
     if (!r.ok) { setError((await r.json().catch(() => null))?.error ?? `No se pudo exportar (HTTP ${r.status}).`); return; }
     const enlace = Object.assign(document.createElement('a'), { href: URL.createObjectURL(await r.blob()), download: `transferencias-${mes}.xlsx` });
     enlace.click();
