@@ -1,6 +1,6 @@
 // Resumen interno (fase 6): KPIs del mes por depto y evolución. Lo de Hornera misma está en ResumenHornera.tsx.
 import { useEffect, useState } from 'react';
-import { Alert, Card, Col, Row, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from 'antd';
+import { Alert, Card, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from 'antd';
 import { mesVisto } from './Asistente.tsx';
 import type { elasticidadDelMes, evolucion, resumenDelMes } from '../server/resumen.ts';
 import { get, pesos } from './api.ts';
@@ -57,18 +57,19 @@ export function Resumen() {
       {error && <Alert type="error" showIcon closable title={error} onClose={() => setError(undefined)} />}
       {datos?.avisos.length ? <Alert type="warning" showIcon title={datos.avisos.join(' ')} /> : null}
 
-      <Row gutter={16}>
-        <Col span={4}><Card size="small"><Statistic styles={chico} title="Ocupación" value={t ? pct(t.ocupacion) || '—' : '—'} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic styles={chico} title="Noches vendidas" value={t?.noches_vendidas ?? '—'} suffix={t ? `/ ${t.noches_venta}` : undefined} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic styles={chico} value={t ? plata(t.adr) || '—' : '—'} title={ayuda('ADR (tarifa por noche)',
-          'Tarifa promedio por noche vendida, de toda la cartera: lo que pagaron los huéspedes por las noches (sin la tarifa por estadía) ÷ noches vendidas. Las estadías del propietario no cuentan.')} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic styles={chico} value={t ? plata(t.revpar_mediana) || '—' : '—'} title={ayuda('RevPAR (mediana)',
-          'Ingreso por noche a la venta: lo que pagaron los huéspedes por las noches ÷ noches a la venta (las del mes menos las bloqueadas y las del propietario). Es ADR × ocupación. Se calcula por depto y se muestra la mediana, así un depto muy grande o muy chico no la mueve.')} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic styles={chico} title="Bruto" value={t ? pesos(t.bruto) : '—'} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic styles={chico} title={ayuda('Honorarios',
+      {/* tarjetas-kpi (index.html): 6, 3 o 2 por fila según el ancho real, que se angosta con el panel del asistente */}
+      <div className="tarjetas-kpi"><div>
+        <Card size="small"><Statistic styles={chico} title="Ocupación" value={t ? pct(t.ocupacion) || '—' : '—'} /></Card>
+        <Card size="small"><Statistic styles={chico} title="Noches vendidas" value={t?.noches_vendidas ?? '—'} suffix={t ? `/ ${t.noches_venta}` : undefined} /></Card>
+        <Card size="small"><Statistic styles={chico} value={t ? plata(t.adr) || '—' : '—'} title={ayuda('ADR (tarifa por noche)',
+          'Tarifa promedio por noche vendida, de toda la cartera: lo que pagaron los huéspedes por las noches (sin la tarifa por estadía) ÷ noches vendidas. Las estadías del propietario no cuentan.')} /></Card>
+        <Card size="small"><Statistic styles={chico} value={t ? plata(t.revpar_mediana) || '—' : '—'} title={ayuda('RevPAR (mediana)',
+          'Ingreso por noche a la venta: lo que pagaron los huéspedes por las noches ÷ noches a la venta (las del mes menos las bloqueadas y las del propietario). Es ADR × ocupación. Se calcula por depto y se muestra la mediana, así un depto muy grande o muy chico no la mueve.')} /></Card>
+        <Card size="small"><Statistic styles={chico} title="Bruto" value={t ? pesos(t.bruto) : '—'} /></Card>
+        <Card size="small"><Statistic styles={chico} title={ayuda('Honorarios',
           'Lo que cobra Hornera: la comisión de cada depto (hoy 20 %) sobre la base de honorarios = bruto − costos operativos (tarifa por estadía) − comisiones de plataformas y del channel manager. Se calcula por depto y se redondea hacia abajo a la centena de pesos. Un depto sin ingresos que paga el fee del channel manager da honorarios negativos. El % es sobre el bruto.')} value={r ? pesos(r.honorarios) : '—'}
-          suffix={t?.honorario_efectivo != null && <Typography.Text type="secondary" style={{ fontSize: 13, marginLeft: 6 }}>{(100 * t.honorario_efectivo).toLocaleString('es-AR', { maximumFractionDigits: 1 })} %</Typography.Text>} /></Card></Col>
-      </Row>
+          suffix={t?.honorario_efectivo != null && <Typography.Text type="secondary" style={{ fontSize: 13, marginLeft: 6 }}>{(100 * t.honorario_efectivo).toLocaleString('es-AR', { maximumFractionDigits: 1 })} %</Typography.Text>} /></Card>
+      </div></div>
 
       <Card size="small" title="Por depto">
         <Typography.Paragraph type="secondary">

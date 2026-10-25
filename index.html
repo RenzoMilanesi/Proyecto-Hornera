@@ -19,6 +19,10 @@
       /* Asistente, como la app de Claude: la pregunta en una burbuja a la derecha; la respuesta sin caja, texto a lo ancho. */
       .pregunta-ia { margin: 0 0 12px auto; width: fit-content; max-width: 85%; padding: 8px 14px; border-radius: 14px;
         background: #F3E3D9; white-space: pre-wrap; }
+      .tarjetas-kpi { container-type: inline-size; width: 100%; }
+      .tarjetas-kpi > div { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      @container (min-width: 640px) { .tarjetas-kpi > div { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+      @container (min-width: 1130px) { .tarjetas-kpi > div { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
       .campo-ia { border: 1px solid #D9CFC4; border-radius: 12px; background: #fff; padding: 6px 8px; }
       .campo-ia { transition: border-color .2s, box-shadow .2s; }
       .campo-ia:focus-within { border-color: #A8461F; box-shadow: 0 0 0 3px rgba(168, 70, 31, .12); }

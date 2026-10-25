@@ -91,6 +91,7 @@ en la LAN (fase 5d), que sigue a testear.
    v0.52.1: el panel corre la pantalla en vez de taparla y se ensancha arrastrando el borde; sin conversación abierta, el
    campo va arriba con las recientes debajo (sin desplegable); íconos de Ant Design para adjuntar y enviar.
    v0.52.2–4 (plan 071): "hoy/ayer" de Recientes en hora local, el panel deja al menos 560 px a la pantalla y Recientes se usa con teclado.
+   v0.52.5–6 (plan 072): con el panel abierto las tablas tienen scroll horizontal (Auditoría, ancho mínimo de 900 px) y las tarjetas del Resumen pasan a 6, 3 o 2 por fila según el ancho.
 15. **Campanita de avisos** — **A testear** (v0.52.0; definida con grill-me el 2026-10-24; pulido en plan 070): junto al título,
    un contador de lo que esta PC no vio y la lista: servicios vencidos o que vencen en 3 días, certificado de ARCA vencido o por vencer
    en 30 días, facturas o notas de crédito que no salieron, copia de seguridad fallada (solo en la PC servidor) y, de otras PCs, cierres,

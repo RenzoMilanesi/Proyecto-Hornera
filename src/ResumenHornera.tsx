@@ -55,14 +55,15 @@ export function ResumenHornera() {
       {error && <Alert type="error" showIcon closable title={error} onClose={() => setError(undefined)} />}
       {datos?.avisos.length ? <Alert type="warning" showIcon title={datos.avisos.join(' ')} /> : null}
 
-      <Row gutter={16}>
-        <Col span={4}><Card size="small"><Statistic title="Resultado del mes" value={r ? pesos(r.total_ars) : '—'} styles={rojo(r?.total_ars ?? 0)} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic styles={chico} title="Honorarios" value={r ? pesos(r.honorarios) : '—'} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic styles={chico} title="Ingresos − gastos empresa" value={r ? pesos(r.empresa.ars) : '—'} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic title="Disponible $" value={datos ? pesos(datos.disponible.ars) : '—'} styles={rojo(datos?.disponible.ars ?? 0)} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic title="Disponible US$" value={datos ? pesos(datos.disponible.usd, 'USD') : '—'} styles={rojo(datos?.disponible.usd ?? 0)} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic styles={chico} title="Gastos personales" value={datos ? pesos(totalPersonales) : '—'} /></Card></Col>
-      </Row>
+      {/* tarjetas-kpi (index.html): 6, 3 o 2 por fila según el ancho real, que se angosta con el panel del asistente */}
+      <div className="tarjetas-kpi"><div>
+        <Card size="small"><Statistic title="Resultado del mes" value={r ? pesos(r.total_ars) : '—'} styles={rojo(r?.total_ars ?? 0)} /></Card>
+        <Card size="small"><Statistic styles={chico} title="Honorarios" value={r ? pesos(r.honorarios) : '—'} /></Card>
+        <Card size="small"><Statistic styles={chico} title="Ingresos − gastos empresa" value={r ? pesos(r.empresa.ars) : '—'} /></Card>
+        <Card size="small"><Statistic title="Disponible $" value={datos ? pesos(datos.disponible.ars) : '—'} styles={rojo(datos?.disponible.ars ?? 0)} /></Card>
+        <Card size="small"><Statistic title="Disponible US$" value={datos ? pesos(datos.disponible.usd, 'USD') : '—'} styles={rojo(datos?.disponible.usd ?? 0)} /></Card>
+        <Card size="small"><Statistic styles={chico} title="Gastos personales" value={datos ? pesos(totalPersonales) : '—'} /></Card>
+      </div></div>
 
       <Row gutter={16}>
         <Col span={14}>

@@ -33,10 +33,10 @@ Desde v0.52.1 el panel del asistente corre la pantalla en vez de taparla (`src/A
    De paso, en `src/Resumen.tsx:79` falta un espacio entre `scroll={{ x: 'max-content' }}` y `loading=`.
    **No** agregarlo a tablas anidadas (dentro de `expandable`, de un Drawer de 900 px o de un `Col` de
    `ResumenHornera`): `Liquidacion.tsx:150-152` documenta que una tabla interna con `max-content` dentro de otra se
-   estira a 1.000.000 px. Tampoco a `Auditoria.tsx:56`: usa `tableLayout="fixed"` y ya se ajusta.
+   estira a 1.000.000 px. `Auditoria.tsx:56` usa `tableLayout="fixed"`: con `max-content` sus columnas sin ancho se estirarían al texto; lleva `scroll={{ x: 900 }}` (agregado al verificar: con el panel abierto "Qué cambió" quedaba en 29 px).
    Verificación: `npm run typecheck` → sin errores.
-2. `src/Resumen.tsx` y `src/ResumenHornera.tsx`: cambiar la fila de tarjetas por una grilla que se acomoda al ancho
-   real. `<Row gutter={16}>` → `<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>`
+2. (Hecho con container queries: clase `.tarjetas-kpi` en `index.html`, 6, 3 o 2 por fila según el ancho real; `auto-fit` dejaba 4 + 2.) `src/Resumen.tsx` y `src/ResumenHornera.tsx`: cambiar la fila de tarjetas por una grilla que se acomoda al ancho
+   real. `<Row gutter={16}>` → `<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 16 }}>`
    y cada `<Col span={4}>…</Col>` → solo su `<Card>` (sacar el `Col`). Mantener `Row`/`Col` en el resto de esos
    archivos (las filas `span={14}`/`span={10}` de `ResumenHornera.tsx:67` y `:99` quedan como están).
    Si `Row`/`Col` dejan de usarse en `Resumen.tsx`, sacarlos del import de `antd`.
@@ -58,4 +58,4 @@ Desde v0.52.1 el panel del asistente corre la pantalla en vez de taparla (`src/A
 
 ## Mantenimiento
 Toda tabla nueva de primer nivel lleva `scroll={{ x: 'max-content' }}` (la pantalla puede angostarse con el panel
-abierto). Filas de tarjetas nuevas: grilla `auto-fill`, no `Col span` fijo.
+abierto). Filas de tarjetas nuevas: grilla `auto-fit`, no `Col span` fijo.

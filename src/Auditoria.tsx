@@ -53,7 +53,8 @@ export function Auditoria() {
         </Space>
       </Card>
       {error && <Alert type="error" showIcon closable title={error} onClose={() => setError(undefined)} />}
-      <Table<FilaAuditoria> rowKey="id" size="small" sticky tableLayout="fixed" loading={!filas && !error} dataSource={visibles}
+      {/* x: 900 y no max-content: con tableLayout fixed, "Qué cambió" (sin ancho) se quedaba sin lugar con el panel del asistente */}
+      <Table<FilaAuditoria> rowKey="id" size="small" sticky tableLayout="fixed" scroll={{ x: 900 }} loading={!filas && !error} dataSource={visibles}
         pagination={{ pageSize: 100, hideOnSinglePage: true }} locale={{ emptyText: 'No hubo cambios en este mes.' }} columns={[
           { title: 'Fecha', dataIndex: 'fecha', width: 105, render: (v: string) => <span style={{ whiteSpace: 'nowrap' }}>{fecha(v)}</span> },
           { title: 'Quién', dataIndex: 'pc', width: 120, render: (v: string, f) => f.conIa ? <>{v}<br /><Tag color="purple">con IA</Tag></> : v },
