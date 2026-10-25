@@ -136,6 +136,10 @@ copia aparte que no toque los datos de verdad:
    (honorarios + costos operativos cobrados + ingresos y gastos de la empresa).
 4. **Evolución mensual**: los meses de 12/2021 a 10/2024 solo con noches (hoja OCUPACION); los meses
    cerrados con todo.
+5. **Ranking por RevPAR**: los deptos de mayor a menor, igual que la tabla Por depto ordenada por RevPAR; la línea
+   punteada en el valor de la tarjeta "RevPAR (mediana)".
+6. **Evolución en gráfico**: con *Noches ocupadas*, una línea por año desde 2021; cada punto (pasando el mouse) igual
+   al número de la tabla de abajo. Con *Ocupación*, *ADR* y *RevPAR*, solo los meses cerrados en la app.
 
 ## 9. Facturación ARCA de los honorarios — primero en homologación, en la carpeta de prueba
 
