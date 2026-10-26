@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Button, Card, Drawer, Form, Input, Select, Space, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Drawer, Form, Input, Select, Space, Tag, theme, Typography } from 'antd';
 import { ArrowUpOutlined, PaperClipOutlined } from '@ant-design/icons';
 import { Marked } from 'marked';
 import { enviar, get, propuestaEnEdicion, subirComprobante } from './api.ts';
@@ -144,10 +144,11 @@ function Markdown({ texto }: { texto: string }) {
 // Al pie de cada respuesta: modelo, consultas y costo, y qué consultó (para verificar los números).
 // pensarMas: solo en la última respuesta, si no salió ya con esfuerzo alto.
 function Pie({ t, pensarMas }: { t: Turno; pensarMas?: () => void }) {
+  const { token } = theme.useToken();
   if (!t.modelo) return null;
   const usadas = t.herramientas ?? [];
   return (
-    <div style={{ fontSize: 12, color: '#8A7E74', marginTop: 8 }}>
+    <div style={{ fontSize: 12, color: token.colorTextSecondary, marginTop: 8 }}>
       {nombreModelo(t.modelo)}{t.esfuerzo === 'high' && ' (pensando más)'} · {usadas.length === 1 ? '1 consulta' : `${usadas.length} consultas`}{t.costo != null && ` · ${dolares(t.costo)}`}
       {pensarMas && <> · <Typography.Link style={{ fontSize: 12 }} onClick={pensarMas}>Pensar más</Typography.Link></>}
       {usadas.length > 0 && (
@@ -159,8 +160,8 @@ function Pie({ t, pensarMas }: { t: Turno; pensarMas?: () => void }) {
               const datos = Object.entries(resto).filter(([, v]) => v != null).map(([k, v]) => `${k}: ${v}`).join(' · ');
               return (
                 <li key={u.id}>
-                  <b>{u.nombre}</b>{datos && ` (${datos})`} → {u.error ? <span style={{ color: '#A8071A' }}>{u.error}</span> : u.filas != null ? `${u.filas} filas` : 'ok'}
-                  {sql && <pre style={{ whiteSpace: 'pre-wrap', background: '#F5EFE9', padding: 6, margin: '2px 0 0' }}>{sql}</pre>}
+                  <b>{u.nombre}</b>{datos && ` (${datos})`} → {u.error ? <Typography.Text type="danger">{u.error}</Typography.Text> : u.filas != null ? `${u.filas} filas` : 'ok'}
+                  {sql && <pre className="sql-ia">{sql}</pre>}
                 </li>
               );
             })}
@@ -183,8 +184,9 @@ function Tarjeta({ p, ocupada, confirmar, descartar, editar }: {
   p: Propuesta; ocupada: boolean; confirmar: () => void; descartar: () => void; editar: () => void;
 }) {
   const estado = ESTADOS[p.estado];
+  const { token } = theme.useToken();
   return (
-    <Card size="small" title={p.titulo} style={{ marginTop: 12, borderColor: p.estado === 'pendiente' ? '#A8461F' : undefined }}
+    <Card size="small" title={p.titulo} style={{ marginTop: 12, borderColor: p.estado === 'pendiente' ? token.colorPrimary : undefined }}
       extra={estado && <Tag color={estado[0]}>{estado[1]}</Tag>}>
       <dl className="ficha" style={{ marginBottom: p.estado === 'pendiente' || p.resultado ? 12 : 0 }}>
         {p.campos.map(([k, v, antes]) => (
@@ -233,6 +235,7 @@ function EditorPropuesta({ p, alCerrar }: { p: Propuesta | null; alCerrar: (guar
 // alGuardar: después de confirmar o editar una tarjeta, para que la pantalla abierta muestre lo nuevo.
 export function PanelAsistente({ abierto, alCerrar, ancho, maxAncho, alRedimensionar, pantalla, alGuardar }:
   { abierto: boolean; alCerrar: () => void; ancho: number; maxAncho: number; alRedimensionar: (ancho: number) => void; pantalla: string; alGuardar?: () => void }) {
+  const { token } = theme.useToken();
   const [estado, setEstado] = useState<{ disponible: boolean; motivo?: string }>();
   const [conversaciones, setConversaciones] = useState<Conversacion[]>([]);
   const [convId, setConvId] = useState<number | null>(null);
@@ -378,7 +381,7 @@ export function PanelAsistente({ abierto, alCerrar, ancho, maxAncho, alRedimensi
         <input ref={archivo} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" hidden
           onChange={(e) => { void adjuntar(e.target.files); e.target.value = ''; }} />
         {!vacio && campo}
-        <div style={{ fontSize: 11.5, color: '#A39588', marginTop: vacio ? 0 : 6 }}>
+        <div style={{ fontSize: 11.5, color: token.colorTextSecondary, marginTop: vacio ? 0 : 6 }}>
           Lo que preguntás y los datos que consulta se envían a Anthropic{gasto != null && ` · ${dolares(gasto)} este mes`}
         </div>
       </>}>
@@ -392,11 +395,11 @@ export function PanelAsistente({ abierto, alCerrar, ancho, maxAncho, alRedimensi
           </Typography.Paragraph>
           {conversaciones.length > 0 && (
             <>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#8A7E74', margin: '0 6px 4px' }}>Recientes</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: token.colorTextSecondary, margin: '0 6px 4px' }}>Recientes</div>
               {conversaciones.slice(0, verTodas ? undefined : 5).map((c) => (
                 <button key={c.id} type="button" className="reciente-ia" onClick={() => abrir(c.id)}>
                   <Typography.Text ellipsis style={{ flex: 1 }}>{c.titulo}</Typography.Text>
-                  <span style={{ color: '#A39588', fontSize: 12 }}>{cuando(c.actualizada_en)}</span>
+                  <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>{cuando(c.actualizada_en)}</span>
                 </button>
               ))}
               {conversaciones.length > 5 && (

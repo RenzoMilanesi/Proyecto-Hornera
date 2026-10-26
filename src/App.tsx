@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Layout, Menu, Space, Typography } from 'antd';
+import { Alert, Button, Layout, Menu, Space, theme, Typography } from 'antd';
 import type { MenuProps } from 'antd';
 import { Importar } from './Importar.tsx';
 import { Stays } from './Stays.tsx';
@@ -23,6 +23,7 @@ import { Auditoria } from './Auditoria.tsx';
 import { Vencimientos } from './Vencimientos.tsx';
 import { Campanita } from './Avisos.tsx';
 import { ConfigAsistente, mesVisto, PanelAsistente } from './Asistente.tsx';
+import { colores } from './tema.ts';
 
 const secciones = {
   resumen: { grupo: '', titulo: 'Resumen', ayuda: 'Cómo viene el mes en los deptos: ocupación, tarifas y lo cobrado.', vista: <Resumen /> },
@@ -50,6 +51,7 @@ type Seccion = keyof typeof secciones;
 const SOLO_SERVIDOR = ['terminales', 'copias', 'asistente'];
 
 export function App() {
+  const { token } = theme.useToken();
   const [seccion, setSeccion] = useState<Seccion>('resumen');
   const [version, setVersion] = useState('');
   const [local, setLocal] = useState(false);
@@ -131,12 +133,12 @@ export function App() {
     <Layout style={{ minHeight: '100vh' }}>
       {/* sticky: el menú queda a mano al bajar por tablas largas */}
       <Layout.Sider width={200} style={{ position: 'sticky', top: 0, height: '100vh', overflow: 'auto' }}>
-        <Typography.Title level={4} style={{ padding: '16px 24px', margin: 0, color: '#fff' }}>Hornera</Typography.Title>
+        <Typography.Title level={4} style={{ padding: '16px 24px', margin: 0, color: colores.menuTitulo }}>Hornera</Typography.Title>
         <Menu theme="dark" mode="inline" defaultOpenKeys={['sub-Propiedades']} selectedKeys={[seccion]} onClick={(e) => setSeccion(e.key as Seccion)} items={items} />
-        <Typography.Link onClick={() => setAsistente(true)} style={{ display: 'block', padding: '16px 24px 0', color: '#E8C9A8' }}>Asistente con IA</Typography.Link>
+        <Typography.Link onClick={() => setAsistente(true)} style={{ display: 'block', padding: '16px 24px 0', color: colores.menuLink }}>Asistente con IA</Typography.Link>
         {/* Lo abre electron/main.ts (setWindowOpenHandler) con la copia del manual de esta PC. */}
-        <Typography.Link href="/manual.pdf" target="_blank" style={{ display: 'block', padding: '16px 24px 0', color: '#E8C9A8' }}>Manual de usuario</Typography.Link>
-        <Typography.Text style={{ display: 'block', padding: '8px 24px 16px', color: '#B3A698' }}>v{version}</Typography.Text>
+        <Typography.Link href="/manual.pdf" target="_blank" style={{ display: 'block', padding: '16px 24px 0', color: colores.menuLink }}>Manual de usuario</Typography.Link>
+        <Typography.Text style={{ display: 'block', padding: '8px 24px 16px', color: colores.menuVersion }}>v{version}</Typography.Text>
       </Layout.Sider>
       {/* marginRight: con el asistente abierto la pantalla se corre a su lado en vez de quedar tapada */}
       <Layout.Content style={{ padding: '24px 28px', minWidth: 0, marginRight: asistente ? anchoPanel : 0 }}>
@@ -147,7 +149,7 @@ export function App() {
             <Button type={asistente ? 'primary' : 'default'} title="Ctrl+K" onClick={() => setAsistente((a) => !a)}>✦ Asistente</Button>
           </Space>
         </div>
-        <Typography.Paragraph style={{ marginBottom: 20, color: '#4A3F37' }}>{actual.ayuda}</Typography.Paragraph>
+        <Typography.Paragraph style={{ marginBottom: 20, color: token.colorTextSecondary }}>{actual.ayuda}</Typography.Paragraph>
         {/* key: estado nuevo por sección, y al guardar algo desde el asistente (ponytail: se vuelve a montar y relee todo) */}
         {conexion === 'cortada' && <Alert type="warning" showIcon style={{ marginBottom: 16 }}
           title="Sin conexión con el servidor. Se sigue intentando solo; lo que no se guardó, hay que volver a guardarlo cuando vuelva." />}

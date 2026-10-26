@@ -1,11 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Alert, Button, Card, Input, InputNumber, Popconfirm, Select, Space, Table, Tag, Tooltip, Typography, Upload } from 'antd';
+import { Alert, Button, Card, Input, InputNumber, Popconfirm, Select, Space, Table, Tag, theme, Tooltip, Typography, Upload } from 'antd';
 import { mesVisto } from './Asistente.tsx';
 import type { TableColumnsType } from 'antd';
 import type { LiquidacionDepto, LiquidacionPeriodo } from '../server/liquidacion/servicio.ts';
 import { repartoCuenta, type CuentaLiquidacion } from '../server/liquidacion/motor.ts';
 import type { ComparacionDepto } from '../server/liquidacion/comparar.ts';
 import { enviar, get, pesos, subirArchivo } from './api.ts';
+import { colores } from './tema.ts';
 import { VariablesMes } from './Variables.tsx';
 import { AjustesReserva, type ReservaAjustable } from './AjustesReserva.tsx';
 import { FormMovimiento, TIPOS, type Cuenta, type Movimiento } from './Movimientos.tsx';
@@ -30,13 +31,14 @@ function Comparacion({ c }: { c?: ComparacionDepto }) {
 
 // Distribución del importe: la barra del reparto, grande en el detalle, `mini` en la fila de la tabla.
 const TRAMOS = [
-  { k: 'costos', nombre: 'Costos', color: '#B4B2A9' },
-  { k: 'hornera', nombre: 'Hornera', color: '#F0997B' },
-  { k: 'gastos', nombre: 'Gastos del depto', color: '#EF9F27' },
-  { k: 'propietario', nombre: 'Propietario', color: '#1D9E75' },
-  { k: 'deuda', nombre: 'Deuda del propietario', color: '#E24B4A' },
+  { k: 'costos', nombre: 'Costos', color: colores.costos },
+  { k: 'hornera', nombre: 'Hornera', color: colores.hornera },
+  { k: 'gastos', nombre: 'Gastos del depto', color: colores.gastos },
+  { k: 'propietario', nombre: 'Propietario', color: colores.propietario },
+  { k: 'deuda', nombre: 'Deuda del propietario', color: colores.deuda },
 ] as const;
 function BarraReparto({ c, moneda, mini }: { c: CuentaLiquidacion; moneda?: 'ARS' | 'USD'; mini?: boolean }) {
+  const { token } = theme.useToken();
   const r = repartoCuenta(c);
   const ancho = r.entro + r.deuda;
   if (r.entro <= 0) return null; // ponytail: sin barra cuando no entró plata; la cuenta de abajo lo explica
@@ -48,13 +50,13 @@ function BarraReparto({ c, moneda, mini }: { c: CuentaLiquidacion; moneda?: 'ARS
         {tramos.map((t) => (
           <div key={t.k} title={mini ? undefined : `${t.nombre} ${pesos(r[t.k])}`}
             style={{ width: `${(r[t.k] / ancho) * 100}%`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, overflow: 'hidden',
-              background: t.k === 'deuda' && !mini ? `repeating-linear-gradient(45deg, ${t.color} 0 4px, #F7C1C1 4px 8px)` : t.color }}>
+              background: t.k === 'deuda' && !mini ? `repeating-linear-gradient(45deg, ${t.color} 0 4px, ${colores.deudaRaya} 4px 8px)` : t.color }}>
             {!mini && t.k !== 'deuda' && r[t.k] / r.entro >= 0.1 ? pct(r[t.k]) : ''}
           </div>
         ))}
       </div>
       {/* Con deuda, la línea marca hasta dónde llegó lo que entró. */}
-      {!mini && r.deuda > 0 && <div style={{ position: 'absolute', left: `${(r.entro / ancho) * 100}%`, top: -4, bottom: -4, borderLeft: '1.5px dashed #2A211B' }} />}
+      {!mini && r.deuda > 0 && <div style={{ position: 'absolute', left: `${(r.entro / ancho) * 100}%`, top: -4, bottom: -4, borderLeft: `1.5px dashed ${token.colorText}` }} />}
     </div>
   );
   if (mini) return <Tooltip title={tramos.map((t) => <div key={t.k}>{t.nombre}: {pesos(r[t.k])}</div>)}>{barra}</Tooltip>;

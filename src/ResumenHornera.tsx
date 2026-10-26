@@ -1,7 +1,7 @@
 // Resumen de Hornera misma: resultado del mes por concepto, gastos personales aparte, lo que falta pagar,
 // lo disponible, lo facturado por emisor y la evolución. El Resumen de arriba es de deptos y reservas.
 import { useEffect, useState } from 'react';
-import { Alert, Card, Col, Descriptions, Empty, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { Alert, Card, Col, Descriptions, Empty, Row, Select, Space, Statistic, Table, Tag, theme, Typography } from 'antd';
 import { mesVisto } from './Asistente.tsx';
 import type { evolucion, resumenHornera } from '../server/resumen.ts';
 import { get, pesos } from './api.ts';
@@ -12,12 +12,13 @@ type Mes = ReturnType<typeof evolucion>[number];
 
 const derecha = { align: 'right' as const, onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }) };
 const chico = { content: { fontSize: 20 } };
-const rojo = (x: number) => ({ content: { ...chico.content, color: x < 0 ? '#B42318' : undefined } });
 const plata = (v: number | null) => (v == null ? '' : pesos(v));
 const ddmm = (f: string) => `${f.slice(8, 10)}/${f.slice(5, 7)}`;
 const subtitulo = (t: string) => <Typography.Text strong style={{ display: 'block', margin: '12px 0 4px' }}>{t}</Typography.Text>;
 
 export function ResumenHornera() {
+  const { token } = theme.useToken();
+  const rojo = (x: number) => ({ content: { ...chico.content, color: x < 0 ? token.colorError : undefined } });
   const [meses, setMeses] = useState<{ mes: string; estado: string }[]>([]);
   const [mes, setMes] = useState<string>();
   mesVisto.valor = mes ?? ''; // para el asistente

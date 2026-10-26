@@ -1,7 +1,7 @@
 // Solo en la PC servidor: dónde se guardan las copias de la base, las últimas que se hicieron,
 // restaurar una y borrar toda la base (las dos con copia previa y reinicio de la app).
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Input, Popconfirm, Space, Table, Typography } from 'antd';
+import { Alert, Button, Card, Input, Popconfirm, Space, Table, theme, Typography } from 'antd';
 import { enviar, get } from './api.ts';
 
 interface Copia { archivo: string; fecha: string; bytes: number }
@@ -12,6 +12,7 @@ const texto = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const reinicio = (r: { copia?: string }) => (r.copia ? `La copia de la base actual quedó en ${r.copia}. Hornera se reinicia…` : undefined);
 
 export function Copias() {
+  const { token } = theme.useToken();
   const [estado, setEstado] = useState<Estado>();
   const [error, setError] = useState<string>();
   const [aviso, setAviso] = useState<string>();
@@ -79,7 +80,7 @@ export function Copias() {
           <Button disabled={ocupado}>Restaurar desde una copia…</Button>
         </Popconfirm>
       </Card>
-      <Card size="small" title={<Typography.Text type="danger">Borrar toda la base</Typography.Text>} style={{ borderColor: '#ffccc7' }}>
+      <Card size="small" title={<Typography.Text type="danger">Borrar toda la base</Typography.Text>} style={{ borderColor: token.colorErrorBorder }}>
         <Typography.Paragraph type="secondary">
           Deja la base vacía: propietarios, deptos, reservas, liquidaciones, cuentas, comprobantes, todo. Se conservan la
           configuración de esta PC (carpeta de copias, Stays) y las terminales. Antes se hace una copia de la base actual.

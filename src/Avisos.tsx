@@ -1,13 +1,13 @@
 // Campanita (server/avisos.ts): lo que está mal o por vencer y lo importante de otras PCs.
 // El número cuenta los avisos con alguna parte (clave 'a,b') que esta PC no vio; abrir la lista lo da por visto. Un problema se va de la lista al resolverlo.
 import { useEffect, useState } from 'react';
-import { Badge, Button, Popover, Typography } from 'antd';
+import { Badge, Button, Popover, theme, Typography } from 'antd';
 import { get } from './api.ts';
+import { colores } from './tema.ts';
 
 interface Aviso { clave: string; nivel: 'rojo' | 'naranja' | 'info'; texto: string; seccion: string; fecha?: string }
 interface Avisos { problemas: Aviso[]; otrasPcs: Aviso[] }
 
-const COLOR = { rojo: '#cf1322', naranja: '#d46b08', info: '#8c8c8c' };
 const CADA_MS = 60_000;
 
 // Lo visto, en esta PC (cada PC tiene su navegador). Sin almacenamiento, todo cuenta como nuevo.
@@ -25,6 +25,8 @@ const Campana = ({ color }: { color: string }) => (
 );
 
 export function Campanita({ irA }: { irA: (seccion: string) => void }) {
+  const { token } = theme.useToken();
+  const COLOR = { rojo: token.colorError, naranja: colores.avisoNaranja, info: colores.avisoInfo };
   const [avisos, setAvisos] = useState<Avisos>({ problemas: [], otrasPcs: [] });
   const [vistos, setVistos] = useState(leerVistos);
   const [abierta, setAbierta] = useState(false);
@@ -73,7 +75,7 @@ export function Campanita({ irA }: { irA: (seccion: string) => void }) {
   return (
     <Popover getPopupContainer={(n) => n.parentElement ?? document.body} open={abierta} onOpenChange={abrir} trigger="click" placement="bottomRight" title="Avisos" content={contenido}>
       <Badge count={nuevos} size="small" offset={[-4, 4]}>
-        <Button type="text" shape="circle" aria-label={`Avisos${nuevos ? `: ${nuevos} nuevos` : ''}`} icon={<Campana color={grave ? COLOR.rojo : '#4A3F37'} />} />
+        <Button type="text" shape="circle" aria-label={`Avisos${nuevos ? `: ${nuevos} nuevos` : ''}`} icon={<Campana color={grave ? COLOR.rojo : token.colorText} />} />
       </Badge>
     </Popover>
   );
