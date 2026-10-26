@@ -14,10 +14,6 @@ const CADA_MS = 60_000;
 const leerVistos = (): string[] => { try { return JSON.parse(localStorage.getItem('avisos.vistos') ?? '[]'); } catch { return []; } };
 const guardarVistos = (v: string[]) => { try { localStorage.setItem('avisos.vistos', JSON.stringify(v)); } catch { /* no importa */ } };
 
-// Fila de la lista: el mismo resalte con el mouse que con Tab.
-const resaltar = (e: { currentTarget: HTMLElement }) => { e.currentTarget.style.background = '#f5f0eb'; };
-const apagar = (e: { currentTarget: HTMLElement }) => { e.currentTarget.style.background = ''; e.currentTarget.style.outline = ''; };
-
 const Campana = ({ color }: { color: string }) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
@@ -51,10 +47,7 @@ export function Campanita({ irA }: { irA: (seccion: string) => void }) {
     guardarVistos(v);
   };
   const fila = (a: Aviso) => (
-    <button key={a.clave} type="button" onClick={() => { abrir(false); irA(a.seccion); }}
-      style={{ all: 'unset', boxSizing: 'border-box', display: 'flex', gap: 8, width: '100%', padding: '6px 4px', cursor: 'pointer', borderRadius: 4 }}
-      onMouseEnter={resaltar} onMouseLeave={apagar} onBlur={apagar}
-      onFocus={(e) => { resaltar(e); if (e.currentTarget.matches(':focus-visible')) e.currentTarget.style.outline = '2px solid #B5835A'; }}>
+    <button key={a.clave} type="button" className="aviso-fila" onClick={() => { abrir(false); irA(a.seccion); }}>
       <span style={{ flex: 'none', width: 8, height: 8, marginTop: 7, borderRadius: '50%', background: COLOR[a.nivel] }} />
       <span style={{ fontWeight: visto(a) ? 400 : 600 }}>
         {a.fecha && <Typography.Text type="secondary">{a.fecha.slice(8, 10)}/{a.fecha.slice(5, 7)} {a.fecha.slice(11, 16)} · </Typography.Text>}
