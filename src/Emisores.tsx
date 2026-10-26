@@ -1,7 +1,7 @@
 // Quién factura los honorarios en ARCA (Lautaro, Amancay) y su certificado (plan 031).
 import { useEffect, useState } from 'react';
 import { Alert, Button, Col, Form, Input, InputNumber, Modal, Popconfirm, Radio, Row, Select, Space, Switch, Table, Tag, Typography, Upload } from 'antd';
-import { enviar, get, useUnaVez } from './api.ts';
+import { enviar, fecha, get, useUnaVez } from './api.ts';
 
 interface Emisor {
   id: number; nombre: string; razon_social: string; cuit: string; condicion_iva: string; punto_venta: number;
@@ -16,7 +16,6 @@ const CONDICIONES = [
   { value: 'exento', label: 'Exento (Factura C)' },
 ];
 const NOMBRE_CBTE: Record<number, string> = { 1: 'Factura A', 6: 'Factura B', 11: 'Factura C' };
-const fecha = (iso: string) => iso.split('-').reverse().join('/');
 const cuitConGuiones = (c: string) => `${c.slice(0, 2)}-${c.slice(2, 10)}-${c.slice(10)}`;
 const diasHasta = (iso: string) => Math.floor((new Date(`${iso}T00:00:00`).getTime() - Date.now()) / 86_400_000);
 const ambiente = (a: Emisor['ambiente']) => (a === 'produccion' ? <Tag color="green">producción</Tag> : <Tag color="orange">homologación</Tag>);

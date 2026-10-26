@@ -1,7 +1,7 @@
 // Solo en la PC servidor: dirección para las terminales, código de emparejamiento y terminales emparejadas.
 import { useEffect, useState } from 'react';
 import { Alert, Button, Card, Input, Popconfirm, Space, Table, Typography } from 'antd';
-import { enviar, get } from './api.ts';
+import { enviar, fechaHora, get } from './api.ts';
 
 interface Terminal { id: number; nombre: string; creada_en: string }
 interface Estado { nombre: string; direcciones: string[]; codigo: { valor: string; vence: string } | null; terminales: Terminal[] }
@@ -52,7 +52,7 @@ export function Terminales() {
       <Card size="small" title="Terminales emparejadas">
         <Table<Terminal> rowKey="id" size="small" pagination={false} loading={!estado} dataSource={estado?.terminales} columns={[
           { title: 'Nombre', dataIndex: 'nombre' },
-          { title: 'Desde', dataIndex: 'creada_en', render: (v: string) => new Date(v).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) },
+          { title: 'Desde', dataIndex: 'creada_en', render: fechaHora },
           { title: '', key: 'revocar', width: 100, render: (_: unknown, t) => (
             <Popconfirm title={`¿Revocar ${t.nombre}?`} description="Esa PC deja de poder usar la app hasta que se vuelva a emparejar."
               okText="Revocar" cancelText="No" onConfirm={() => accion(() => enviar(`terminales/${t.id}/revocar`, 'POST', {}))}>

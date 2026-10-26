@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Card, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Statistic, Switch, Table, Tag, Typography } from 'antd';
 import { mesVisto } from './Asistente.tsx';
 import type { TableColumnsType } from 'antd';
-import { entradaPlata, enviar, get, pesos, useUnaVez } from './api.ts';
+import { entradaPlata, enviar, fechaPorDefecto, get, pesos, useUnaVez } from './api.ts';
 
 interface Periodo { mes: string; estado: string }
 export interface GastoAjeno { id: number; fecha: string; codigo: string; descripcion: string | null; importe: number; estado: string }
@@ -15,10 +15,6 @@ export const NOMBRES: Record<string, string> = {
 };
 const COLOR: Record<string, string> = { CAY: 'magenta', LAU: 'blue', 'CAY/LAU': 'purple', CASEST: 'gold', CASA: 'green' };
 const opciones = Object.entries(NOMBRES).map(([c, n]) => ({ value: c, label: `${c} · ${n}` }));
-const fechaPorDefecto = (mes: string) => {
-  const hoy = new Date().toLocaleDateString('sv-SE');
-  return hoy.startsWith(mes) ? hoy : `${mes}-01`;
-};
 const derecha = { align: 'right' as const, onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }) };
 
 // `inicial`: uno nuevo ya completo (tarjeta del asistente, plan 068).

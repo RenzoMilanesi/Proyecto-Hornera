@@ -2,7 +2,7 @@
 // restaurar una y borrar toda la base (las dos con copia previa y reinicio de la app).
 import { useEffect, useState } from 'react';
 import { Alert, Button, Card, Input, Popconfirm, Space, Table, theme, Typography } from 'antd';
-import { enviar, get } from './api.ts';
+import { enviar, fechaHora, get } from './api.ts';
 
 interface Copia { archivo: string; fecha: string; bytes: number }
 interface Estado { carpeta: string; porDefecto: string; configurada: boolean; copias: Copia[] }
@@ -65,7 +65,7 @@ export function Copias() {
       }>
         <Table<Copia> rowKey="archivo" size="small" pagination={false} loading={!estado} dataSource={estado?.copias}
           locale={{ emptyText: 'Todavía no hay copias en esta carpeta.' }} columns={[
-            { title: 'Fecha', dataIndex: 'fecha', render: (v: string) => new Date(v).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) },
+            { title: 'Fecha', dataIndex: 'fecha', render: fechaHora },
             { title: 'Archivo', dataIndex: 'archivo' },
             { title: 'Tamaño', dataIndex: 'bytes', align: 'right', render: (b: number) => `${(b / 1024 / 1024).toLocaleString('es-AR', { maximumFractionDigits: 1 })} MB` },
           ]} />

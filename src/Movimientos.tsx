@@ -5,7 +5,7 @@ import { Alert, AutoComplete, Button, Card, Form, Input, InputNumber, Modal, Pop
 import { PaperClipOutlined } from '@ant-design/icons';
 import { mesVisto } from './Asistente.tsx';
 import type { TableColumnsType } from 'antd';
-import { entradaPlata, enviar, get, pesos, simbolo, subirComprobante, useUnaVez, verComprobante } from './api.ts';
+import { entradaPlata, enviar, fechaPorDefecto, get, pesos, simbolo, subirComprobante, useUnaVez, verComprobante } from './api.ts';
 
 interface Periodo { mes: string; estado: string }
 export interface Cuenta { id: number; nombre: string; moneda: 'ARS' | 'USD'; activo: number }
@@ -22,11 +22,6 @@ export const TIPOS: Record<string, string> = {
 const CARGABLES = ['gasto', 'ingreso', 'pre_liquidacion', 'pago_directo', 'saldo_inicial', 'ajuste'];
 const SIGNO_FIJO: Record<string, 1 | -1> = { gasto: -1, pre_liquidacion: -1, pago_directo: -1, ingreso: 1 };
 const EMPRESA = '__empresa__'; // valor del select para "empresa (INT)"
-// Hoy si es del mes elegido; si no, el día 1 de ese mes (no proponer una fecha de otro mes).
-const fechaPorDefecto = (mes: string) => {
-  const hoy = new Date().toLocaleDateString('sv-SE');
-  return hoy.startsWith(mes) ? hoy : `${mes}-01`;
-};
 const aCentavos = (v: number | null | undefined) => Math.round((v ?? 0) * 100);
 const derecha = { align: 'right' as const, onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }) };
 const COLOR_TIPO: Record<string, string> = {

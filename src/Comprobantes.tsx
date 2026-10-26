@@ -6,7 +6,7 @@ import { Alert, Button, Card, Descriptions, Drawer, Input, Segmented, Select, Sp
 import { mesVisto } from './Asistente.tsx';
 import type { TableColumnsType } from 'antd';
 import type { FilaComprobante } from '../server/facturacion.ts';
-import { descargarPdfComprobante, get, pesos } from './api.ts';
+import { descargarPdfComprobante, fechaHora, get, pesos } from './api.ts';
 import { EnArca } from './EnArca.tsx';
 import { FormFactura, FormNotaCredito, type AFacturar, type FacturaNC } from './Transferencias.tsx';
 
@@ -124,7 +124,7 @@ export function Comprobantes() {
               { label: 'Vence CAE', children: detalle.cae_vencimiento ?? '—' },
               { label: 'Motivo', children: detalle.motivo ?? '—', span: 2 },
               { label: 'Observaciones', children: detalle.observaciones ?? '—', span: 2 },
-              { label: 'Registrado', children: new Date(detalle.creado_en).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }), span: 2 },
+              { label: 'Registrado', children: fechaHora(detalle.creado_en), span: 2 },
             ]} />
             <Typography.Text strong>Pedido a ARCA</Typography.Text>
             <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{json(detalle.request_json)}</pre>

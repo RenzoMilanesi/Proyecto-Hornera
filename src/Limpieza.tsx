@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Button, Card, Col, Drawer, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Tabs, Tag, Typography, Upload } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { entradaPlata, enviar, get, pesos, subirArchivo, useUnaVez } from './api.ts';
+import { entradaPlata, enviar, get, hoy, pesos, subirArchivo, useUnaVez } from './api.ts';
 import type { Cuenta } from './Movimientos.tsx';
 
 type Plus = Record<string, { modo: 'horas' | 'pesos'; valor: number }>;
@@ -20,7 +20,6 @@ interface ReporteHoras { importadas: number; duplicadas: number; anteriores: num
 const hs = (min: number) => `${(min / 60).toLocaleString('es-AR', { maximumFractionDigits: 2 })} h`;
 const ddmm = (f: string) => `${f.slice(8, 10)}/${f.slice(5, 7)}`;
 const periodo = (l: { desde: string; hasta: string }) => `${ddmm(l.desde)}–${ddmm(l.hasta)}/${l.hasta.slice(0, 4)}`;
-const hoy = () => new Date().toLocaleDateString('sv-SE');
 const diaSiguiente = (f: string) => new Date(Date.parse(f) + 86_400_000).toISOString().slice(0, 10);
 const derecha = { align: 'right' as const, onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }) };
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e));

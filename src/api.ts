@@ -82,6 +82,15 @@ export const simbolo = (moneda?: 'ARS' | 'USD') => (moneda === 'USD' ? 'US$' : '
 export const pesos = (c: number, moneda: 'ARS' | 'USD' = 'ARS') =>
   `${moneda === 'USD' ? 'US$' : '$'} ${(c / 100).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+// "2026-10-25" → "25/10/2026"
+export const fecha = (iso: string) => iso.slice(0, 10).split('-').reverse().join('/');
+// Fecha y hora cortas: "25/10/26, 14:30"
+export const fechaHora = (v: string) => new Date(v).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+// Hoy en ISO, hora local (no UTC).
+export const hoy = () => new Date().toLocaleDateString('sv-SE');
+// Hoy si es del mes elegido; si no, el día 1 de ese mes (no proponer una fecha de otro mes).
+export const fechaPorDefecto = (mes: string) => (hoy().startsWith(mes) ? hoy() : `${mes}-01`);
+
 // Un "Guardar" que no se manda dos veces: el doble clic llega antes de que el botón se vea cargando.
 // Uso: const [guardarUnaVez, guardando] = useUnaVez(guardar); <Modal onOk={guardarUnaVez} confirmLoading={guardando}>
 export function useUnaVez(fn: () => Promise<void>) {
