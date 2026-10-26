@@ -381,7 +381,7 @@ export function PanelAsistente({ abierto, alCerrar, ancho, maxAncho, alRedimensi
         <input ref={archivo} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" hidden
           onChange={(e) => { void adjuntar(e.target.files); e.target.value = ''; }} />
         {!vacio && campo}
-        <div style={{ fontSize: 11.5, color: token.colorTextSecondary, marginTop: vacio ? 0 : 6 }}>
+        <div style={{ fontSize: 12, color: token.colorTextSecondary, marginTop: vacio ? 0 : 6 }}>
           Lo que preguntás y los datos que consulta se envían a Anthropic{gasto != null && ` · ${dolares(gasto)} este mes`}
         </div>
       </>}>
@@ -390,7 +390,7 @@ export function PanelAsistente({ abierto, alCerrar, ancho, maxAncho, alRedimensi
       {vacio && (
         <>
           {campo}
-          <Typography.Paragraph type="secondary" style={{ fontSize: 12.5, margin: '8px 2px 20px' }}>
+          <Typography.Paragraph type="secondary" style={{ fontSize: 12, margin: '8px 2px 20px' }}>
             Sabe en qué pantalla y mes estás. Si le pedís cargar algo, arma una tarjeta: no se guarda nada hasta que tocás Confirmar.
           </Typography.Paragraph>
           {conversaciones.length > 0 && (
