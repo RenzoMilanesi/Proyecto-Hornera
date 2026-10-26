@@ -82,7 +82,7 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 075 | [La terminal avisa el corte del servidor en pleno uso y vuelve al código si la revocan](075-terminal-corte-en-uso.md) | P1 | M | — | HECHO (v0.53.3) |
 | 076 | [Recargar sin servidor reintenta solo, y el puerto ocupado se explica](076-terminal-recarga-y-puerto.md) | P2 | S | — | HECHO (v0.53.4) |
 | 077 | [Resumen con gráficos: evolución año contra año y ranking por RevPAR](077-resumen-graficos.md) | P2 | M | — | TODO (se hizo en v0.54.0 y se revirtió el 2026-10-25: queda para más adelante) |
-| 078 | [Colores y tamaños solo del tema (y que no se vuelva a desordenar)](078-estilos-un-solo-tema.md) | P2 | M | — | TODO |
+| 078 | [Colores y tamaños solo del tema (y que no se vuelva a desordenar)](078-estilos-un-solo-tema.md) | P2 | M | — | HECHO (v0.53.10) |
 
 Planes 062–065: revisión `improve deep` de los pasos 0–4 del plan 061 (`fba59f6`, 2026-10-23), a hacer antes del paso 5. Descartado: `dbstat` (solo tamaños de páginas, no datos), `sqlite_dbpage` (no está compilado), `pragma_table_info` y `load_extension` (bloqueados por el authorizer, probado); claves de deptos guardadas en `conversacion_ia` (ya están en la misma base, en `depto_clave`); el esquema de `consulta_sql` se arma en cada pregunta (unas 60 consultas a `sqlite_master`, despreciable); tercera copia del patrón `safeStorage` en `electron/main.ts` (no vale abstraerlo).
 

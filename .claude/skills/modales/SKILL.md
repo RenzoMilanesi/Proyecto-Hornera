@@ -62,6 +62,8 @@ en `src/AjustesReserva.tsx` (secciones + pares pesos/dólares).
   sección. Nada de texto suelto al pie.
 - **Error**: `{error && <Alert type="error" showIcon title={error} />}` después del `</Form>`, último
   elemento del modal. Validación de campos con `rules` (mensaje en español).
+- **Colores**: los del tema (`theme.useToken()`, `Typography type="secondary"`/`"danger"`); nunca un hex
+  inline (lo rechaza `src/estilos.test.ts`).
 - **Ciclo de vida**: `destroyOnHidden`; cargar valores en un `useEffect` que corre al abrir; el
   componente avisa con `alCerrar(guardado: boolean)` y el padre recarga si `guardado`.
 
