@@ -1,6 +1,6 @@
 // Quién factura los honorarios en ARCA (Lautaro, Amancay) y su certificado (plan 031).
 import { useEffect, useState } from 'react';
-import { Alert, Button, Col, Form, Input, InputNumber, Modal, Popconfirm, Radio, Row, Select, Space, Switch, Table, Tag, Typography, Upload } from 'antd';
+import { Alert, Button, Col, Form, Input, InputNumber, Modal, Popconfirm, Radio, Row, Select, Space, Switch, Table, Tag, theme, Typography, Upload } from 'antd';
 import { enviar, fecha, get, useUnaVez } from './api.ts';
 
 interface Emisor {
@@ -155,6 +155,7 @@ function FormCertificado({ e, alCerrar }: { e?: Emisor; alCerrar: (guardado: boo
 }
 
 export function Emisores() {
+  const { token } = theme.useToken();
   const [emisores, setEmisores] = useState<Emisor[]>();
   const [editando, setEditando] = useState<{ e?: Emisor }>();
   const [certificado, setCertificado] = useState<Emisor>();
@@ -195,7 +196,7 @@ export function Emisores() {
       <div><Button type="primary" onClick={() => setEditando({})}>Nuevo emisor</Button></div>
       <Table<Emisor> rowKey="id" size="small" pagination={false} loading={!emisores} dataSource={emisores} scroll={{ x: 'max-content' }}
         // De baja: fila apagada y tachada, para que no se confunda con uno que factura.
-        onRow={(e) => ({ style: e.activo ? undefined : { opacity: 0.5, background: 'rgba(0, 0, 0, 0.04)' } })} columns={[
+        onRow={(e) => ({ style: e.activo ? undefined : { opacity: 0.5, background: token.colorFillTertiary } })} columns={[
         {
           title: 'Emisor', dataIndex: 'nombre', render: (v: string, e) => (
             <>

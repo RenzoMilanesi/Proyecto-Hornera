@@ -42,8 +42,8 @@ propietarios de HORNERA (alquileres temporarios, Rosario). Contexto y decisiones
   `schema.check.mjs`, juntos.
 - Estilo mínimo: sin abstracciones especulativas; un comentario `ponytail:` marca una
   simplificación hecha a propósito.
-- Colores y tamaños de letra: del tema (`src/tema.ts`, `theme.useToken()`, `Typography type`); nada de hex
-  sueltos en `src/*.tsx` (lo controla `src/estilos.test.ts`). `Imprimir.tsx` es la excepción (hoja del PDF).
+- Diseño de pantallas: reglas al principio de `src/tema.ts` (colores del tema, contraste, tamaños de `LETRA`);
+  las controla `src/estilos.test.ts`. `Imprimir.tsx` es la excepción (hoja del PDF).
 - Formatos: plata con `pesos`/`entradaPlata` y fechas con `fecha`/`fechaHora`/`hoy`, de `src/api.ts`.
 - Modales y ventanas: skill `modales` (ficha, secciones, plata con `entradaPlata`), igual que las existentes.
 - Commits: skill `commit-version` (bump de versión, mensaje, push).

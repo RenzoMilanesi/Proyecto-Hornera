@@ -49,7 +49,7 @@ function BarraReparto({ c, moneda, mini }: { c: CuentaLiquidacion; moneda?: 'ARS
       <div style={{ display: 'flex', height: mini ? 8 : 26, minWidth: mini ? 120 : undefined, borderRadius: mini ? 4 : 6, overflow: 'hidden' }}>
         {tramos.map((t) => (
           <div key={t.k} title={mini ? undefined : `${t.nombre} ${pesos(r[t.k])}`}
-            style={{ width: `${(r[t.k] / ancho) * 100}%`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, overflow: 'hidden',
+            style={{ width: `${(r[t.k] / ancho) * 100}%`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, overflow: 'hidden',
               background: t.k === 'deuda' && !mini ? `repeating-linear-gradient(45deg, ${t.color} 0 4px, ${colores.deudaRaya} 4px 8px)` : t.color }}>
             {!mini && t.k !== 'deuda' && r[t.k] / r.entro >= 0.1 ? pct(r[t.k]) : ''}
           </div>

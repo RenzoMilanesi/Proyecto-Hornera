@@ -1,5 +1,11 @@
-// La paleta de la interfaz, en un solo lugar. Lo que es token de antd se lee con theme.useToken() o Typography type;
-// `colores` son los que no tienen token. index.html (CSS global) usa los mismos valores.
+// El diseño de la interfaz, en un solo lugar. Reglas para toda pantalla de src/ (las controla src/estilos.test.ts):
+// 1. Colores: nunca un color escrito en una pantalla (#hex, rgb(), hsl()). Texto de apoyo: Typography type="secondary";
+//    error: type="danger"; el resto, el token de antd con theme.useToken() (token.colorPrimary, colorError, colorFillTertiary…).
+//    Lo que no tiene token va en `colores` de acá. Los Tag usan los colores con nombre de antd (green, red, blue…).
+// 2. Contraste: texto sobre fondo claro con 4,5:1 o más (el gris del tema, #6E6259, da 5,9:1). Un gris más claro, no.
+// 3. Letra: solo los tamaños de `LETRA`. Mejor todavía, el componente que ya lo trae (Typography.Title, Statistic).
+// 4. Modales y ventanas: skill `modales`. Plata y fechas: pesos, entradaPlata, fecha, fechaHora y hoy de src/api.ts.
+// Excepción: Imprimir.tsx (hoja del PDF, sin antd). index.html (CSS global) usa los mismos valores que este archivo.
 import type { ThemeConfig } from 'antd';
 
 // Tema "Ladrillo": terracota sobre fondo cálido, menú oscuro. Fuente local (la app anda sin internet).
@@ -25,6 +31,9 @@ export const tema: ThemeConfig = {
     Modal: { titleFontSize: 18 },
   },
 };
+
+// Tamaños de letra permitidos en las pantallas (px). La base de antd es 14; 12 para lo chico, 16-20 para destacar.
+export const LETRA = [12, 13, 14, 16, 18, 20];
 
 // Colores sin token de antd: textos del menú lateral, avisos de la campanita y el gráfico de Liquidación.
 export const colores = {
