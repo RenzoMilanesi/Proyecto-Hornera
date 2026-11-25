@@ -11,9 +11,10 @@ export const listarPropietarios = (db: DatabaseSync) => db.prepare(`
 export const listarDeptos = (db: DatabaseSync) => db.prepare(`
   SELECT d.id, d.codigo, d.nombre, d.direccion, d.estado, d.comision_pct, d.tarifa_base_override,
          d.adicional_huesped_override, d.cm_fee_usd_override, p.nombre AS propietario,
-         COALESCE(d.fotos, '[]') AS fotos
+         COALESCE(d.fotos, '[]') AS fotos,
+         (SELECT json_group_array(plataforma_id) FROM depto_pago_directo WHERE depto_id = d.id) AS pago_directo
   FROM depto d JOIN propietario p ON p.id = d.propietario_id ORDER BY d.codigo`).all()
-  .map((d) => ({ ...d, fotos: JSON.parse(d.fotos as string) as string[] }));
+  .map((d) => ({ ...d, fotos: JSON.parse(d.fotos as string) as string[], pago_directo: JSON.parse(d.pago_directo as string) as number[] }));
 
 // provisoria: de la API pero de un momento, no la del cierre (server/cotizacion.ts).
 export const listarPeriodos = (db: DatabaseSync) => db.prepare(`

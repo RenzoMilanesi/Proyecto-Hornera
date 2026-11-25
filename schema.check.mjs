@@ -215,4 +215,8 @@ falla(adj('text/html'), 'CHECK');
 run(adj('application/pdf'));
 falla(`INSERT INTO auditoria(fecha, pc, tabla, accion, con_ia) VALUES ('x', 'PC', 't', 'alta', 2)`, 'CHECK');
 
+// Pago directo revisado: uno por depto y mes
+run(`INSERT INTO pago_directo_revisado(periodo_id, depto_id, revisado_en) VALUES (1, 1, 'x')`);
+falla(`INSERT INTO pago_directo_revisado(periodo_id, depto_id, revisado_en) VALUES (1, 1, 'y')`, 'UNIQUE');
+
 console.log('schema OK');

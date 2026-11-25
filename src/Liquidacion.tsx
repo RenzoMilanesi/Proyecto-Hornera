@@ -91,6 +91,7 @@ interface Edicion {
   ajustar: (r: ReservaAjustable) => void;
   movimiento: (m?: Movimiento) => void;
   variables: () => void;
+  pagoDirecto: (revisado: boolean) => void;
 }
 interface Renglon { key: string; concepto: string; importe: ReactNode; detalle?: ReactNode; total?: boolean }
 // Título de cada sección del detalle, un poco más grande que el texto de las tablas.
@@ -151,7 +152,10 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
     descuento: <>{ars(-sumar((l) => descuento(l, 'ARS')))} {usd(-sumar((l) => descuento(l, 'USD')))}</>,
   };
   const columnasReservas: TableColumnsType<Fila> = [
-    { title: 'Código Stays', key: 'reserva', render: (_: unknown, l) => <Typography.Text code>{l.reserva.codigo}</Typography.Text> },
+    { title: 'Código Stays', key: 'reserva', render: (_: unknown, l) => <>
+      <Typography.Text code>{l.reserva.codigo}</Typography.Text>
+      {d.pagoDirecto?.reservas.includes(l.reserva.codigo) && <Tag color={d.pagoDirecto.revisado ? 'default' : 'orange'}>pago directo?</Tag>}
+    </> },
     { title: 'Código plataforma', key: 'ota', render: (_: unknown, l) => l.reserva.codigo_ota && <Typography.Text code>{l.reserva.codigo_ota}</Typography.Text> },
     { title: 'Noches (período / total)', key: 'noches', render: (_: unknown, l) => `${l.nochesPeriodo} / ${l.nochesTotales}` },
     ...(hayPrecio ? [
@@ -184,6 +188,16 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
           <ul style={{ margin: 0, paddingLeft: 20 }}>{comparacion.diferencias.map((x, i) => (
             <li key={i}>{x.campo}{x.unidad === 'noches' ? '' : ` ${x.unidad}`}: app {x.unidad === 'noches' ? x.app : pesos(x.app, x.unidad)} · Excel {x.unidad === 'noches' ? x.excel : pesos(x.excel, x.unidad)}</li>
           ))}</ul>} />
+      )}
+      {d.pagoDirecto && (
+        <Alert type={d.pagoDirecto.revisado ? 'info' : 'warning'} showIcon
+          title={d.pagoDirecto.revisado ? 'Pago directo revisado' : 'Posible pago directo de la plataforma al propietario'}
+          description={<>
+            {d.pagoDirecto.reservas.join(', ')}: la plataforma le puede haber pagado directo al propietario y Stays no lo informa.
+            {' '}Precio de compra en Stays: {ars(d.pagoDirecto.sugerido.ars)} {usd(d.pagoDirecto.sugerido.usd)}.
+            {' '}Si se lo pagó, cargalo como "Cobro directo por plataforma" con el monto real{editar && <> ({enlace('Agregar', () => editar.movimiento())})</>}.
+          </>}
+          action={editar && <Checkbox checked={d.pagoDirecto.revisado} onChange={(e) => editar.pagoDirecto(e.target.checked)}>Revisado</Checkbox>} />
       )}
       <Titulo>Distribución del importe</Titulo>
       <BarraReparto c={c} moneda={d.moneda} />
@@ -341,7 +355,9 @@ export function Liquidacion() {
   };
   const difSaldo = (d: LiquidacionDepto) => difSaldoEnPesos(d, comparacion?.get(d.codigo), datos?.cambio ?? 0);
   const columnas: TableColumnsType<LiquidacionDepto> = [
-    { title: 'Depto', dataIndex: 'codigo', width: 80, render: (v: string) => <b>{v}</b>, sorter: (a, b) => a.codigo.localeCompare(b.codigo) },
+    { title: 'Depto', dataIndex: 'codigo', sorter: (a, b) => a.codigo.localeCompare(b.codigo), render: (v: string, d) => <>
+      <b>{v}</b>{d.pagoDirecto && !d.pagoDirecto.revisado && <Tooltip title="Posible pago directo de la plataforma al propietario: abrí el depto para revisarlo."><Tag color="orange" style={{ marginLeft: 6 }}>pago directo?</Tag></Tooltip>}
+    </> },
     { title: 'Propietario', dataIndex: 'propietario', ellipsis: true, sorter: (a, b) => a.propietario.localeCompare(b.propietario) },
     { title: 'Noches', key: 'noches', width: 90, render: (_: unknown, d) => `${d.resultado.nochesOcupadas} / ${d.resultado.nochesDisponibles}` },
     { title: 'Reparto', key: 'reparto', width: 160, render: (_: unknown, d) => <BarraReparto c={d.cuenta} mini />,
@@ -475,6 +491,9 @@ export function Liquidacion() {
             editar={periodo?.estado === 'abierto' ? {
               ajustar: setAjustando, variables: () => setVariables(true),
               movimiento: (m) => setMovimiento({ depto: d.codigo, editando: m }),
+              // No cambia números: recarga sin borrar la comparación con el Excel.
+              pagoDirecto: (revisado) => enviar(`liquidacion/${mes}/pago-directo/${d.deptoId}`, 'PUT', { revisado })
+                .then(() => get<LiquidacionPeriodo>(`liquidacion?mes=${mes}`)).then(setDatos, (e) => setError(e instanceof Error ? e.message : String(e))),
             } : undefined} />,
         }} />
     </Space>

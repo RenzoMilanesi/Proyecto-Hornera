@@ -151,6 +151,16 @@ CREATE TABLE depto_pago_directo (
 ) STRICT, WITHOUT ROWID;
 CREATE INDEX ix_dpd_plataforma ON depto_pago_directo(plataforma_id);
 
+-- Pago directo revisado a mano en un mes abierto (Liquidación): el depto deja de avisar.
+CREATE TABLE pago_directo_revisado (
+    periodo_id       INTEGER NOT NULL,
+    depto_id         INTEGER NOT NULL,
+    revisado_en      TEXT    NOT NULL,
+    CONSTRAINT pk_pago_directo_revisado PRIMARY KEY (periodo_id, depto_id),
+    CONSTRAINT fk_pdr_periodo FOREIGN KEY (periodo_id) REFERENCES periodo(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_pdr_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE CASCADE ON UPDATE CASCADE
+) STRICT, WITHOUT ROWID;
+
 -- Cuentas de la empresa (Listas col. B): Galicia A, Mercadopago L, Efectivo USD...
 CREATE TABLE cuenta (
     id          INTEGER PRIMARY KEY,
