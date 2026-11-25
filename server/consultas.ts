@@ -36,6 +36,9 @@ export function reservasDelMes(db: DatabaseSync, mes: string) {
            r.cancelada, r.hora_llegada, r.hora_salida, r.desglose_json,
            COALESCE(SUM(CASE v.moneda WHEN 'ARS' THEN v.importe_neto END), 0) AS cobrado_ars,
            COALESCE(SUM(CASE v.moneda WHEN 'USD' THEN v.importe_neto END), 0) AS cobrado_usd,
+           COALESCE(SUM(CASE v.moneda WHEN 'ARS' THEN v.comision_medio END), 0) AS comision_medio_ars,
+           COALESCE(SUM(CASE v.moneda WHEN 'USD' THEN v.comision_medio END), 0) AS comision_medio_usd,
+           MAX(v.comision_estimada) AS comision_estimada,
            MAX(v.falta_comision) AS falta_comision
     FROM reserva r
     JOIN depto d ON d.id = r.depto_id

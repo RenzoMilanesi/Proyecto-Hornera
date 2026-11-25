@@ -483,24 +483,26 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   }));
   app.get('/api/medios-pago', (_req, res) => {
     res.json(db.prepare(`
-      SELECT mp.id, mp.nombre, mp.tipo_stays, mp.moneda, mp.descuenta_comision, mp.cuenta_id, mp.activo,
+      SELECT mp.id, mp.nombre, mp.tipo_stays, mp.moneda, mp.descuenta_comision, mp.comision_pct, mp.cuenta_id, mp.activo,
              (SELECT count(*) FROM pago p WHERE p.medio_pago_id = mp.id) AS pagos
       FROM medio_pago mp ORDER BY mp.activo DESC, mp.nombre`).all());
   });
-  // Asociar un medio de pago de Stays a una cuenta (y corregir su moneda o si descuenta comisión).
+  // Asociar un medio de pago de Stays a una cuenta (y corregir su moneda, si descuenta comisión y el % estimado).
   app.put('/api/medios-pago/:id', (req, res) => intentar(res, () => {
-    const { cuenta_id, moneda, descuenta_comision } = req.body ?? {};
+    const { cuenta_id, moneda, descuenta_comision, comision_pct } = req.body ?? {};
     const id = Number(req.params.id);
-    const antes = db.prepare('SELECT cuenta_id, moneda, descuenta_comision FROM medio_pago WHERE id = ?').get(id);
+    const antes = db.prepare('SELECT cuenta_id, moneda, descuenta_comision, comision_pct FROM medio_pago WHERE id = ?').get(id) as { comision_pct: number } | undefined;
     if (!antes) throw new Error('No existe el medio de pago.');
     if ((moneda !== 'ARS' && moneda !== 'USD') || ![0, 1].includes(descuenta_comision)) throw new Error('Moneda (ARS o USD) o comisión inválidas.');
+    const pct = comision_pct ?? antes.comision_pct;
+    if (typeof pct !== 'number' || !(pct >= 0 && pct <= 0.5)) throw new Error('El % de comisión va de 0 a 50 %.');
     if (cuenta_id != null) {
       const c = db.prepare('SELECT nombre, moneda FROM cuenta WHERE id = ?').get(cuenta_id) as { nombre: string; moneda: string } | undefined;
       if (!c) throw new Error('No existe la cuenta.');
       if (c.moneda !== moneda) throw new Error(`La cuenta ${c.nombre} es en ${c.moneda} y el medio de pago en ${moneda}.`);
     }
-    db.prepare('UPDATE medio_pago SET cuenta_id = ?, moneda = ?, descuenta_comision = ? WHERE id = ?').run(cuenta_id ?? null, moneda, descuenta_comision, id);
-    auditar(db, 'medio_pago', id, 'modificacion', antes, { cuenta_id: cuenta_id ?? null, moneda, descuenta_comision });
+    db.prepare('UPDATE medio_pago SET cuenta_id = ?, moneda = ?, descuenta_comision = ?, comision_pct = ? WHERE id = ?').run(cuenta_id ?? null, moneda, descuenta_comision, pct, id);
+    auditar(db, 'medio_pago', id, 'modificacion', antes, { cuenta_id: cuenta_id ?? null, moneda, descuenta_comision, comision_pct: pct });
   }));
 
   // ---- Cierre del mes, transferencias y PDF

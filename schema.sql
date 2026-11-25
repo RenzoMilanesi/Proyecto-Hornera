@@ -168,6 +168,7 @@ CREATE TABLE medio_pago (
     tipo_stays         TEXT    NOT NULL,          -- type (mercadopago, paypal, user...)
     moneda             TEXT    NOT NULL CHECK (moneda IN ('ARS','USD')),
     descuenta_comision INTEGER NOT NULL DEFAULT 0 CHECK (descuenta_comision IN (0,1)),  -- MP y PayPal: neto = val − tax
+    comision_pct       REAL    NOT NULL DEFAULT 0 CHECK (comision_pct BETWEEN 0 AND 1),   -- estimada, si Stays no informa el tax
     cuenta_id          INTEGER,                   -- NULL = sin mapear (la sync lo avisa)
     activo             INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)),
     CONSTRAINT uq_medio_pago_stays UNIQUE (stays_id),
@@ -776,13 +777,20 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
 
 -- Pagos de Stays que entran en la liquidación (mismas reglas que el script 3):
 -- sin débitos, sin pendientes, sin "res. fee" / "Res. Security Deposit".
+-- Comisión del medio de pago (MP, PayPal, Link): la que informa Stays; si no la informa, la estimada con el % del medio.
 CREATE VIEW v_pago_liquidable AS
-SELECT p.*, mp.moneda,
-       CASE WHEN mp.descuenta_comision = 1 THEN p.importe - COALESCE(p.comision, 0) ELSE p.importe END AS importe_neto,
-       (mp.descuenta_comision = 1 AND COALESCE(p.comision, 0) = 0) AS falta_comision
-FROM pago p
-JOIN medio_pago mp ON mp.id = p.medio_pago_id
-WHERE p.tipo <> 'debit'
-  AND p.estado <> 'pending'
-  AND NOT (lower(COALESCE(p.descripcion, '')) LIKE 'res. fee%'
-        OR lower(COALESCE(p.descripcion, '')) LIKE '%res. security deposit%');
+SELECT x.*, x.importe - x.comision_medio AS importe_neto
+FROM (
+  SELECT p.*, mp.moneda,
+         CASE WHEN mp.descuenta_comision = 0 THEN 0
+              WHEN COALESCE(p.comision, 0) <> 0 THEN p.comision
+              ELSE CAST(ROUND(p.importe * mp.comision_pct) AS INTEGER) END AS comision_medio,
+         (mp.descuenta_comision = 1 AND COALESCE(p.comision, 0) = 0 AND mp.comision_pct > 0) AS comision_estimada,
+         (mp.descuenta_comision = 1 AND COALESCE(p.comision, 0) = 0 AND mp.comision_pct = 0) AS falta_comision
+  FROM pago p
+  JOIN medio_pago mp ON mp.id = p.medio_pago_id
+  WHERE p.tipo <> 'debit'
+    AND p.estado <> 'pending'
+    AND NOT (lower(COALESCE(p.descripcion, '')) LIKE 'res. fee%'
+          OR lower(COALESCE(p.descripcion, '')) LIKE '%res. security deposit%')
+) x;

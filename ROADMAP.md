@@ -116,8 +116,11 @@ en la LAN (fase 5d), que sigue a testear.
    "Solo con diferencias, de mayor a menor": oculta los iguales; primero los que no están en el Excel, después la diferencia de
    saldo en pesos (a favor o en contra) y al final los de saldo igual con otro campo distinto. Cuando exista la bandera de cobro
    directo sin revisar, ese depto tiene que entrar al filtro con su etiqueta aunque dé igual al Excel.
-   Siguen pendientes del mismo pedido: cobro directo de la plataforma al propietario (PJ03J; esperando datos de Lautaro y Amancay)
-   y la comisión del medio de pago en cada reserva.
+   v0.56.0: comisión del medio de pago. Cuentas → Medios de pago: "% si Stays no la informa" para los que descuentan comisión
+   (MP, PayPal, Link); la de Stays manda, sin ella se estima con ese % y sin % se sigue avisando. Cada reserva muestra la
+   comisión en Stays y en el detalle del depto en Liquidación (mes abierto, prorrateada por noches, "estimada" si salió del %).
+   Esquema 24. El saldo de las cuentas no cambia (sigue con la comisión de Stays).
+   Sigue pendiente del mismo pedido: cobro directo de la plataforma al propietario (PJ03J; esperando datos de Lautaro y Amancay).
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.
    - Terminales → "Nombre de esta PC" en el servidor (se guarda en `configuracion`); reemplaza al nombre de Windows en la auditoría.

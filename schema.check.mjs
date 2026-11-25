@@ -62,6 +62,25 @@ run(`INSERT INTO reserva(codigo, depto_id, llegada, salida, moneda, raw_json, si
 falla(`INSERT INTO pago(stays_id, reserva_id, tipo, estado, importe, raw_json)
        VALUES ('p1', 1, 'credit', 'completed', 100, '{}')`, 'NOT NULL');
 
+// Comisión del medio de pago: la de Stays manda; sin ella, la estimada con el %; sin %, falta.
+run(`INSERT INTO medio_pago(stays_id, nombre, tipo_stays, moneda, descuenta_comision, comision_pct) VALUES
+     ('mp', 'Mercado Pago', 'mercadopago', 'ARS', 1, 0.085), ('mp0', 'MP sin %', 'mercadopago', 'ARS', 1, 0), ('ef', 'Efectivo', 'user', 'ARS', 0, 0.5)`);
+falla(`UPDATE medio_pago SET comision_pct = 1.5 WHERE stays_id = 'mp'`, 'CHECK');
+const pago = (id, medio, importe, comision) => run(`INSERT INTO pago(stays_id, reserva_id, medio_pago_id, tipo, estado, importe, comision, raw_json)
+  VALUES ('${id}', 1, (SELECT id FROM medio_pago WHERE stays_id = '${medio}'), 'credit', 'completed', ${importe}, ${comision}, '{}')`);
+pago('c1', 'mp', 100000, 'NULL');  // estimada: 8,5 %
+pago('c2', 'mp', 100000, 5000);    // la de Stays
+pago('c3', 'mp0', 100000, 'NULL'); // falta
+pago('c4', 'ef', 100000, 'NULL');  // efectivo: sin comisión aunque tenga %
+assert.deepEqual(db.prepare(`SELECT stays_id, comision_medio, importe_neto, comision_estimada, falta_comision FROM v_pago_liquidable ORDER BY stays_id`)
+  .all().map((x) => ({ ...x })), [
+  { stays_id: 'c1', comision_medio: 8500, importe_neto: 91500, comision_estimada: 1, falta_comision: 0 },
+  { stays_id: 'c2', comision_medio: 5000, importe_neto: 95000, comision_estimada: 0, falta_comision: 0 },
+  { stays_id: 'c3', comision_medio: 0, importe_neto: 100000, comision_estimada: 0, falta_comision: 1 },
+  { stays_id: 'c4', comision_medio: 0, importe_neto: 100000, comision_estimada: 0, falta_comision: 0 },
+]);
+run(`DELETE FROM pago`);
+
 // Fotos del depto: JSON válido o nada
 falla(`UPDATE depto SET fotos = 'no es json' WHERE id = 1`, 'CHECK');
 run(`UPDATE depto SET fotos = '["https://x.stays.net/image/1"]' WHERE id = 1`);

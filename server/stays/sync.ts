@@ -435,7 +435,7 @@ export async function sincronizarMes(db: DatabaseSync, cliente: ClienteStays, me
         WHERE v.falta_comision AND r.codigo IN (SELECT value FROM json_each(?)) ORDER BY r.codigo`)
         .all(JSON.stringify(traidas)) as { codigo: string }[];
       if (sinComision.length) {
-        avisos.push(`Pagos de Mercado Pago/PayPal sin comisión cargada en Stays (${sinComision.map((r) => r.codigo).join(', ')}): cargala allá y volvé a traer el mes.`);
+        avisos.push(`Pagos de Mercado Pago/PayPal sin comisión cargada en Stays (${sinComision.map((r) => r.codigo).join(', ')}): cargala allá y volvé a traer el mes, o poné el % estimado del medio de pago en Cuentas.`);
       }
       // Stays no informa la moneda de cada pago: sale del medio. Si un pago se cargó en la moneda de la
       // reserva con un medio de la otra (p. ej. $ 1.000.000 con PayPal, en USD), el bruto se dispara.

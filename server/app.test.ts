@@ -225,7 +225,8 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
   // ni la fecha de la cotización del período (8 → 9) ni la facturación ARCA (9 → 10)
   // ni lo importado de Mis Comprobantes (10 → 11) ni el origen de los gastos importados (11 → 12) ni la moneda de la liquidación (12 → 13)
   // ni la marca de saldado por fuera (16 → 17) ni los gastos ajenos (17 → 18) ni la ficha del depto (18 → 19) ni la limpieza (19 → 20)
-  // ni las conversaciones del asistente (20 → 21) ni sus propuestas, los adjuntos y la marca "con IA" (22 → 23).
+  // ni las conversaciones del asistente (20 → 21) ni sus propuestas, los adjuntos y la marca "con IA" (22 → 23)
+  // ni el % de comisión estimada del medio de pago (23 → 24).
   const actual = readFileSync(new URL('../schema.sql', import.meta.url), 'utf8');
   const v1 = actual
     .replace(/^\s*(-- Datos para facturarle|-- que vienen del Excel en texto libre|fiscal_).*\r?\n/gm, '')
@@ -250,6 +251,8 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
     .replace(/CREATE TABLE (tarea_limpieza|liquidacion_limpieza|liquidacion_limpieza_operaria) \([^;]*;|CREATE INDEX ix_(tarea_limpieza|liq_limpieza)_[^;]*;|CREATE TRIGGER tr_(liq_limpieza_pisa|mov_anulado_libera_liq_limpieza)[\s\S]*?END;/g, '')
     .replace(/CREATE TABLE (conversacion_ia|respuesta_ia|propuesta_ia|adjunto) \([^;]*;|CREATE INDEX ix_(conversacion|respuesta|propuesta)_ia[^;]*;|CREATE INDEX ix_adjunto_[^;]*;/g, '')
     .replace(/despues_json TEXT,\s*\r?\n\s*con_ia .*\r?\n/, 'despues_json TEXT\n')
+    .replace(/^\s*comision_pct\s+REAL .*-- estimada.*\r?\n/m, '') // 23 → 24 (y rehace v_pago_liquidable)
+    .replace(/CREATE VIEW v_pago_liquidable AS[\s\S]*?\) x;/, '')
     .replace(/saldo_final_ars\s+INTEGER NOT NULL,\s*\r?\n\s*saldo_final_usd\s+INTEGER NOT NULL,/, 'saldo_final INTEGER NOT NULL,');
   assert.notEqual(v1, actual);
   const ruta = join(temporal(t), 'v1.db');
@@ -280,6 +283,8 @@ test('una base del esquema 1 conserva sus datos al migrar', (t) => {
            CREATE TABLE sincronizacion (id INTEGER PRIMARY KEY, iniciada_en TEXT, terminada_en TEXT) STRICT;
            CREATE TABLE auditoria (id INTEGER PRIMARY KEY, fecha TEXT NOT NULL, pc TEXT NOT NULL, tabla TEXT NOT NULL, registro_id INTEGER,
              accion TEXT NOT NULL, antes_json TEXT, despues_json TEXT) STRICT; -- y la 15 → 16 la rehace
+           CREATE TABLE medio_pago (id INTEGER PRIMARY KEY, descuenta_comision INTEGER NOT NULL DEFAULT 0) STRICT; -- y la 23 → 24 (y su vista)
+           CREATE TABLE pago (id INTEGER PRIMARY KEY, medio_pago_id INTEGER, tipo TEXT, estado TEXT, descripcion TEXT, importe INTEGER, comision INTEGER) STRICT;
            INSERT INTO auditoria VALUES (1, '2026-04-02 10:00:00', 'PC-1', 'movimiento', 1, 'alta', NULL, '{}');
            INSERT INTO liquidacion VALUES (1, NULL, 0, 500, NULL); PRAGMA user_version = 1;`);
   v1.close();
@@ -553,6 +558,13 @@ test('cuentas, medios de pago y movimientos por la API', () => {
     // El medio de pago en ARS no se asocia a una cuenta en USD.
     assert.match((await (await pedir('PUT', 'medios-pago/1', { cuenta_id: 2, moneda: 'ARS', descuenta_comision: 1 })).json()).error, /es en USD/);
     assert.equal((await pedir('PUT', 'medios-pago/1', { cuenta_id: 1, moneda: 'ARS', descuenta_comision: 1 })).status, 200);
+    // % de comisión estimada: de 0 a 50 %; sin mandarlo queda el que tenía.
+    for (const malo of [-0.01, 0.6, '0.08']) {
+      assert.match((await (await pedir('PUT', 'medios-pago/1', { cuenta_id: 1, moneda: 'ARS', descuenta_comision: 1, comision_pct: malo })).json()).error, /de 0 a 50 %/);
+    }
+    assert.equal((await pedir('PUT', 'medios-pago/1', { cuenta_id: 1, moneda: 'ARS', descuenta_comision: 1, comision_pct: 0.085 })).status, 200);
+    assert.equal((await pedir('PUT', 'medios-pago/1', { cuenta_id: 1, moneda: 'ARS', descuenta_comision: 1 })).status, 200);
+    assert.equal((await (await pedir('GET', 'medios-pago')).json()).find((m: any) => m.id === 1).comision_pct, 0.085);
 
     const mov = { mes: '2026-05', fecha: '2026-05-03', depto: null, tipo: 'saldo_inicial', concepto: null, detalle: 'Saldo al empezar', importe_ars: 100000, importe_usd: 0, cuenta_id: 1 };
     assert.match((await (await pedir('POST', 'movimientos', { ...mov, importe_ars: 0 })).json()).error, /Falta el importe/);
@@ -593,7 +605,9 @@ test('migración 21 → 22: los sellos pasan a ISO con offset y los UTC a hora l
   // El esquema 21 es el actual sin lo de la migración 22 → 23 (propuestas, adjuntos y la marca "con IA").
   vieja.exec(readFileSync(new URL('../schema.sql', import.meta.url), 'utf8')
     .replace(/CREATE TABLE (propuesta_ia|adjunto) \([^;]*;|CREATE INDEX ix_(propuesta_ia|adjunto)_[^;]*;/g, '')
-    .replace(/despues_json TEXT,\s*\r?\n\s*con_ia .*\r?\n/, 'despues_json TEXT\n'));
+    .replace(/despues_json TEXT,\s*\r?\n\s*con_ia .*\r?\n/, 'despues_json TEXT\n')
+    .replace(/^\s*comision_pct\s+REAL .*-- estimada.*\r?\n/m, '')
+    .replace(/CREATE VIEW v_pago_liquidable AS[\s\S]*?\) x;/, ''));
   vieja.exec(`
     INSERT INTO periodo(mes, fecha_inicio, fecha_cierre_reservas, fecha_corte_gastos, fecha_pago, costo_hora_limpieza, servicio_limpieza,
       servicio_lavanderia, prestamo_blanqueria, gestion_operativa, mantenimiento, tarifa_base, adicional_huesped, cargo_tramo_1, cargo_tramo_2, cm_fee_usd)

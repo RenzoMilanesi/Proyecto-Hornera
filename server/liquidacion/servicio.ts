@@ -22,6 +22,9 @@ export interface LiquidacionDepto {
   reservas: {
     id: number; codigo: string; codigo_ota: string | null; llegada: string; huespedes: number; comision: Importe;
     ajuste_ars: number; ajuste_usd: number; ajuste_comision_ars: number; ajuste_comision_usd: number; observacion: string | null;
+    // Comisión del medio de pago (MP, PayPal, Link) de toda la reserva, ya descontada de lo cobrado. Solo con el mes
+    // abierto: un mes cerrado no la guarda (ponytail: guardarla en liquidacion_reserva si hace falta verla después).
+    comision_medio_ars: number; comision_medio_usd: number; comision_estimada: number;
   }[];
   resultado: ResultadoLiquidacion;
   cuenta: CuentaLiquidacion;
@@ -89,7 +92,10 @@ export function liquidarPeriodo(db: DatabaseSync, mes: string): LiquidacionPerio
            r.ajuste_ars, r.ajuste_usd, r.ajuste_comision_ars, r.ajuste_comision_usd, r.observacion, pl.codigo AS canal,
            EXISTS (SELECT 1 FROM depto_pago_directo dp WHERE dp.depto_id = r.depto_id AND dp.plataforma_id = r.plataforma_id) AS pago_directo,
            COALESCE((SELECT SUM(v.importe_neto) FROM v_pago_liquidable v WHERE v.reserva_id = r.id AND v.moneda = 'ARS'), 0) AS cobrado_ars,
-           COALESCE((SELECT SUM(v.importe_neto) FROM v_pago_liquidable v WHERE v.reserva_id = r.id AND v.moneda = 'USD'), 0) AS cobrado_usd
+           COALESCE((SELECT SUM(v.importe_neto) FROM v_pago_liquidable v WHERE v.reserva_id = r.id AND v.moneda = 'USD'), 0) AS cobrado_usd,
+           COALESCE((SELECT SUM(v.comision_medio) FROM v_pago_liquidable v WHERE v.reserva_id = r.id AND v.moneda = 'ARS'), 0) AS comision_medio_ars,
+           COALESCE((SELECT SUM(v.comision_medio) FROM v_pago_liquidable v WHERE v.reserva_id = r.id AND v.moneda = 'USD'), 0) AS comision_medio_usd,
+           COALESCE((SELECT MAX(v.comision_estimada) FROM v_pago_liquidable v WHERE v.reserva_id = r.id), 0) AS comision_estimada
     FROM reserva r LEFT JOIN plataforma pl ON pl.id = r.plataforma_id
     WHERE r.depto_id = :depto AND r.excluida = 0 AND r.cancelada = 0 AND ${SQL_EN_PERIODO}
     ORDER BY r.llegada, r.codigo`);
@@ -146,6 +152,7 @@ export function liquidarPeriodo(db: DatabaseSync, mes: string): LiquidacionPerio
         id: x.id, codigo: x.codigo, codigo_ota: x.codigo_ota, llegada: x.llegada, huespedes: x.huespedes, comision: comisionDe(x),
         ajuste_ars: x.ajuste_ars, ajuste_usd: x.ajuste_usd, ajuste_comision_ars: x.ajuste_comision_ars, ajuste_comision_usd: x.ajuste_comision_usd,
         observacion: x.observacion,
+        comision_medio_ars: x.comision_medio_ars, comision_medio_usd: x.comision_medio_usd, comision_estimada: x.comision_estimada,
       })),
       resultado: r, cuenta,
       redondeo: d.moneda_liquidacion === 'ARS' ? redondeoCuenta(cuenta, saldoAnterior, r.saldo.ars, cambio) : 0,
@@ -205,7 +212,7 @@ export function liquidacionGuardada(db: DatabaseSync, mes: string): LiquidacionP
       reservas: reservas.map((x) => ({
         id: x.id, codigo: x.codigo, codigo_ota: x.codigo_ota, llegada: x.llegada, huespedes: x.huespedes, comision: { ars: x.comision_ars, usd: x.comision_usd },
         ajuste_ars: x.ajuste_ars, ajuste_usd: x.ajuste_usd, ajuste_comision_ars: x.ajuste_comision_ars, ajuste_comision_usd: x.ajuste_comision_usd,
-        observacion: x.observacion,
+        observacion: x.observacion, comision_medio_ars: 0, comision_medio_usd: 0, comision_estimada: 0,
       })),
       resultado, cuenta,
       redondeo: l.moneda === 'ARS' ? redondeoCuenta(cuenta, saldoAnterior, l.saldo_final_ars, l.cambio) : 0,

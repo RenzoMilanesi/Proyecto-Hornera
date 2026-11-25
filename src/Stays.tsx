@@ -9,6 +9,7 @@ interface Reporte { mes: string; periodoCreado: boolean; reservas: number; pagos
 interface Reserva extends ReservaAjustable {
   llegada: string; salida: string; huespedes: number; plataforma: string | null; estado_stays: string | null;
   cobrado_ars: number; cobrado_usd: number; falta_comision: number | null;
+  comision_medio_ars: number; comision_medio_usd: number; comision_estimada: number | null;
   cancelada: number; hora_llegada: string | null; hora_salida: string | null; desglose_json: string | null;
 }
 
@@ -36,6 +37,15 @@ function Desglose({ json }: { json: string }) {
   );
 }
 
+// Comisión del medio de pago de una reserva; "estimada" si algún pago la tomó del % del medio (Cuentas).
+export function ComisionMedio({ r }: { r: { comision_medio_ars: number; comision_medio_usd: number; comision_estimada: number | null } }) {
+  if (!r.comision_medio_ars && !r.comision_medio_usd) return null;
+  return <>
+    {[r.comision_medio_ars ? pesos(r.comision_medio_ars) : '', r.comision_medio_usd ? pesos(r.comision_medio_usd, 'USD') : ''].filter(Boolean).join(' + ')}
+    {r.comision_estimada ? <Typography.Text type="secondary"> (estimada)</Typography.Text> : null}
+  </>;
+}
+
 const enUnaLinea = { onCell: () => ({ style: { whiteSpace: 'nowrap' as const } }) };
 
 const columnas = (alEditar: (r: Reserva) => void): TableColumnsType<Reserva> => [
@@ -47,6 +57,8 @@ const columnas = (alEditar: (r: Reserva) => void): TableColumnsType<Reserva> => 
   { title: 'Plataforma', dataIndex: 'plataforma', render: (v: string | null) => v ?? <Tag color="orange">sin plataforma</Tag> },
   { title: 'Cobrado ARS', dataIndex: 'cobrado_ars', align: 'right', ...enUnaLinea, render: (v: number) => (v ? pesos(v) : '') },
   { title: 'Cobrado USD', dataIndex: 'cobrado_usd', align: 'right', ...enUnaLinea, render: (v: number) => (v ? pesos(v, 'USD') : '') },
+  // Lo que se llevó Mercado Pago, PayPal o el Link: ya está descontado de lo cobrado.
+  { title: 'Comisión medio', key: 'comisionMedio', align: 'right', ...enUnaLinea, render: (_: unknown, r) => <ComisionMedio r={r} /> },
   {
     title: '', key: 'marcas', width: 150,
     render: (_: unknown, r) => <>

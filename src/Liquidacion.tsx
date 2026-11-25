@@ -130,10 +130,15 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
   const hay = (f: (l: Fila) => number) => filas.some((l) => f(l) !== 0);
   const comisionArs = (l: Fila) => l.reserva.comision.ars;
   const comisionUsd = (l: Fila) => l.reserva.comision.usd;
+  // Comisión del medio de pago, prorrateada por noches como lo cobrado (ya está descontada de lo cobrado).
+  const delPeriodo = (l: Fila, v: number) => (l.nochesTotales ? Math.round(v * l.nochesPeriodo / l.nochesTotales) : v);
+  const medioArs = (l: Fila) => delPeriodo(l, l.reserva.comision_medio_ars);
+  const medioUsd = (l: Fila) => delPeriodo(l, l.reserva.comision_medio_usd);
   const totales: Record<string, ReactNode> = {
     reserva: 'Total', noches: `${sumar((l) => l.nochesPeriodo)} noches`,
     ars: ars(sumar((l) => l.importePeriodoArs)), usd: usd(sumar((l) => l.importePeriodoUsd)),
     tarifa: ars(sumar((l) => l.tarifaPeriodo)), com: <>{ars(sumar(comisionArs))} {usd(sumar(comisionUsd))}</>,
+    medio: <>{ars(sumar(medioArs))} {usd(sumar(medioUsd))}</>,
   };
   const columnasReservas: TableColumnsType<Fila> = [
     { title: 'Código Stays', key: 'reserva', render: (_: unknown, l) => <Typography.Text code>{l.reserva.codigo}</Typography.Text> },
@@ -141,6 +146,11 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
     { title: 'Noches (período / total)', key: 'noches', render: (_: unknown, l) => `${l.nochesPeriodo} / ${l.nochesTotales}` },
     ...(hay((l) => l.importePeriodoArs) ? [{ title: 'Cobrado ARS', key: 'ars', dataIndex: 'importePeriodoArs', ...derecha, render: ars }] : []),
     ...(hay((l) => l.importePeriodoUsd) ? [{ title: 'Cobrado USD', key: 'usd', dataIndex: 'importePeriodoUsd', ...derecha, render: usd }] : []),
+    ...(hay(medioArs) || hay(medioUsd) ? [{
+      title: <Tooltip title="Lo que se llevó Mercado Pago, PayPal o el Link. Ya está descontado de lo cobrado. Estimada: Stays no la informó y se calculó con el % del medio de pago (Cuentas).">Comisión medio de pago</Tooltip>,
+      key: 'medio', ...derecha,
+      render: (_: unknown, l: Fila) => <>{ars(medioArs(l))} {usd(medioUsd(l))}{l.reserva.comision_estimada ? <Typography.Text type="secondary"> (estimada)</Typography.Text> : null}</>,
+    }] : []),
     { title: 'Tarifa', key: 'tarifa', dataIndex: 'tarifaPeriodo', ...derecha, render: ars },
     ...(hay(comisionArs) || hay(comisionUsd)
       ? [{ title: 'Comisión OTA', key: 'com', ...derecha, render: (_: unknown, l: Fila) => <>{ars(comisionArs(l))} {usd(comisionUsd(l))}</> }] : []),

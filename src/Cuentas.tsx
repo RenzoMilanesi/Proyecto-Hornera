@@ -1,11 +1,11 @@
 // Cuentas de la empresa con su saldo, y a qué cuenta entra cada medio de pago de Stays.
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Form, Input, Modal, Radio, Select, Space, Switch, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Form, Input, InputNumber, Modal, Radio, Select, Space, Switch, Table, Tag, Typography } from 'antd';
 import { enviar, get, pesos } from './api.ts';
 
 interface Cuenta { id: number; nombre: string; moneda: 'ARS' | 'USD'; activo: number; saldo: number; saldo_desde: string | null }
 const total = (cs: readonly Cuenta[], moneda: 'ARS' | 'USD') => cs.filter((c) => c.moneda === moneda).reduce((s, c) => s + c.saldo, 0);
-interface Medio { id: number; nombre: string; tipo_stays: string; moneda: 'ARS' | 'USD'; descuenta_comision: number; cuenta_id: number | null; activo: number; pagos: number }
+interface Medio { id: number; nombre: string; tipo_stays: string; moneda: 'ARS' | 'USD'; descuenta_comision: number; comision_pct: number; cuenta_id: number | null; activo: number; pagos: number }
 
 export function Cuentas() {
   const [cuentas, setCuentas] = useState<Cuenta[]>();
@@ -37,7 +37,7 @@ export function Cuentas() {
     const x = { ...m, ...cambios };
     // Si cambia la moneda, la cuenta anterior (de la otra moneda) deja de valer.
     if (cambios.moneda && cambios.moneda !== m.moneda) x.cuenta_id = null;
-    accion(() => enviar(`medios-pago/${m.id}`, 'PUT', { cuenta_id: x.cuenta_id, moneda: x.moneda, descuenta_comision: x.descuenta_comision }));
+    accion(() => enviar(`medios-pago/${m.id}`, 'PUT', { cuenta_id: x.cuenta_id, moneda: x.moneda, descuenta_comision: x.descuenta_comision, comision_pct: x.comision_pct }));
   };
 
   return (
@@ -83,6 +83,19 @@ export function Cuentas() {
           {
             title: 'Descuenta comisión', dataIndex: 'descuenta_comision',
             render: (v: number, m) => <Switch size="small" checked={!!v} onChange={(x) => cambiarMedio(m, { descuenta_comision: x ? 1 : 0 })} />,
+          },
+          {
+            title: '% si Stays no la informa', dataIndex: 'comision_pct',
+            render: (v: number, m) => m.descuenta_comision ? (
+              // Se guarda al salir del campo y solo si cambió; vacío vuelve al vigente.
+              <InputNumber key={v} size="small" min={0} max={50} step={0.1} decimalSeparator="," suffix="%" style={{ width: 100 }}
+                defaultValue={Math.round(v * 10000) / 100}
+                onBlur={(e) => {
+                  const pct = Number(e.target.value.replace('%', '').replace(',', '.'));
+                  if (e.target.value.trim() && Number.isFinite(pct) && Math.round(pct * 100) !== Math.round(v * 10000)) cambiarMedio(m, { comision_pct: pct / 100 });
+                  else setVersion((x) => x + 1);
+                }} />
+            ) : null,
           },
           {
             title: 'Entra a la cuenta', dataIndex: 'cuenta_id', render: (v: number | null, m) => (

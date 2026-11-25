@@ -63,6 +63,15 @@ test('arma la liquidación del mes abierto desde la base', () => {
   const c = l.deptos[1];
   assert.equal(c.resultado.gastosDirectos, 0);              // pausado y sin reservas: sin fee del channel manager
   assert.deepEqual(c.resultado.saldo, { ars: -300000, usd: 0 });
+  assert.deepEqual([a.reservas[0].comision_medio_ars, a.reservas[0].comision_estimada], [500000, 0]); // la de Stays, a la vista
+
+  // Un pago por MP sin comisión en Stays: con el % del medio se estima y se descuenta.
+  db.exec(`UPDATE pago SET comision = NULL WHERE stays_id = 'p1'`);
+  assert.equal(liquidarPeriodo(db, '2026-05').deptos[0].resultado.ingresos.ars, 9500000); // sin %: falta, se liquida entero
+  db.exec(`UPDATE medio_pago SET comision_pct = 0.085`);
+  const e = liquidarPeriodo(db, '2026-05').deptos[0];
+  assert.deepEqual([e.reservas[0].comision_medio_ars, e.reservas[0].comision_estimada], [850000, 1]);
+  assert.equal(e.resultado.ingresos.ars, 10000000 - 850000 - 500000); // − 8,5 % estimado − ajuste
 });
 
 // Abril 2026 armado en la base como si viniera de Stays (ver abril-en-base.ts): el servicio tiene

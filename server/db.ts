@@ -358,6 +358,25 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
        creado_en     TEXT    NOT NULL
    ) STRICT;
    CREATE INDEX ix_adjunto_movimiento ON adjunto(movimiento_id);`,
+  // 23 → 24: % de comisión estimada por medio de pago, para los pagos en que Stays no la informa.
+  `ALTER TABLE medio_pago ADD COLUMN comision_pct REAL NOT NULL DEFAULT 0 CHECK (comision_pct BETWEEN 0 AND 1);
+   DROP VIEW IF EXISTS v_pago_liquidable;
+   CREATE VIEW v_pago_liquidable AS
+   SELECT x.*, x.importe - x.comision_medio AS importe_neto
+   FROM (
+     SELECT p.*, mp.moneda,
+            CASE WHEN mp.descuenta_comision = 0 THEN 0
+                 WHEN COALESCE(p.comision, 0) <> 0 THEN p.comision
+                 ELSE CAST(ROUND(p.importe * mp.comision_pct) AS INTEGER) END AS comision_medio,
+            (mp.descuenta_comision = 1 AND COALESCE(p.comision, 0) = 0 AND mp.comision_pct > 0) AS comision_estimada,
+            (mp.descuenta_comision = 1 AND COALESCE(p.comision, 0) = 0 AND mp.comision_pct = 0) AS falta_comision
+     FROM pago p
+     JOIN medio_pago mp ON mp.id = p.medio_pago_id
+     WHERE p.tipo <> 'debit'
+       AND p.estado <> 'pending'
+       AND NOT (lower(COALESCE(p.descripcion, '')) LIKE 'res. fee%'
+             OR lower(COALESCE(p.descripcion, '')) LIKE '%res. security deposit%')
+   ) x;`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 
