@@ -120,6 +120,8 @@ en la LAN (fase 5d), que sigue a testear.
    (MP, PayPal, Link); la de Stays manda, sin ella se estima con ese % y sin % se sigue avisando. Cada reserva muestra la
    comisión en Stays y en el detalle del depto en Liquidación (mes abierto, prorrateada por noches, "estimada" si salió del %).
    Esquema 24. El saldo de las cuentas no cambia (sigue con la comisión de Stays).
+   v0.56.1: las reservas del detalle del depto muestran también "Precio (Stays)" (total de factura de hospedaje) y
+   "Descuento" (precio − cobrado: plataforma, medio de pago y ajustes), prorrateados por noches; sin descuento si se cobró en otra moneda.
    Sigue pendiente del mismo pedido: cobro directo de la plataforma al propietario (PJ03J; esperando datos de Lautaro y Amancay).
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.

@@ -134,16 +134,32 @@ function Detalle({ d, comparacion, movimientos, editar }: { d: LiquidacionDepto;
   const delPeriodo = (l: Fila, v: number) => (l.nochesTotales ? Math.round(v * l.nochesPeriodo / l.nochesTotales) : v);
   const medioArs = (l: Fila) => delPeriodo(l, l.reserva.comision_medio_ars);
   const medioUsd = (l: Fila) => delPeriodo(l, l.reserva.comision_medio_usd);
+  // Lo que pagó el huésped según Stays y lo que no llegó (plataforma, medio de pago, ajustes), prorrateados como lo
+  // cobrado. El descuento solo si se cobró en la moneda de la reserva: entre monedas no hay con qué restar.
+  const precio = (l: Fila, m: 'ARS' | 'USD') => (l.reserva.moneda === m && l.reserva.total_factura ? delPeriodo(l, l.reserva.total_factura) : 0);
+  const descuento = (l: Fila, m: 'ARS' | 'USD') => {
+    const otra = m === 'ARS' ? l.importePeriodoUsd : l.importePeriodoArs;
+    return precio(l, m) && !otra ? Math.round(precio(l, m) - (m === 'ARS' ? l.importePeriodoArs : l.importePeriodoUsd)) : 0;
+  };
+  const hayPrecio = hay((l) => precio(l, 'ARS') + precio(l, 'USD'));
   const totales: Record<string, ReactNode> = {
     reserva: 'Total', noches: `${sumar((l) => l.nochesPeriodo)} noches`,
     ars: ars(sumar((l) => l.importePeriodoArs)), usd: usd(sumar((l) => l.importePeriodoUsd)),
     tarifa: ars(sumar((l) => l.tarifaPeriodo)), com: <>{ars(sumar(comisionArs))} {usd(sumar(comisionUsd))}</>,
     medio: <>{ars(sumar(medioArs))} {usd(sumar(medioUsd))}</>,
+    precio: <>{ars(sumar((l) => precio(l, 'ARS')))} {usd(sumar((l) => precio(l, 'USD')))}</>,
+    descuento: <>{ars(-sumar((l) => descuento(l, 'ARS')))} {usd(-sumar((l) => descuento(l, 'USD')))}</>,
   };
   const columnasReservas: TableColumnsType<Fila> = [
     { title: 'Código Stays', key: 'reserva', render: (_: unknown, l) => <Typography.Text code>{l.reserva.codigo}</Typography.Text> },
     { title: 'Código plataforma', key: 'ota', render: (_: unknown, l) => l.reserva.codigo_ota && <Typography.Text code>{l.reserva.codigo_ota}</Typography.Text> },
     { title: 'Noches (período / total)', key: 'noches', render: (_: unknown, l) => `${l.nochesPeriodo} / ${l.nochesTotales}` },
+    ...(hayPrecio ? [
+      { title: <Tooltip title="Lo que pagó el huésped según Stays (total de factura de hospedaje), por las noches del período.">Precio (Stays)</Tooltip>,
+        key: 'precio', ...derecha, render: (_: unknown, l: Fila) => <>{ars(precio(l, 'ARS'))} {usd(precio(l, 'USD'))}</> },
+      { title: <Tooltip title="Precio − cobrado: lo que se quedaron la plataforma (Airbnb, Booking…) y el medio de pago, más los ajustes. Vacío si se cobró en otra moneda que la de la reserva.">Descuento</Tooltip>,
+        key: 'descuento', ...derecha, render: (_: unknown, l: Fila) => <>{ars(-descuento(l, 'ARS'))} {usd(-descuento(l, 'USD'))}</> },
+    ] : []),
     ...(hay((l) => l.importePeriodoArs) ? [{ title: 'Cobrado ARS', key: 'ars', dataIndex: 'importePeriodoArs', ...derecha, render: ars }] : []),
     ...(hay((l) => l.importePeriodoUsd) ? [{ title: 'Cobrado USD', key: 'usd', dataIndex: 'importePeriodoUsd', ...derecha, render: usd }] : []),
     ...(hay(medioArs) || hay(medioUsd) ? [{
