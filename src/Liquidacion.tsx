@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Alert, Button, Card, Input, InputNumber, Popconfirm, Select, Space, Table, Tag, theme, Tooltip, Typography, Upload } from 'antd';
+import { Alert, Button, Card, Checkbox, Input, InputNumber, Popconfirm, Select, Space, Table, Tag, theme, Tooltip, Typography, Upload } from 'antd';
 import { mesVisto } from './Asistente.tsx';
 import type { TableColumnsType } from 'antd';
 import type { LiquidacionDepto, LiquidacionPeriodo } from '../server/liquidacion/servicio.ts';
@@ -8,6 +8,7 @@ import type { ComparacionDepto } from '../server/liquidacion/comparar.ts';
 import { enviar, get, pesos, subirArchivo } from './api.ts';
 import { colores } from './tema.ts';
 import { VariablesMes } from './Variables.tsx';
+import { difSaldoEnPesos, soloConDiferencias } from './diferencias.ts';
 import { AjustesReserva, type ReservaAjustable } from './AjustesReserva.tsx';
 import { FormMovimiento, TIPOS, type Cuenta, type Movimiento } from './Movimientos.tsx';
 
@@ -207,6 +208,7 @@ export function Liquidacion() {
   const [comparacion, setComparacion] = useState<Map<string, ComparacionDepto>>();
   const [comparando, setComparando] = useState(false);
   const [comparado, setComparado] = useState<File>(); // para volver a comparar al cambiar la tolerancia
+  const [soloDiferencias, setSoloDiferencias] = useState(false);
   const [tolerancia, setTolerancia] = useState<number | null>(null);
   const [toleranciaGuardada, setToleranciaGuardada] = useState<number | null>(null);
   const [texto, setTexto] = useState('');
@@ -311,6 +313,7 @@ export function Liquidacion() {
     const r = repartoCuenta(d.cuenta);
     return r.entro > 0 ? (r.propietario - r.deuda) / r.entro : 0;
   };
+  const difSaldo = (d: LiquidacionDepto) => difSaldoEnPesos(d, comparacion?.get(d.codigo), datos?.cambio ?? 0);
   const columnas: TableColumnsType<LiquidacionDepto> = [
     { title: 'Depto', dataIndex: 'codigo', width: 80, render: (v: string) => <b>{v}</b>, sorter: (a, b) => a.codigo.localeCompare(b.codigo) },
     { title: 'Propietario', dataIndex: 'propietario', ellipsis: true, sorter: (a, b) => a.propietario.localeCompare(b.propietario) },
@@ -324,7 +327,17 @@ export function Liquidacion() {
         return <Typography.Text type={valor < 0 ? 'danger' : undefined} strong>{pesos(valor, d.moneda)}</Typography.Text>;
       },
     },
-    ...(comparacion ? [{ title: 'Excel', key: 'excel', width: 150, render: (_: unknown, d: LiquidacionDepto) => <Comparacion c={comparacion.get(d.codigo)} /> }] : []),
+    ...(comparacion ? [
+      { title: 'Excel', key: 'excel', width: 150, render: (_: unknown, d: LiquidacionDepto) => <Comparacion c={comparacion.get(d.codigo)} /> },
+      {
+        title: 'Dif. saldo', key: 'difSaldo', ...derecha,
+        sorter: (a: LiquidacionDepto, b: LiquidacionDepto) => Math.abs(difSaldo(a) ?? 0) - Math.abs(difSaldo(b) ?? 0),
+        render: (_: unknown, d: LiquidacionDepto) => {
+          const v = comparacion.get(d.codigo)?.difSaldo;
+          return v ? <Typography.Text type={v < 0 ? 'danger' : undefined}>{pesos(v, d.moneda)}</Typography.Text> : '';
+        },
+      },
+    ] : []),
     {
       title: '', key: 'pdf', width: 70,
       render: (_: unknown, d: LiquidacionDepto) => (
@@ -334,7 +347,8 @@ export function Liquidacion() {
     },
   ];
   const t = texto.trim().toLowerCase();
-  const visibles = (datos?.deptos ?? []).filter((d) => !t || d.codigo.toLowerCase().includes(t) || d.propietario.toLowerCase().includes(t));
+  const buscados = (datos?.deptos ?? []).filter((d) => !t || d.codigo.toLowerCase().includes(t) || d.propietario.toLowerCase().includes(t));
+  const visibles = comparacion && soloDiferencias ? soloConDiferencias(buscados, comparacion, datos?.cambio ?? 0) : buscados;
   const suma = (f: (d: LiquidacionDepto) => number) => visibles.reduce((s, d) => s + f(d), 0);
   // Saldos a favor de los propietarios; lo que falta transferir (descontando pagos) está en Transferencias.
   const saldos = (m: 'ARS' | 'USD') => suma((d) => (d.moneda === m ? Math.max(0, m === 'USD' ? d.resultado.saldo.usd : d.resultado.saldo.ars) : 0));
@@ -414,6 +428,11 @@ export function Liquidacion() {
 
       <Space wrap size="middle">
         <Input.Search allowClear placeholder="Buscar depto o propietario" style={{ width: 280 }} value={texto} onChange={(e) => setTexto(e.target.value)} />
+        {comparacion && (
+          <Checkbox checked={soloDiferencias} onChange={(e) => setSoloDiferencias(e.target.checked)}>
+            Solo con diferencias, de mayor a menor
+          </Checkbox>
+        )}
         {datos && (
           <Typography.Text type="secondary">
             {visibles.length} deptos · Bruto <b>{pesos(suma((d) => d.resultado.bruto))}</b> · Honorarios <b>{pesos(suma((d) => d.resultado.honorarios))}</b>

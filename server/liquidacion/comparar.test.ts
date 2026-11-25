@@ -41,6 +41,7 @@ test('comparar con el Excel: abril armado en la base coincide salvo RIO y AND', 
   assert.deepEqual(distintos.map((d) => [d.codigo, d.estado]), [['AND', 'distinto'], ['RIO', 'distinto']]);
   assert.ok(distintos.every((d) => d.diferencias.some((x) => x.campo === 'Costos operativos')));
   assert.equal(r.deptos.filter((d) => d.estado === 'igual').length, 22);
+  assert.ok(r.deptos.filter((d) => d.estado === 'igual').every((d) => d.difSaldo === 0)); // al centavo, el saldo coincide
 
   // Un Excel de otro mes no se compara.
   assert.throws(() => compararConExcel(db, '2026-05', contenido), /El Excel es de 2026-04, no de 2026-05/);

@@ -24,7 +24,10 @@ export const fueraDeTolerancia = (app: number, excel: number, fija: number, pct:
   Math.abs(app - excel) > Math.max(fija, Math.abs(excel) * pct / 100);
 
 export interface Diferencia { campo: string; unidad: 'ARS' | 'USD' | 'noches'; app: number; excel: number }
-export interface ComparacionDepto { codigo: string; estado: 'igual' | 'distinto' | 'solo_excel' | 'solo_app'; diferencias: Diferencia[] }
+export interface ComparacionDepto {
+  codigo: string; estado: 'igual' | 'distinto' | 'solo_excel' | 'solo_app'; diferencias: Diferencia[];
+  difSaldo?: number; // app − Excel, en la moneda de liquidación del depto (aunque esté dentro de la tolerancia)
+}
 
 export function compararConExcel(db: DatabaseSync, mes: string, contenido: Buffer): { mes: string; tolerancia: number; deptos: ComparacionDepto[] } {
   const wb = XLSX.read(contenido, { type: 'buffer', cellFormula: true });
@@ -61,7 +64,8 @@ export function compararConExcel(db: DatabaseSync, mes: string, contenido: Buffe
     ];
     const diferencias = campos.filter(([, unidad, a, e, tol]) => fueraDeTolerancia(a, e, tol, unidad === 'noches' ? 0 : pct))
       .map(([campo, unidad, a, e]) => ({ campo, unidad, app: Math.round(a), excel: e }));
-    deptos.push({ codigo, estado: diferencias.length ? 'distinto' : 'igual', diferencias });
+    const difSaldo = Math.round(d.moneda === 'USD' ? r.saldo.usd - x.saldo.usd : r.saldo.ars - x.saldo.ars);
+    deptos.push({ codigo, estado: diferencias.length ? 'distinto' : 'igual', diferencias, difSaldo });
   }
   for (const codigo of app.keys()) deptos.push({ codigo, estado: 'solo_app', diferencias: [] });
   return { mes, tolerancia: pct, deptos: deptos.sort((a, b) => a.codigo.localeCompare(b.codigo)) };
