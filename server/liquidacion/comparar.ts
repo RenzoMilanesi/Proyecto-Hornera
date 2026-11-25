@@ -4,11 +4,29 @@ import * as XLSX from 'xlsx';
 import type { DatabaseSync } from 'node:sqlite';
 import { hojasDeDepto, leerHojaDepto } from '../importador/excel.ts';
 import { liquidarPeriodo } from './servicio.ts';
+import { auditar } from '../auditoria.ts';
+
+// Tolerancia de la comparación, en % del valor del Excel: el dólar con que se armó el Excel casi nunca es
+// exactamente el del sistema. No se aplica a las noches, que tienen que coincidir.
+const TOLERANCIA_INICIAL = 3;
+export function leerTolerancia(db: DatabaseSync): number {
+  const v = db.prepare(`SELECT valor FROM configuracion WHERE clave = 'comparar.tolerancia_pct'`).get() as { valor: string } | undefined;
+  return v ? Number(v.valor) : TOLERANCIA_INICIAL;
+}
+export function guardarTolerancia(db: DatabaseSync, pct: unknown) {
+  if (typeof pct !== 'number' || !Number.isFinite(pct) || pct < 0 || pct > 50) throw new Error('La tolerancia va de 0 a 50 %.');
+  const antes = leerTolerancia(db);
+  db.prepare(`INSERT INTO configuracion(clave, valor) VALUES ('comparar.tolerancia_pct', ?) ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor`).run(String(pct));
+  auditar(db, 'configuracion', null, 'modificacion', { 'comparar.tolerancia_pct': antes }, { 'comparar.tolerancia_pct': pct });
+}
+/** Distinto si la diferencia pasa la tolerancia fija (centavos) y también el % del valor del Excel. */
+export const fueraDeTolerancia = (app: number, excel: number, fija: number, pct: number) =>
+  Math.abs(app - excel) > Math.max(fija, Math.abs(excel) * pct / 100);
 
 export interface Diferencia { campo: string; unidad: 'ARS' | 'USD' | 'noches'; app: number; excel: number }
 export interface ComparacionDepto { codigo: string; estado: 'igual' | 'distinto' | 'solo_excel' | 'solo_app'; diferencias: Diferencia[] }
 
-export function compararConExcel(db: DatabaseSync, mes: string, contenido: Buffer): { mes: string; deptos: ComparacionDepto[] } {
+export function compararConExcel(db: DatabaseSync, mes: string, contenido: Buffer): { mes: string; tolerancia: number; deptos: ComparacionDepto[] } {
   const wb = XLSX.read(contenido, { type: 'buffer', cellFormula: true });
   const b1 = wb.Sheets['Datos balance']?.B1?.v;
   const mesExcel = typeof b1 === 'number'
@@ -17,6 +35,7 @@ export function compararConExcel(db: DatabaseSync, mes: string, contenido: Buffe
 
   const calculo = liquidarPeriodo(db, mes);
   if (calculo.cambio === null) throw new Error(calculo.avisos[0]);
+  const pct = leerTolerancia(db);
   const p = db.prepare('SELECT fecha_inicio, fecha_cierre_reservas FROM periodo WHERE mes = ?').get(mes) as { fecha_inicio: string; fecha_cierre_reservas: string };
   const app = new Map(calculo.deptos.map((d) => [d.codigo, d]));
 
@@ -40,10 +59,10 @@ export function compararConExcel(db: DatabaseSync, mes: string, contenido: Buffe
       ['Saldo', 'USD', r.saldo.usd, x.saldo.usd, 0],
       ['Noches ocupadas', 'noches', r.nochesOcupadas, x.nochesOcupadas, 0],
     ];
-    const diferencias = campos.filter(([, , a, e, tol]) => Math.abs(a - e) > tol)
+    const diferencias = campos.filter(([, unidad, a, e, tol]) => fueraDeTolerancia(a, e, tol, unidad === 'noches' ? 0 : pct))
       .map(([campo, unidad, a, e]) => ({ campo, unidad, app: Math.round(a), excel: e }));
     deptos.push({ codigo, estado: diferencias.length ? 'distinto' : 'igual', diferencias });
   }
   for (const codigo of app.keys()) deptos.push({ codigo, estado: 'solo_app', diferencias: [] });
-  return { mes, deptos: deptos.sort((a, b) => a.codigo.localeCompare(b.codigo)) };
+  return { mes, tolerancia: pct, deptos: deptos.sort((a, b) => a.codigo.localeCompare(b.codigo)) };
 }

@@ -206,6 +206,9 @@ export function Liquidacion() {
   const [cotizacion, setCotizacion] = useState<number | null>(null);
   const [comparacion, setComparacion] = useState<Map<string, ComparacionDepto>>();
   const [comparando, setComparando] = useState(false);
+  const [comparado, setComparado] = useState<File>(); // para volver a comparar al cambiar la tolerancia
+  const [tolerancia, setTolerancia] = useState<number | null>(null);
+  const [toleranciaGuardada, setToleranciaGuardada] = useState<number | null>(null);
   const [texto, setTexto] = useState('');
   const [abiertos, setAbiertos] = useState<number[]>([]); // deptos desplegados: se resaltan
   const [variables, setVariables] = useState(false);
@@ -224,6 +227,7 @@ export function Liquidacion() {
     cargarPeriodos().catch((e) => setError(String(e)));
     get<Cuenta[]>('cuentas').then(setCuentas, () => {});
     get<{ nombre: string }[]>('conceptos').then((cs) => setConceptos(cs.map((c) => c.nombre)), () => {});
+    get<{ pct: number }>('liquidacion/comparar/tolerancia').then((t) => { setTolerancia(t.pct); setToleranciaGuardada(t.pct); }, () => {});
   }, []);
 
   const calcular = (m: string) => {
@@ -281,10 +285,22 @@ export function Liquidacion() {
     try {
       const r = await subirArchivo<{ deptos: ComparacionDepto[] }>(`liquidacion/comparar?mes=${mes}`, archivo);
       setComparacion(new Map(r.deptos.map((d) => [d.codigo, d])));
+      setComparado(archivo);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setComparando(false);
+    }
+  };
+  const guardarTolerancia = async () => {
+    if (tolerancia === null) { setTolerancia(toleranciaGuardada); return; } // campo vacío: vuelve al vigente
+    if (tolerancia === toleranciaGuardada) return;
+    try {
+      await enviar('liquidacion/comparar/tolerancia', 'PUT', { pct: tolerancia });
+      setToleranciaGuardada(tolerancia);
+      if (comparado && comparacion) await comparar(comparado);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -354,6 +370,10 @@ export function Liquidacion() {
             beforeUpload={(archivo) => { comparar(archivo); return false; }}>
             <Button loading={comparando} disabled={!datos?.cambio}>Comparar con el Excel del mes</Button>
           </Upload>
+          <Tooltip title="Diferencia con el Excel que se acepta como igual, en % del valor del Excel (por el dólar del momento). Las noches tienen que coincidir.">
+            <InputNumber min={0} max={50} step={0.5} decimalSeparator="," suffix="%" prefix="Tolerancia" style={{ width: 160 }}
+              value={tolerancia} onChange={setTolerancia} onBlur={guardarTolerancia} onPressEnter={guardarTolerancia} />
+          </Tooltip>
           {periodo?.estado === 'abierto' && (
             <Popconfirm title={`¿Cerrar ${mes}?`}
               description={<>La liquidación queda guardada y el mes congelado. Se puede reabrir mientras no haya pagos.

@@ -11,7 +11,7 @@ import * as limpieza from './limpieza.ts';
 import { crearClienteStays, URL_STAYS, type Credenciales } from './stays/cliente.ts';
 import { sincronizarMes } from './stays/sync.ts';
 import { SQL_EN_PERIODO } from './periodo.ts';
-import { compararConExcel } from './liquidacion/comparar.ts';
+import { compararConExcel, guardarTolerancia, leerTolerancia } from './liquidacion/comparar.ts';
 import { auditar, conIa, listarAuditoria, nombrePc, pcActual } from './auditoria.ts';
 import { actualizarCotizacion, type Fetch } from './cotizacion.ts';
 import { anularMovimiento, crearMovimiento, editarMovimiento, listarMovimientos, transferir } from './movimientos.ts';
@@ -344,6 +344,8 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
       res.status(400).json({ error: mensaje(e) });
     }
   });
+  app.get('/api/liquidacion/comparar/tolerancia', (_req, res) => { res.json({ pct: leerTolerancia(db) }); });
+  app.put('/api/liquidacion/comparar/tolerancia', (req, res) => intentar(res, () => guardarTolerancia(db, req.body?.pct)));
 
   // ---- Movimientos (reemplaza CORRIENTE). Los errores de validación vuelven como 400.
   const intentar = (res: Response, fn: () => unknown) => {

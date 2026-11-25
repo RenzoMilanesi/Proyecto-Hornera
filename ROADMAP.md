@@ -108,6 +108,12 @@ en la LAN (fase 5d), que sigue a testear.
    v0.53.3: si el servidor se corta con la terminal en uso, aviso "Sin conexión" que se va solo al volver y errores en español; una terminal revocada vuelve a pedir el código (plan 075).
    v0.53.4: recargar la terminal sin servidor pasa a "Conectando…" y reintenta; el puerto 4310 ocupado se explica (plan 076).
    v0.53.5–v0.53.10: colores de la interfaz desde un solo tema (`src/tema.ts`), grises del asistente con contraste suficiente, tamaños de letra a la escala, fechas formateadas en `src/api.ts` y un test que rechaza colores sueltos (plan 078).
+16. **Tolerancia al comparar con el Excel** — **A testear** (v0.54.0; pedido 2026-11-25): junto a "Comparar con el Excel del mes",
+   "Tolerancia %" (3 % de entrada, se guarda en `configuracion` y queda en la auditoría). Una diferencia dentro de ese % del valor
+   del Excel cuenta como igual (el dólar con que se armó el Excel no es exactamente el del sistema); las noches tienen que coincidir.
+   Cambiarla rehace la comparación sin volver a subir el Excel; solo se guarda si cambió (plan 079).
+   Siguen pendientes del mismo pedido: cobro directo de la plataforma al propietario (PJ03J; esperando datos de Lautaro y Amancay),
+   filtro de liquidaciones con diferencias de mayor a menor, y la comisión del medio de pago en cada reserva.
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.
    - Terminales → "Nombre de esta PC" en el servidor (se guarda en `configuracion`); reemplaza al nombre de Windows en la auditoría.
