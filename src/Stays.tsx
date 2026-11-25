@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Descriptions, Form, Input, Space, Switch, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Descriptions, Form, Input, Space, Switch, Table, Tag, Typography } from 'antd';
 import { mesVisto } from './Asistente.tsx';
 import type { TableColumnsType } from 'antd';
 import { enviar, get, pesos } from './api.ts';
@@ -104,6 +104,7 @@ export function Stays() {
   mesVisto.valor = mes ?? ''; // para el asistente
   const [trayendo, setTrayendo] = useState(false);
   const [reporte, setReporte] = useState<Reporte>();
+  const [aCrear, setACrear] = useState<string[]>([]); // deptos nuevos marcados para crear
   const [error, setError] = useState<string>();
   const [reservas, setReservas] = useState<Reserva[]>();
   const [editando, setEditando] = useState<Reserva>();
@@ -123,7 +124,9 @@ export function Stays() {
     setError(undefined);
     setReporte(undefined);
     try {
-      setReporte(await enviar<Reporte>('stays/sincronizar', 'POST', { mes, crear }));
+      const r = await enviar<Reporte>('stays/sincronizar', 'POST', { mes, crear });
+      setReporte(r);
+      setACrear(r.deptosNuevos);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -158,8 +161,11 @@ export function Stays() {
             {reporte.deptosNuevos.length > 0 && (
               <Alert style={{ marginTop: 12 }} type="info" showIcon
                 title={`En Stays hay ${reporte.deptosNuevos.length > 1 ? 'deptos' : 'un depto'} que no ${reporte.deptosNuevos.length > 1 ? 'están' : 'está'} en la app: ${reporte.deptosNuevos.join(', ')}`}
-                description="¿Crearlos con los datos de Stays (dueño, dirección y fotos; 20% de comisión) y traer sus reservas?"
-                action={<Button type="primary" size="small" loading={trayendo} onClick={() => traer(reporte.deptosNuevos)}>Crear y traer</Button>} />
+                description={<>
+                  Marcá los que hay que crear con los datos de Stays (dueño, dirección y fotos; 20% de comisión) y traer sus reservas.
+                  <div style={{ marginTop: 8 }}><Checkbox.Group options={reporte.deptosNuevos} value={aCrear} onChange={setACrear} /></div>
+                </>}
+                action={<Button type="primary" size="small" loading={trayendo} disabled={!aCrear.length} onClick={() => traer(aCrear)}>Crear y traer</Button>} />
             )}
             {reporte.avisos.length > 0 && (
               <Alert style={{ marginTop: 12 }} type="warning" showIcon title={`Avisos (${reporte.avisos.length})`}

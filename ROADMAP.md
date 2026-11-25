@@ -45,7 +45,7 @@ en la LAN (fase 5d), que sigue a testear.
    o en el Historial (una por una, o "Saldar por fuera hasta" un mes para la carga inicial). No quedan pendientes ni pasan al mes
    siguiente, sin registrar un pago (no mueven cuentas ni se facturan); se desmarcan y quedan en la auditoría.
 8. **Deptos nuevos desde Stays** — **A testear** (v0.35.1; AMA ya creado en dev; definido con grill-me el 2026-10-22): si "Traer mes" encuentra un
-   alojamiento activo en Stays que la app no tiene (p. ej. AMA), ofrece "Crear y traer": lo da de alta con el dueño de Stays
+   alojamiento activo en Stays que la app no tiene (p. ej. AMA), ofrece "Crear y traer" (con una casilla por depto: se crean solo los marcados): lo da de alta con el dueño de Stays
    (el propietario vinculado, el de sus otros deptos o uno nuevo con su nombre), dirección y fotos, 20% de comisión, y trae sus reservas.
    - Propietarios → "Datos": CBU/CVU (22 dígitos con verificador) o alias, mails, moneda y comisión de cobro en USD.
      Un Excel más nuevo los vuelve a pisar (gana el Excel) y la importación avisa a quién le cambió el CBU, los mails o la moneda.
