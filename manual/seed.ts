@@ -8,6 +8,7 @@ const { cerrarPeriodo } = await import(P + 'liquidacion/cierre.ts');
 const { listarTransferencias, pagarLiquidacion } = await import(P + 'liquidacion/pagos.ts');
 const { crearGastoAjeno } = await import(P + 'gastosAjenos.ts');
 const limpieza = await import(P + 'limpieza.ts');
+const tarjeta = await import(P + 'tarjeta.ts');
 
 const dir = process.argv[2];
 rmSync(dir, { recursive: true, force: true });
@@ -161,6 +162,31 @@ for (let i = 0; i < 70; i++) {
 const liqSep = limpieza.crearLiquidacion(db, { desde: '2026-09-10', hasta: '2026-09-30', precio_hora: 450000, ajuste: 0, ajuste_nota: null });
 limpieza.pagarLiquidacion(db, liqSep, { fecha: '2026-10-03', cuenta_id: 2 });
 limpieza.crearLiquidacion(db, { desde: '2026-10-01', hasta: '2026-10-15', precio_hora: 450000, ajuste: -500000, ajuste_nota: 'Descuento de un adelanto' });
+
+// Tarjetas: un resumen de Visa de octubre (FICTICIO) contra los gastos de arriba. EPE, ferretería y farmacia cruzan solos;
+// los viajes se vinculan a mano a "Movilidad del equipo", la comisión se ignora y quedan pendientes el súper, una
+// suscripción en dólares y los sellos.
+const consumo = (fecha: string, detalle: string, ars: number, usd = 0) =>
+  ({ fecha, detalle, cuota: null, comprobante: null, titular: 'TITULAR DEMO', importe_ars: ars, importe_usd: usd });
+const { resumen_id: visa } = tarjeta.guardarResumen(db, { tarjeta: 'VISA', numero: 'VI0000DEMO', cierre: '2026-10-22', aviso: null, consumos: [
+  consumo('2026-10-05', 'EPE SANTA FE 000123456789', 3850000), consumo('2026-10-08', 'FARMACIA DEMO', 1850000),
+  consumo('2026-10-03', 'PAYU*AR*UBER', 620000), consumo('2026-10-06', 'PAYU*AR*UBER', 480000),
+  consumo('2026-10-11', 'PAYU*AR*UBER', 550000), consumo('2026-10-15', 'PAYU*AR*UBER', 550000),
+  consumo('2026-10-12', 'STREAMING DEMO USD 12,99', 0, 1299), consumo('2026-10-14', 'PAYU*AR*PAYUBOOKINGCOM', 2530000),
+  consumo('2026-10-18', 'SUPERMERCADO DEMO', 4100000), consumo('2026-10-20', 'FERRETERIA DEMO', 780000),
+  consumo('2026-10-22', 'IMPUESTO DE SELLOS $', 185000),
+] });
+const consumos = (patron: string) => (db.prepare('SELECT id FROM consumo_tarjeta WHERE resumen_id = ? AND detalle LIKE ?').all(visa, patron) as { id: number }[]).map((c) => c.id);
+const movilidad = db.prepare(`SELECT m.id FROM movimiento m JOIN periodo p ON p.id = m.periodo_id WHERE p.mes = '2026-10' AND m.detalle = 'Movilidad del equipo'`).get() as { id: number };
+tarjeta.vincular(db, consumos('%UBER'), { movimiento_id: movilidad.id });
+// La demo repite los gastos todos los meses: el cruce solo los ve ambiguos y los deja pendientes; acá se eligen los de octubre.
+const deOctubre = (detalle: string) => (db.prepare(`SELECT m.id FROM movimiento m JOIN periodo p ON p.id = m.periodo_id
+  WHERE p.mes = '2026-10' AND m.detalle = ?`).get(detalle) as { id: number }).id;
+tarjeta.vincular(db, consumos('EPE%'), { movimiento_id: deOctubre('Factura de luz') });
+tarjeta.vincular(db, consumos('FERRETERIA%'), { movimiento_id: deOctubre('Lamparitas y pilas') });
+const farmacia = db.prepare(`SELECT id FROM gasto_ajeno WHERE fecha = '2026-10-08' AND codigo = 'CAY'`).get() as { id: number };
+tarjeta.vincular(db, consumos('FARMACIA%'), { gasto_ajeno_id: farmacia.id });
+tarjeta.ignorar(db, consumos('%BOOKING%'), 'Comisión de Booking: ya la descuenta la plataforma');
 
 const hist = db.prepare('INSERT INTO historico_mensual(depto_id, mes, noches_ocupadas) VALUES (?, ?, ?)');
 for (let i = 1; i <= 7; i++) for (let d = 1; d <= 5; d++) hist.run(d, `2026-0${i}`, 12 + ((i * d * 5) % 15));

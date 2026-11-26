@@ -132,6 +132,11 @@ const pasos = {
   async gastosPersonales() {
     await tam(1440, 800); await ir('Gastos personales'); await esperar(600); await foto('gastos-personales');
   },
+  async tarjetas() {
+    // Todos los consumos (no solo los pendientes), para que se vean los cuatro estados.
+    await tam(1440, 1000); await ir('Tarjetas'); await esperar(800);
+    await js(`document.querySelector('.ant-switch-checked')?.click()`); await esperar(600); await foto('tarjetas');
+  },
   async auditoria() {
     await tam(1440, 900); await ir('Auditoría'); await esperar(800); await foto('auditoria');
   },
