@@ -411,6 +411,18 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
    CREATE INDEX ix_consumo_resumen ON consumo_tarjeta(resumen_id);
    CREATE INDEX ix_consumo_mov ON consumo_tarjeta(movimiento_id);
    CREATE INDEX ix_consumo_ajeno ON consumo_tarjeta(gasto_ajeno_id);`,
+  // 26 → 27: mails mandados a los propietarios (plan 084).
+  `CREATE TABLE envio_mail (
+       id             INTEGER PRIMARY KEY,
+       propietario_id INTEGER NOT NULL,
+       mes            TEXT    NOT NULL CHECK (mes GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]'),
+       fecha          TEXT    NOT NULL,
+       destinatarios  TEXT    NOT NULL,
+       adjuntos       TEXT    NOT NULL,
+       error          TEXT,
+       CONSTRAINT fk_envio_mail_prop FOREIGN KEY (propietario_id) REFERENCES propietario(id) ON DELETE RESTRICT ON UPDATE CASCADE
+   ) STRICT;
+   CREATE INDEX ix_envio_mail_mes ON envio_mail(mes, propietario_id);`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

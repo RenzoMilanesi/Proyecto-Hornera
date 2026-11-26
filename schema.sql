@@ -420,6 +420,19 @@ CREATE INDEX ix_consumo_resumen ON consumo_tarjeta(resumen_id);
 CREATE INDEX ix_consumo_mov ON consumo_tarjeta(movimiento_id);
 CREATE INDEX ix_consumo_ajeno ON consumo_tarjeta(gasto_ajeno_id);
 
+-- Mails mandados a los propietarios (plan 084): uno por envío; error NULL = enviado.
+CREATE TABLE envio_mail (
+    id             INTEGER PRIMARY KEY,
+    propietario_id INTEGER NOT NULL,
+    mes            TEXT    NOT NULL CHECK (mes GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]'),
+    fecha          TEXT    NOT NULL,
+    destinatarios  TEXT    NOT NULL,
+    adjuntos       TEXT    NOT NULL,
+    error          TEXT,
+    CONSTRAINT fk_envio_mail_prop FOREIGN KEY (propietario_id) REFERENCES propietario(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) STRICT;
+CREATE INDEX ix_envio_mail_mes ON envio_mail(mes, propietario_id);
+
 -- Limpieza (plan 057): tareas importadas del Google Form "Horas Cargadas" y lo liquidado a la coordinadora.
 -- Control interno de la empresa: no tocan las liquidaciones de los deptos.
 CREATE TABLE tarea_limpieza (

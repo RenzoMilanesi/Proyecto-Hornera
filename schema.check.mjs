@@ -225,4 +225,8 @@ falla(consumo(`0, NULL, NULL`), 'CHECK');
 falla(consumo(`100, 'x', 1`), 'CHECK');
 falla(`INSERT INTO auditoria(fecha, pc, tabla, accion, con_ia) VALUES ('x', 'PC', 't', 'alta', 2)`, 'CHECK');
 
+// Mails: el mes va YYYY-MM
+falla(`INSERT INTO envio_mail(propietario_id, mes, fecha, destinatarios, adjuntos) VALUES (1, '2026-4', 'x', 'a', 'b')`, 'CHECK');
+run(`INSERT INTO envio_mail(propietario_id, mes, fecha, destinatarios, adjuntos) VALUES (1, '2026-04', 'x', 'a', 'b')`);
+
 console.log('schema OK');
