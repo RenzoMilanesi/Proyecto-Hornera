@@ -9,6 +9,8 @@ import { join } from 'node:path';
 import { abrirDb } from '../server/db.ts';
 import { crearApp, type AlmacenCredenciales, type GeneradorPdf } from '../server/app.ts';
 import type { AlmacenClaveIa } from '../server/ia/asistente.ts';
+import type { Mailer } from '../server/mails.ts';
+import nodemailer from 'nodemailer';
 import type { AlmacenClaves } from '../server/emisores.ts';
 import { aplicarRestauracion, respaldar, type Sistema } from '../server/backup.ts';
 
@@ -148,6 +150,37 @@ function almacenClaveIa(): AlmacenClaveIa {
   };
 }
 
+// Cuenta de Gmail de los mails a propietarios (plan 084): usuario + contraseña de aplicación, cifrados como la key de Anthropic.
+function mailer(): Mailer {
+  const ruta = join(app.getPath('userData'), 'gmail.key');
+  return {
+    cuenta: {
+      leer() {
+        if (!existsSync(ruta)) return null;
+        try {
+          return JSON.parse(safeStorage.decryptString(readFileSync(ruta)));
+        } catch (e) {
+          console.error('No se pudo leer la cuenta de Gmail:', e);
+          return null;
+        }
+      },
+      guardar(c) {
+        if (!safeStorage.isEncryptionAvailable()) throw new Error('Windows no permite cifrar la contraseña en esta PC.');
+        writeFileSync(ruta, safeStorage.encryptString(JSON.stringify(c)));
+      },
+    },
+    async enviar(c, m) {
+      const t = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: c.usuario, pass: c.clave },
+        connectionTimeout: 20_000, socketTimeout: 60_000 });
+      try {
+        await t.sendMail({ from: c.usuario, ...m });
+      } finally {
+        t.close();
+      }
+    },
+  };
+}
+
 // PDF de la hoja de un depto: la vista imprimible de la app en una ventana oculta + printToPDF.
 // La vista marca document.body.dataset.listo ('1' o el mensaje de error) cuando terminó de cargar.
 function generadorPdf(origen: string): GeneradorPdf {
@@ -185,7 +218,7 @@ async function iniciarServidor() {
     // Sin --oculto: tras restaurar (abierta desde la bandeja) la ventana tiene que volver a verse.
     reiniciar: () => { app.relaunch({ args: process.argv.slice(1).filter((a) => a !== '--oculto') }); app.quit(); },
   };
-  const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales(), claves: almacenClaves(), pdf: generadorPdf(ORIGEN_LOCAL), desarrollo: !app.isPackaged, carpetaBackups, sistema, claveIa: almacenClaveIa() });
+  const api = crearApp(db, app.getVersion(), { credenciales: almacenCredenciales(), claves: almacenClaves(), pdf: generadorPdf(ORIGEN_LOCAL), desarrollo: !app.isPackaged, carpetaBackups, sistema, claveIa: almacenClaveIa(), mail: mailer() });
   const http = createServer(api);
 
   if (app.isPackaged) {

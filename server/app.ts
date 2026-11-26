@@ -35,6 +35,7 @@ import { autorizar, esLocal, hostSinPuerto, nombresDeEstaPc, rutasTerminales, so
 import { sello } from './sello.ts';
 import { confirmarPropuesta, descartarPropuesta, type AccionesMes } from './ia/propuestas.ts';
 import { guardarAdjunto, leerAdjunto, MAX_ADJUNTO, purgarAdjuntos } from './adjuntos.ts';
+import { aEnviar, aEnviarA, armarMensaje, errorDeGmail, guardarCuenta, nombreFactura, nombreHoja, registrar, verCuenta, type Mailer } from './mails.ts';
 
 // Dónde viven las credenciales de Stays. En Electron, cifradas con safeStorage
 // (DPAPI de Windows) fuera de la base: no viajan en los backups.
@@ -106,11 +107,11 @@ function hostPermitido(host: string) {
   return h === '127.0.0.1' || h === 'localhost' || nombresDeEstaPc().includes(h);
 }
 
-export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf; fetchDolar?: Fetch; claves?: AlmacenClaves; fetchArca?: Fetch; desarrollo?: boolean; carpetaBackups?: string; sistema?: Sistema; claveIa?: AlmacenClaveIa; clienteIa?: ClienteIa } = {}) {
+export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf; fetchDolar?: Fetch; claves?: AlmacenClaves; fetchArca?: Fetch; desarrollo?: boolean; carpetaBackups?: string; sistema?: Sistema; claveIa?: AlmacenClaveIa; clienteIa?: ClienteIa; mail?: Mailer } = {}) {
   const app = express();
   purgarAdjuntos(db);
   guardarFiscalesDelExcel(db);  // lo que el Excel trae de los propietarios sin datos fiscales, sin pedir Guardar
-  const { credenciales, urlStays = URL_STAYS, pdf, fetchDolar = fetch, claves, fetchArca, desarrollo = false, carpetaBackups, sistema, claveIa, clienteIa } = opciones;
+  const { credenciales, urlStays = URL_STAYS, pdf, fetchDolar = fetch, claves, fetchArca, desarrollo = false, carpetaBackups, sistema, claveIa, clienteIa, mail } = opciones;
   app.use((req, res, next) => {
     if (hostPermitido(req.headers.host ?? '')) return next();
     res.status(403).json({ error: 'Host no permitido' });
@@ -622,6 +623,46 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     intentar(res, () => importarMisComprobantes(db, Number(req.params.id), String(req.query.nombre ?? ''), typeof req.body === 'string' ? req.body : '')));
   app.get('/api/mis-comprobantes', (req, res) => intentar(res, () => listarMisComprobantes(db, String(req.query.mes ?? ''))));
   app.post('/api/mis-comprobantes/:id/vincular', (req, res) => intentar(res, () => vincular(db, Number(req.params.id), req.body)));
+  // ---- Mails a los propietarios (plan 084). La cuenta se carga solo en la PC servidor; mandar, desde cualquiera (sale del servidor).
+  app.get('/api/mails/cuenta', (_req, res) => intentar(res, () => verCuenta(db, mail?.cuenta)));
+  app.put('/api/mails/cuenta', soloLocal, (req, res) => intentar(res, () => guardarCuenta(db, mail?.cuenta, req.body ?? {})));
+  app.get('/api/mails/a-enviar', (req, res) => intentar(res, () => aEnviar(db, String(req.query.mes ?? ''))));
+  const cuentaMail = () => {
+    if (!mail) throw new Error('Esta instalación no manda mails.');
+    const c = mail.cuenta.leer();
+    if (!c) throw new Error('Falta cargar la cuenta de Gmail: se carga en la PC servidor, desde Transferencias → Enviar por mail.');
+    return c;
+  };
+  app.post('/api/mails/probar', soloLocal, async (_req, res) => {
+    try {
+      const c = cuentaMail();
+      await mail!.enviar(c, { to: [c.usuario], subject: 'Prueba de Hornera', text: 'Si te llegó este mail, Hornera ya puede mandar las liquidaciones.', attachments: [] });
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(400).json({ error: errorDeGmail(e).mensaje });
+    }
+  });
+  // Uno por vez: el lote los manda en secuencia. 502 = cortar el lote (cuenta rechazada o sin conexión).
+  app.post('/api/mails/enviar', async (req, res) => {
+    let enviado: { mes: string; id: number; m: ReturnType<typeof armarMensaje> } | undefined;
+    try {
+      const mes = String(req.body?.mes ?? ''), id = Number(req.body?.propietario_id);
+      const p = aEnviarA(db, mes, id);
+      const c = cuentaMail();
+      if (!pdf) throw new Error('Esta instalación no genera PDF');
+      const adjuntos = [];
+      for (const codigo of p.deptos) adjuntos.push({ filename: nombreHoja(codigo, mes), content: await pdf.generar(`/?imprimir=1&mes=${encodeURIComponent(mes)}&depto=${encodeURIComponent(codigo)}`) });
+      for (const f of p.facturas) adjuntos.push({ filename: nombreFactura(f), content: await pdf.generar(`/?imprimir=1&comprobante=${f.id}`) });
+      enviado = { mes, id, m: armarMensaje(db, mes, p, adjuntos) };
+      await mail!.enviar(c, enviado.m);
+      res.json({ fecha: registrar(db, mes, id, enviado.m, null) });
+    } catch (e) {
+      if (!enviado) { res.status(400).json({ error: mensaje(e) }); return; }
+      const { mensaje: error, corta } = errorDeGmail(e);
+      registrar(db, enviado.mes, enviado.id, enviado.m, error);
+      res.status(corta ? 502 : 400).json({ error });
+    }
+  });
   app.post('/api/mis-comprobantes/:id/desvincular', (req, res) => intentar(res, () => desvincular(db, Number(req.params.id))));
   app.get('/api/comprobantes', (req, res) => intentar(res, () => listarComprobantes(db, String(req.query.mes ?? ''), desarrollo)));
   app.get('/api/comprobantes/:id/detalle', (req, res) => intentar(res, () => detalleComprobante(db, Number(req.params.id))));
