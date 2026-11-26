@@ -70,7 +70,7 @@
   <li>Liquidación</li>
   <li>Transferencias</li>
   <li>Historial</li>
-  <li>Movimientos y gastos personales</li>
+  <li>Movimientos, gastos personales y tarjetas</li>
   <li>Limpieza</li>
   <li>Comprobantes</li>
   <li>Deptos (ficha y vencimientos)</li>
@@ -97,6 +97,7 @@ cada cuenta de la empresa y se facturan los honorarios ante ARCA.</p>
   <tr><th style="width:32%">Tarea</th><th>Dónde se hace</th></tr>
   <tr><td>Traer reservas y cobros</td><td>Desde Stays, con un botón (<span class="menu">Stays</span>)</td></tr>
   <tr><td>Cargar gastos e ingresos</td><td>De cada depto o de la empresa (<span class="menu">Movimientos</span>)</td></tr>
+  <tr><td>Controlar las tarjetas</td><td>Cada consumo de Visa y Mastercard contra los gastos, sin contar nada dos veces (<span class="menu">Tarjetas</span>)</td></tr>
   <tr><td>Calcular la liquidación</td><td>Saldo de cada depto: ingresos, costos, comisiones, honorarios y gastos (<span class="menu">Liquidación</span>)</td></tr>
   <tr><td>Cerrar el mes</td><td>La liquidación queda guardada y se generan los PDF para los propietarios</td></tr>
   <tr><td>Pagar a los propietarios</td><td>Se registra cada transferencia y se exporta la lista para el banco (<span class="menu">Transferencias</span>)</td></tr>
@@ -150,7 +151,7 @@ es el dato a anotar si se reporta un problema.</p>
 <table>
   <tr><th style="width:18%">Grupo</th><th style="width:40%">Pantallas</th><th>Para qué</th></tr>
   <tr><td>—</td><td>Resumen</td><td>La primera pantalla: cómo vienen los deptos en el mes.</td></tr>
-  <tr><td><b>HORNERA</b></td><td>Resumen Hornera, Movimientos, Cuentas, Vencimientos, Limpieza, Comprobantes, Emisores, Gastos personales</td><td>La empresa misma: su plata, sus gastos, lo que paga y lo que factura.</td></tr>
+  <tr><td><b>HORNERA</b></td><td>Resumen Hornera, Movimientos, Cuentas, Vencimientos, Limpieza, Comprobantes, Emisores, Gastos personales, Tarjetas</td><td>La empresa misma: su plata, sus gastos, lo que paga y lo que factura.</td></tr>
   <tr><td><b>DATOS</b></td><td>Deptos y el desplegable <b>Propiedades</b>: Liquidación, Transferencias, Historial y Propietarios</td><td>Los deptos, y lo que se le liquida y paga a cada dueño.</td></tr>
   <tr><td><b>HERRAMIENTAS</b></td><td>Stays, Importar Excel, Auditoría, Terminales, Copias de seguridad</td><td>Traer datos de afuera, ver quién cambió qué y cuidar la base. Terminales y Copias solo aparecen en la PC servidor.</td></tr>
 </table>
@@ -178,7 +179,8 @@ es el dato a anotar si se reporta un problema.</p>
 <div class="ciclo">
   <div><b>1 · Traer el mes</b><br>Stays → elegir el mes → Traer mes de Stays. Leer los avisos.</div>
   <div><b>2 · Revisar reservas</b><br>Stays → corregir con <i>Ajustes</i> lo que haga falta.</div>
-  <div><b>3 · Cargar gastos</b><br>Importar Excel → Gastos varios, y Movimientos → Nuevo movimiento para lo que falte.</div>
+  <div><b>3 · Cargar gastos</b><br>Importar Excel → Gastos varios. <b>Después</b> Tarjetas → importar los resúmenes de Visa y Mastercard y
+    resolver los pendientes. Movimientos → Nuevo movimiento para lo que falte (efectivo, transferencias).</div>
   <div><b>4 · Cotización</b><br>Liquidación → dólar cripto al cierre (o Pedir a la API).</div>
   <div><b>5 · Revisar</b><br>Liquidación → desplegar cada depto; comparar con el Excel si hace falta.</div>
   <div><b>6 · Cerrar</b><br>Liquidación → Cerrar mes → PDF de todos los deptos.</div>
@@ -437,7 +439,7 @@ propietario tiene varios deptos, se puede filtrar uno). También se llega desde 
 </ul>
 
 <!-- ============================================================ -->
-<h1>10. Movimientos y gastos personales</h1>
+<h1>10. Movimientos, gastos personales y tarjetas</h1>
 <p>Reemplaza la hoja CORRIENTE: gastos, ingresos, adelantos y transferencias entre cuentas. Se elige el mes; con el mes
 cerrado la lista es de solo lectura. Se puede filtrar por depto, buscar por concepto, detalle o cuenta, y ver los anulados.</p>
 <figure>
@@ -505,6 +507,53 @@ no entran en las liquidaciones, en las cuentas ni en el resultado (Resumen Horne
 centavo, va a Amancay). <span class="boton">Editar</span> corrige el código, la fecha, la descripción o el importe y
 <span class="boton">Anular</span> lo deja sin efecto. Volver a importar el Excel no pisa lo que se corrigió a mano. Con el mes
 cerrado, la lista es de solo lectura.</p>
+
+<h2>Tarjetas</h2>
+<p>En <span class="menu">Hornera → Tarjetas</span> se importa el <b>PDF del resumen de la tarjeta</b> (Galicia, Visa o Mastercard, tal
+como lo baja el home banking) y se controla contra los gastos. El resumen <b>no carga gastos solo</b>: el Excel de gastos varios ya trae
+lo que se pagó con tarjeta, a veces al centavo (EPE, gas, agua, internet) y a veces sumado (la fila "Uber" del Excel son todos los
+viajes del mes). Si la tarjeta se cargara como gastos, todo eso se contaría dos veces. Por eso cada consumo del resumen tiene que
+terminar en <b>un solo lugar</b>:</p>
+<table>
+  <tr><th style="width:22%">Estado</th><th>Qué significa</th></tr>
+  <tr><td>Con gasto</td><td>Ya está en un gasto de Hornera (de un depto o INT). Varios consumos pueden ir al mismo gasto.</td></tr>
+  <tr><td>Personal</td><td>Va en un gasto personal (CAY, LAU…): no es de Hornera.</td></tr>
+  <tr><td>Ignorado</td><td>No va como gasto, con el motivo escrito (una devolución, una comisión que ya descuenta la plataforma…).</td></tr>
+  <tr><td>Pendiente</td><td>Todavía no se sabe dónde va. Es lo que hay que resolver.</td></tr>
+</table>
+
+<h3>El orden: primero el Excel, después la tarjeta</h3>
+<ol class="pasos">
+  <li><b>Importar el Excel de gastos del mes</b> (<span class="menu">Herramientas → Importar Excel → Gastos varios</span>), completo.</li>
+  <li><b>Importar los resúmenes</b>: en <span class="menu">Tarjetas</span>, <span class="boton">Importar resumen (PDF)</span>, uno para Visa y otro
+    para Mastercard. Al importar, cada consumo en pesos que tiene <b>un único</b> gasto del mismo importe (±$1) y de fecha cercana se
+    vincula solo. Si hay dos gastos o dos consumos con el mismo importe (por ejemplo, dos de $7.000), la app no adivina: lo deja pendiente.</li>
+  <li><b>Resolver los pendientes</b> (con <b>Solo pendientes</b> prendido), como se explica abajo.</li>
+</ol>
+<div class="ojo"><b>No al revés</b>Si se carga un gasto desde la tarjeta y después el Excel trae esa misma fila, quedan los dos. La importación
+del Excel lo avisa, pero hay que anular uno a mano. Antes de usar "Cargar como gasto", el Excel del mes tiene que estar importado completo.</div>
+<div class="tip"><b>Si el Excel cambió después</b>Volver a importarlo (lo que ya estaba no se duplica) y tocar
+<span class="boton">Cruzar de nuevo</span> en cada resumen: vincula solo lo que apareció.</div>
+
+<h3>Resolver los pendientes</h3>
+<p>Se tildan uno o varios consumos (el buscador filtra por texto, y la casilla del título tilda todos los que se ven) y se elige qué hacer:</p>
+<table>
+  <tr><th style="width:26%">Caso</th><th>Qué hacer</th></tr>
+  <tr><td>Sumados en el Excel (Uber, viandas)</td><td>Buscar "UBER", tildar todos y <span class="boton">Vincular a un gasto</span> → la fila "Uber" del Excel.
+    Se puede hacer en varias vueltas (después "UBR") y con consumos de los dos resúmenes: la ventana muestra cuánto ya tiene el gasto y la
+    <b>diferencia</b> que falta.</td></tr>
+  <tr><td>En dólares (suscripciones)</td><td><span class="boton">Vincular a un gasto</span> → la fila del Excel con el importe en pesos.</td></tr>
+  <tr><td>Importes repetidos</td><td>Los que la app no vinculó por estar repetidos: <span class="boton">Vincular a un gasto</span> eligiendo el correcto.</td></tr>
+  <tr><td>Personales (súper, Netflix, Steam…)</td><td><span class="boton">Cargar como gasto</span> con CAY, LAU u otro código personal.</td></tr>
+  <tr><td>Lo que no va como gasto</td><td><span class="boton">Ignorar</span>, escribiendo por qué.</td></tr>
+  <tr><td>Lo que falta en el Excel</td><td><span class="boton">Cargar como gasto</span> con su depto o INT: crea el gasto en el mes abierto, ya vinculado.
+    Con consumos en dólares pide el importe en pesos.</td></tr>
+</table>
+<p>Arriba se ve el total del resumen y cuánto hay en cada estado. <span class="boton">Desvincular</span> devuelve un consumo a pendiente.
+Un gasto que se cargó desde la tarjeta no se desvincula: se anula en <span class="menu">Movimientos</span> (o en Gastos personales) y el
+consumo vuelve solo a pendiente. Lo mismo pasa si se anula un gasto del Excel que tenía consumos.</p>
+<div class="nota"><b>Control del PDF</b>Al importar, la app suma todo lo que leyó y lo compara con el "Total a pagar" del resumen. Si no coincide
+(por ejemplo, quedó saldo del resumen anterior), lo avisa. Importar dos veces el mismo resumen no cambia nada.</div>
 
 <!-- ============================================================ -->
 <h1>11. Limpieza</h1>
@@ -790,6 +839,9 @@ Se usa para arrancar con Hornera y para traer los meses anteriores.</p>
 </table>
 <p>Al terminar muestra cuántos se importaron, la cuenta del mes por código y los avisos. Se puede volver a importar: lo que ya está no se
 duplica y lo corregido a mano no se pisa. Los de meses anteriores se saltean.</p>
+<div class="tip"><b>Después, las tarjetas</b>Con el Excel de gastos ya importado, se importan los resúmenes de la tarjeta en
+<span class="menu">Hornera → Tarjetas</span> (capítulo 10). Si una fila del Excel tiene el mismo importe que un gasto que se cargó
+desde la tarjeta, la importación lo avisa: si es el mismo gasto, anular uno de los dos.</div>
 
 <!-- ============================================================ -->
 <h1>19. Auditoría</h1>
@@ -921,6 +973,8 @@ pueden estar abiertas a la vez.</div>
   <tr><td>El saldo de una cuenta no da como el banco</td><td>Revisar el saldo inicial, que cada medio de pago de Stays esté asociado a su cuenta y que estén cargados los gastos.</td></tr>
   <tr><td>Al facturar: "Computador no autorizado a acceder al servicio"</td><td>Falta autorizar wsfe al certificado en el Administrador de Relaciones de ARCA.</td></tr>
   <tr><td>La factura quedó "rechazada"</td><td>Leer el motivo en la fila del pago, corregir (datos fiscales, conexión) y tocar Reintentar.</td></tr>
+  <tr><td>Tarjetas: "no suma el total a pagar"</td><td>Quedó saldo del resumen anterior o algún renglón no se leyó: comparar el total de la pantalla con el del PDF.</td></tr>
+  <tr><td>Tarjetas: no deja desvincular</td><td>El gasto se cargó desde la tarjeta: anularlo en Movimientos o Gastos personales; el consumo vuelve a pendiente.</td></tr>
   <tr><td>Limpieza: no deja marcar pagada</td><td>El mes de la fecha de pago está cerrado: elegir una fecha del mes abierto.</td></tr>
   <tr><td>Limpieza: "el período se pisa con otro"</td><td>Las fechas se superponen con otra liquidación: empezar el día siguiente a la anterior.</td></tr>
   <tr><td>Los honorarios no dan el 20 % del bruto</td><td>Es correcto: el 20 % se aplica sobre la base de honorarios (bruto − costos operativos − comisiones). Ver el ⓘ de Honorarios en Resumen.</td></tr>
@@ -959,6 +1013,7 @@ pueden estar abiertas a la vez.</div>
   <tr><td>Cambio</td><td>Dólar cripto al cierre menos el descuento del mes; convierte entre pesos y dólares.</td></tr>
   <tr><td>Mes abierto / cerrado</td><td>Abierto: se recalcula y admite cambios. Cerrado: la liquidación queda guardada y congelada.</td></tr>
   <tr><td>INT / Empresa</td><td>Movimientos que no son de un depto sino de Hornera.</td></tr>
+  <tr><td>Consumo</td><td>Cada renglón del resumen de la tarjeta. Termina con gasto, personal o ignorado; mientras no, está pendiente.</td></tr>
   <tr><td>Anular</td><td>Dejar sin efecto un movimiento o un pago sin borrarlo.</td></tr>
   <tr><td>Emisor</td><td>Quien factura los honorarios (Lautaro o Amancay).</td></tr>
   <tr><td>Homologación / Producción</td><td>El ARCA de prueba (facturas sin validez) y el real.</td></tr>
