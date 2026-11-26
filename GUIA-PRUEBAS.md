@@ -200,6 +200,18 @@ Lo hace cada uno con su clave fiscal; el detalle está en el manual del certific
 3. **Emitir N facturas**: salen de a una y cada fila muestra "prueba n.º …". Volver a abrir: ya no aparecen.
 4. Sin internet a mitad del lote: se detiene, lo emitido queda y el resto se reintenta después.
 
+### Mandar las liquidaciones por mail (plan 084)
+Antes, una vez: en la cuenta de Gmail de la oficina activar la **verificación en dos pasos** y crear una
+**contraseña de aplicación** en myaccount.google.com/apppasswords (son 16 letras; sirven solo para la app).
+1. En la **carpeta de prueba**, cambiar los mails de los propietarios por uno propio (Propietarios → Datos para pagarle):
+   que ningún mail de prueba le llegue a un propietario real.
+2. Transferencias → mes cerrado → **Enviar por mail**. Sin cuenta cargada se abre **Cuenta de Gmail**: mail, contraseña de
+   aplicación → **Guardar y mandarme una prueba** → llega "Prueba de Hornera" a esa cuenta. Desde una terminal no se puede cargar.
+3. La tabla lista un renglón por propietario con sus PDF (deptos y facturas); los sin mail quedan afuera con el motivo.
+4. **Enviar N mails**: cada fila dice "enviado". Llegan con los PDF adjuntos y figuran en Enviados de la cuenta.
+5. Volver a abrir: aparecen "enviado el …" y sin marcar.
+6. Cambiar la contraseña por una equivocada y enviar: se detiene con "Gmail rechazó la cuenta".
+
 ### Antes de la primera factura real (producción)
 1. Repetir el trámite con el certificado **de producción** y el punto de venta Web Services real.
 2. En Emisores, **Editar** → ambiente **Producción** (borra el certificado de homologación) → **Certificado**

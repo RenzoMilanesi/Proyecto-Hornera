@@ -7,6 +7,7 @@ import type { TableColumnsType } from 'antd';
 import type { FacturaDePago, FacturaExterna, Transferencia } from '../server/liquidacion/pagos.ts';
 import type { FacturaExterna as Externa } from '../server/misComprobantes.ts';
 import type { LoteAFacturar } from '../server/facturacion.ts';
+import type { AEnviar } from '../server/mails.ts';
 import { descargarPdfComprobante, entradaPlata, enviar, fecha, get, hoy, pesos, red, simbolo, useUnaVez } from './api.ts';
 
 interface Periodo { mes: string; estado: string; fecha_pago: string }
@@ -318,6 +319,160 @@ export function FormLoteFacturas({ mes, alCerrar }: { mes?: string; alCerrar: (c
   );
 }
 
+// Cuenta de Gmail y texto de los mails a propietarios (plan 084). Se guarda solo en la PC servidor (403 desde una terminal).
+interface CuentaMail { usuario: string | null; asunto: string; cuerpo: string }
+export function FormCuentaMail({ abierto, alCerrar }: { abierto: boolean; alCerrar: (guardado: boolean) => void }) {
+  const [form] = Form.useForm();
+  const [cuenta, setCuenta] = useState<CuentaMail>();
+  const [error, setError] = useState<string>();
+  const [aviso, setAviso] = useState<string>();
+  const [probando, setProbando] = useState(false);
+  const msj = (e: unknown) => (e instanceof Error ? e.message : String(e));
+  useEffect(() => {
+    if (!abierto) return;
+    setError(undefined); setAviso(undefined);
+    get<CuentaMail>('mails/cuenta').then((c) => { setCuenta(c); form.setFieldsValue({ usuario: c.usuario ?? '', clave: '', asunto: c.asunto, cuerpo: c.cuerpo }); }, (e) => setError(msj(e)));
+  }, [abierto]);
+  const guardar = async () => {
+    const v = await form.validateFields();
+    setError(undefined);
+    try {
+      const c = await enviar<CuentaMail>('mails/cuenta', 'PUT', v);
+      setCuenta(c); form.setFieldValue('clave', '');
+      return true;
+    } catch (e) { setError(msj(e)); return false; }
+  };
+  const probar = async () => {
+    if (!(await guardar())) return;
+    setProbando(true); setAviso(undefined);
+    try {
+      await enviar('mails/probar', 'POST', {});
+      setAviso(`Listo: revisá la bandeja de ${form.getFieldValue('usuario')}.`);
+    } catch (e) { setError(msj(e)); } finally { setProbando(false); }
+  };
+  return (
+    <Modal open={abierto} title="Cuenta de Gmail para los mails" okText="Guardar" cancelText="Cancelar" width={560} destroyOnHidden
+      onOk={async () => { if (await guardar()) alCerrar(true); }} onCancel={() => alCerrar(false)}>
+      <Form form={form} layout="vertical">
+        <Typography.Text strong>Cuenta</Typography.Text>
+        <Typography.Paragraph type="secondary" style={{ margin: '0 0 8px' }}>
+          Los mails salen de esta cuenta y quedan en sus Enviados. Gmail pide una contraseña de aplicación (no la de siempre): se crea en
+          myaccount.google.com/apppasswords, con la verificación en dos pasos activada.
+        </Typography.Paragraph>
+        <Form.Item label="Mail" name="usuario" rules={[{ required: true, message: 'Falta el mail' }]}><Input placeholder="oficina@gmail.com" /></Form.Item>
+        <Form.Item label="Contraseña de aplicación" name="clave" extra={cuenta?.usuario ? 'Vacía = queda la que está guardada.' : '16 letras; se guarda cifrada en esta PC.'}
+          rules={[{ required: !cuenta?.usuario, message: 'Falta la contraseña de aplicación' }]}>
+          <Input.Password placeholder="abcd efgh ijkl mnop" autoComplete="new-password" />
+        </Form.Item>
+        <Typography.Text strong>Texto del mail</Typography.Text>
+        <Typography.Paragraph type="secondary" style={{ margin: '0 0 8px' }}>
+          {'{nombre}'} se cambia por el nombre del propietario, {'{mes}'} por el mes ("mayo 2026") y {'{adjuntos}'} por lo que va adjunto
+          ("la liquidación y la factura"). Vacío = el texto de siempre.
+        </Typography.Paragraph>
+        <Form.Item label="Asunto" name="asunto"><Input /></Form.Item>
+        <Form.Item label="Cuerpo" name="cuerpo"><Input.TextArea rows={7} /></Form.Item>
+        <Button onClick={probar} loading={probando}>Guardar y mandarme una prueba</Button>
+      </Form>
+      {aviso && <Alert type="success" showIcon title={aviso} style={{ marginTop: 12 }} />}
+      {error && <Alert type="error" showIcon title={error} style={{ marginTop: 12 }} />}
+    </Modal>
+  );
+}
+
+// Mandar por mail la liquidación y la factura de cada propietario (plan 084). De a uno, como el lote de facturas;
+// cuenta rechazada o sin conexión (502, o sin respuesta del servidor) corta: el resto fallaría igual.
+type FilaMail = AEnviar['incluidos'][number] & { marcada: boolean; resultado?: { ok: boolean; texto: string } };
+export function FormLoteMails({ mes, alCerrar }: { mes?: string; alCerrar: () => void }) {
+  const [filas, setFilas] = useState<FilaMail[]>();
+  const [excluidos, setExcluidos] = useState<AEnviar['excluidos']>([]);
+  const [cuenta, setCuenta] = useState<string | null>();
+  const [editarCuenta, setEditarCuenta] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string>();
+  const cargarCuenta = () => get<CuentaMail>('mails/cuenta').then((c) => { setCuenta(c.usuario); if (!c.usuario) setEditarCuenta(true); }, (e) => setError(String(e)));
+  useEffect(() => {
+    if (!mes) return;
+    setError(undefined); setFilas(undefined); setCuenta(undefined);
+    cargarCuenta();
+    get<AEnviar>(`mails/a-enviar?mes=${mes}`).then((l) => {
+      setFilas(l.incluidos.map((x) => ({ ...x, marcada: !x.enviado })));
+      setExcluidos(l.excluidos);
+    }, (e) => setError(e instanceof Error ? e.message : String(e)));
+  }, [mes]);
+  const cambiar = (id: number, c: Partial<FilaMail>) => setFilas((fs) => fs?.map((f) => (f.propietarioId === id ? { ...f, ...c } : f)));
+  const marcadas = (filas ?? []).filter((f) => f.marcada && !f.resultado?.ok);
+  const hecho = !!filas?.some((f) => f.resultado);
+  const mandar = async () => {
+    setError(undefined); setEnviando(true);
+    let ok = 0;
+    for (const f of marcadas) {
+      try {
+        await enviar('mails/enviar', 'POST', { mes, propietario_id: f.propietarioId });
+        cambiar(f.propietarioId, { marcada: false, resultado: { ok: true, texto: 'enviado' } });
+        ok++;
+      } catch (e) {
+        const { status } = e as { status?: number };
+        cambiar(f.propietarioId, { resultado: { ok: false, texto: (e as Error).message } });
+        if (!status || status === 502) {
+          setError(`${(e as Error).message} Se enviaron ${ok} de ${marcadas.length}; lo que falta se manda después desde acá.`);
+          break;
+        }
+      }
+    }
+    setEnviando(false);
+  };
+  const columnas: TableColumnsType<FilaMail> = [
+    { title: '', key: 'm', width: 32, render: (_: unknown, f) => <Checkbox checked={f.marcada} disabled={enviando || !!f.resultado?.ok} onChange={(e) => cambiar(f.propietarioId, { marcada: e.target.checked })} /> },
+    { title: 'Propietario', dataIndex: 'propietario', width: 180, ellipsis: true },
+    { title: 'Mails', dataIndex: 'mails', ellipsis: true },
+    {
+      title: 'Adjuntos', key: 'adj', width: 230, render: (_: unknown, f) => (
+        <Space size={4} wrap>
+          {f.deptos.map((d) => <Tag key={d}>{d}</Tag>)}
+          {f.facturas.map((x) => <Tag key={x.id} color="blue">Factura {x.numero}</Tag>)}
+          {f.aviso && <Typography.Text type="warning">{f.aviso}</Typography.Text>}
+        </Space>
+      ),
+    },
+    {
+      title: 'Resultado', key: 'r', width: 200, render: (_: unknown, f) => f.resultado
+        ? <Typography.Text type={f.resultado.ok ? 'success' : 'danger'} style={{ width: 200 }} ellipsis={{ tooltip: f.resultado.texto }}>{f.resultado.texto}</Typography.Text>
+        : f.enviado && <Typography.Text type="secondary">enviado el {fecha(f.enviado.slice(0, 10))}</Typography.Text>,
+    },
+  ];
+  return (
+    <Modal open={!!mes} title={mes && `Mandar por mail las liquidaciones de ${mes}`} width={1040} destroyOnHidden closable={!enviando} keyboard={!enviando} maskClosable={false}
+      okText={hecho && !marcadas.length ? 'Cerrar' : `Enviar ${marcadas.length} ${marcadas.length === 1 ? 'mail' : 'mails'}`} cancelText="Cancelar"
+      onOk={hecho && !marcadas.length ? alCerrar : mandar} onCancel={() => { if (!enviando) alCerrar(); }} confirmLoading={enviando}
+      okButtonProps={{ disabled: !cuenta || (!hecho && !marcadas.length) }} cancelButtonProps={{ disabled: enviando }}>
+      <dl className="ficha">
+        <dt>Mes</dt><dd><b>{mes}</b></dd>
+        <dt>Sale de</dt>
+        <dd>{cuenta ? <b>{cuenta}</b> : <Typography.Text type="secondary">sin cuenta cargada</Typography.Text>}{' '}
+          <Button size="small" type="link" disabled={enviando} onClick={() => setEditarCuenta(true)}>Cuenta y texto del mail</Button></dd>
+      </dl>
+      <Typography.Text strong>Propietarios</Typography.Text>
+      <Typography.Paragraph type="secondary" style={{ margin: '0 0 8px' }}>
+        Un mail a cada uno, a todos sus mails, con la liquidación de cada depto y las facturas del mes. Los que ya recibieron el mail quedan sin marcar.
+      </Typography.Paragraph>
+      <Table<FilaMail> size="small" pagination={false} rowKey="propietarioId" loading={!filas} dataSource={filas} columns={columnas}
+        locale={{ emptyText: 'Este mes no tiene liquidaciones cerradas.' }} style={{ marginBottom: 12 }} />
+      {excluidos.length > 0 && (
+        <>
+          <Typography.Text strong>Quedan afuera</Typography.Text>
+          <Typography.Paragraph type="secondary" style={{ margin: '0 0 8px' }}>Se mandan desde acá una vez resuelto el motivo.</Typography.Paragraph>
+          <Table size="small" pagination={false} rowKey="propietarioId" dataSource={excluidos} style={{ marginBottom: 12 }} columns={[
+            { title: 'Propietario', dataIndex: 'propietario' },
+            { title: 'Motivo', dataIndex: 'motivo' },
+          ]} />
+        </>
+      )}
+      {error && <Alert type="error" showIcon title={error} />}
+      <FormCuentaMail abierto={editarCuenta} alCerrar={() => { setEditarCuenta(false); cargarCuenta(); }} />
+    </Modal>
+  );
+}
+
 // Factura de un pago anulado que sigue vigente: la anula una nota de crédito (plan 031).
 export type FacturaNC = Pick<FacturaDePago, 'id' | 'punto_venta' | 'importe' | 'ambiente' | 'emisor'> & { numero: number };
 
@@ -399,6 +554,7 @@ export function Transferencias() {
   const [facturando, setFacturando] = useState<AFacturar>();
   const [nc, setNc] = useState<{ factura: FacturaNC; codigo: string }>();
   const [lote, setLote] = useState<string>();
+  const [loteMails, setLoteMails] = useState<string>();
   const [soloPendientes, setSoloPendientes] = useState(false);
   const [error, setError] = useState<string>();
   const [version, setVersion] = useState(0);
@@ -468,6 +624,7 @@ export function Transferencias() {
           <Select style={{ width: 160 }} value={mes} onChange={setMes} placeholder="Mes cerrado" options={periodos.map((p) => ({ value: p.mes, label: p.mes }))} />
           <Button disabled={!mes} onClick={exportar}>Exportar a Excel</Button>
           <Button disabled={!mes} onClick={() => setLote(mes)}>Facturar pagos del mes</Button>
+          <Button disabled={!mes} onClick={() => setLoteMails(mes)}>Enviar por mail</Button>
           <Space><Switch size="small" checked={soloPendientes} onChange={setSoloPendientes} /> Solo pendientes</Space>
           {filas && <Typography.Text>Pendiente: <b>{pesos(totales('ARS'))}</b> · <b>{pesos(totales('USD'), 'USD')}</b> ({aPagar.length} deptos)</Typography.Text>}
           {mes && <Button onClick={() => setSaldando({ hasta: mes, cantidad: (filas ?? []).filter(saldable).length })}>Saldar por fuera hasta {mes}</Button>}
@@ -508,6 +665,7 @@ export function Transferencias() {
         }} />
       <FormSaldado s={saldando} alCerrar={(guardado) => { setSaldando(undefined); if (guardado) setVersion((v) => v + 1); }} />
       <FormFactura a={facturando} alCerrar={(cambio) => { setFacturando(undefined); if (cambio) setVersion((v) => v + 1); }} />
+      <FormLoteMails mes={loteMails} alCerrar={() => setLoteMails(undefined)} />
       <FormLoteFacturas mes={lote} alCerrar={(cambio) => { setLote(undefined); if (cambio) setVersion((v) => v + 1); }} />
       <FormNotaCredito nc={nc} alCerrar={(cambio) => { setNc(undefined); if (cambio) setVersion((v) => v + 1); }} />
     </Space>

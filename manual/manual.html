@@ -371,6 +371,19 @@ Si no hay meses cerrados, la pantalla lo avisa: las transferencias salen al cerr
   <li><span class="boton">Marcar pagado</span>. El pago se registra como movimiento y descuenta el saldo de la cuenta.</li>
 </ol>
 
+<h2>Mandar las liquidaciones por mail</h2>
+<p><span class="boton">Enviar por mail</span> le manda a cada propietario un mail con la liquidación de cada depto suyo y las
+facturas del mes, a todos sus mails. Sale de la cuenta de Gmail de la oficina y queda en sus Enviados.</p>
+<ol class="pasos">
+  <li>La primera vez se carga la cuenta, en la PC servidor: el mail y una <b>contraseña de aplicación</b> de Gmail (se crea en la
+    cuenta de Google, en Seguridad → Contraseñas de aplicación; no es la contraseña de siempre). <i>Guardar y mandarme una prueba</i>
+    confirma que anda. Ahí también se cambian el asunto y el texto del mail.</li>
+  <li>Revisar la lista: un renglón por propietario con sus adjuntos. Los que todavía no tienen factura dicen <i>Sin factura todavía</i>;
+    los que ya recibieron el mail de ese mes aparecen sin marcar. Los que no tienen mail quedan abajo, en <b>Quedan afuera</b>.</li>
+  <li><span class="boton">Enviar N mails</span>. Salen de a uno y cada fila dice si se envió. Si Gmail rechaza la cuenta o no hay
+    internet, se detiene: lo enviado queda y el resto se manda después desde acá.</li>
+</ol>
+
 <h2>Saldado por fuera</h2>
 <p>Para deudas que ya se resolvieron fuera de la app, típicamente las de antes de empezar a usarla: un mes que figura
 pendiente (o que el propietario debe) pero que en la realidad ya está saldado.</p>
