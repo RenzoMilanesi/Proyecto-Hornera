@@ -284,8 +284,19 @@ export function ignorar(db: DatabaseSync, ids: unknown, motivo: unknown) {
   enTransaccion(db, () => marcar(db, elegidos(db, ids), { ignorado: m }, 'ignorar'));
 }
 
+// Un gasto cargado desde la tarjeta no se suelta: quedaría vigente sin consumo y se podría cargar dos veces.
+// Se anula en su pantalla y el consumo vuelve solo a pendiente.
 export function desvincular(db: DatabaseSync, ids: unknown) {
-  enTransaccion(db, () => marcar(db, elegidos(db, ids), {}, 'desvincular'));
+  enTransaccion(db, () => {
+    const filas = elegidos(db, ids);
+    const desTarjeta = db.prepare(`
+      SELECT CASE WHEN m.origen LIKE 'tarjeta:%' AND m.estado = 'vigente' THEN 'Movimientos'
+                  WHEN ga.origen LIKE 'tarjeta:%' AND ga.estado = 'vigente' THEN 'Gastos personales' END AS pantalla
+        FROM consumo_tarjeta c LEFT JOIN movimiento m ON m.id = c.movimiento_id LEFT JOIN gasto_ajeno ga ON ga.id = c.gasto_ajeno_id
+       WHERE c.id IN (${filas.map(() => '?').join(',')}) AND pantalla IS NOT NULL LIMIT 1`).get(...filas.map((f) => f.id)) as { pantalla: string } | undefined;
+    if (desTarjeta) throw new Error(`Ese gasto se cargó desde la tarjeta: anulalo en ${desTarjeta.pantalla} y el consumo vuelve a pendiente.`);
+    marcar(db, filas, {}, 'desvincular');
+  });
 }
 
 export interface DatosCargar { consumos: unknown; codigo: unknown; concepto?: unknown; detalle?: unknown; importe?: unknown }
@@ -304,15 +315,20 @@ export function cargar(db: DatabaseSync, d: DatosCargar): number {
     const fecha = abiertos.includes(ultima.slice(0, 7)) ? ultima : `${abiertos[0]}-01`;
     const detalle = (typeof d.detalle === 'string' && d.detalle.trim()) || filas.map((f) => f.detalle).filter((v, i, a) => a.indexOf(v) === i).join(', ');
     const codigo = String(d.codigo ?? '').trim().toUpperCase();
+    // Marca del gasto creado acá: el primer consumo y la vez (uno anulado conserva su origen y se puede volver a cargar).
+    const base = `tarjeta:${filas[0].id}:`;
+    const vez = (db.prepare(`SELECT (SELECT count(*) FROM movimiento WHERE origen LIKE :o) + (SELECT count(*) FROM gasto_ajeno WHERE origen LIKE :o) AS n`)
+      .get({ o: `${base}%` }) as { n: number }).n + 1;
+    const origen = `${base}${vez}`;
     if (CODIGOS_AJENOS.includes(codigo)) {
-      const id = crearGastoAjeno(db, { fecha, codigo, descripcion: `Tarjeta: ${detalle}`, importe });
+      const id = crearGastoAjeno(db, { fecha, codigo, descripcion: `Tarjeta: ${detalle}`, importe, origen });
       marcar(db, filas, { gasto_ajeno_id: id }, 'cargar');
       return id;
     }
     const id = crearMovimiento(db, {
       mes: fecha.slice(0, 7), fecha, depto: codigo && codigo !== 'INT' ? codigo : null, tipo: 'gasto',
       concepto: typeof d.concepto === 'string' && d.concepto.trim() ? d.concepto : 'Gastos varios',
-      detalle: `Tarjeta: ${detalle}`, importe_ars: -importe, importe_usd: 0, cuenta_id: null,
+      detalle: `Tarjeta: ${detalle}`, importe_ars: -importe, importe_usd: 0, cuenta_id: null, origen,
     });
     marcar(db, filas, { movimiento_id: id }, 'cargar');
     return id;

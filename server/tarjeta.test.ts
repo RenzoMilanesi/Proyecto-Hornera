@@ -151,13 +151,20 @@ test('cargar: crea el gasto o el personal ya vinculado, en el mes abierto; con d
   cargar(db, { consumos: [ids[3]], codigo: 'CAY' });
   assert.deepEqual(estados(db, id), ['gasto', 'gasto', 'gasto', 'personal', 'pendiente']);
   assert.throws(() => cargar(db, { consumos: [ids[4]], codigo: 'XXX' }), /No existe el depto/);
+  // Desvincular un gasto cargado desde la tarjeta lo dejaría vigente y se podría cargar dos veces: se anula en su pantalla.
+  assert.throws(() => desvincular(db, [ids[1]]), /anulalo en Movimientos/);
+  assert.throws(() => desvincular(db, [ids[3]]), /anulalo en Gastos personales/);
+  db.prepare(`UPDATE movimiento SET estado = 'anulado' WHERE id = ?`).run(mov);
+  assert.deepEqual(estados(db, id).slice(0, 2), ['pendiente', 'pendiente']);
+  cargar(db, { consumos: [ids[0], ids[1]], codigo: 'OVL' }); // anulado el primero, se puede volver a cargar
 });
 
 test('importar el Excel después del resumen: "Cruzar de nuevo" vincula lo que entró y avisa lo ya cargado desde la tarjeta', () => {
   const db = base();
   const { resumen_id: id } = guardarResumen(db, interpretarResumen(VISA));
   const ids = (verResumen(db, id).consumos as any[]).map((c) => c.id as number);
-  cargar(db, { consumos: [ids[4]], codigo: 'INT' });   // sellos: $3.107,37 cargado desde la tarjeta
+  const sellos = cargar(db, { consumos: [ids[4]], codigo: 'INT' }); // $3.107,37 cargado desde la tarjeta
+  db.prepare(`UPDATE movimiento SET detalle = 'sellos del resumen' WHERE id = ?`).run(sellos); // editado: igual avisa
   const hoja = XLSX.utils.json_to_sheet([
     { Fecha: 46302, Departamento: 'OVL', Descripción: 'Kiosco', Monto: 9000, Otro: '', 'Mensaje original': 'G1' },
     { Fecha: 46302, Departamento: 'INT', Descripción: 'Sellos tarjeta', Monto: 3107.37, Otro: '', 'Mensaje original': 'G2' },

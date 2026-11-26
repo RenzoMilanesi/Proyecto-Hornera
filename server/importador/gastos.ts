@@ -46,7 +46,7 @@ export function importarGastos(db: DatabaseSync, archivo: Buffer): ReporteGastos
   const ajenoYaEsta = db.prepare('SELECT 1 FROM gasto_ajeno WHERE origen = ?'); // vigente o anulado: lo de la app manda
   const yaEsta = db.prepare('SELECT 1 FROM movimiento WHERE origen = ?'); // vigente o anulado: un anulado no vuelve
   const desdeTarjeta = db.prepare(`SELECT m.detalle FROM movimiento m JOIN periodo p ON p.id = m.periodo_id
-    WHERE p.mes = ? AND m.estado = 'vigente' AND m.origen IS NULL AND m.detalle LIKE 'Tarjeta:%' AND abs(-m.importe_ars - ?) <= 100
+    WHERE p.mes = ? AND m.estado = 'vigente' AND m.origen LIKE 'tarjeta:%' AND abs(-m.importe_ars - ?) <= 100
       AND EXISTS (SELECT 1 FROM consumo_tarjeta c WHERE c.movimiento_id = m.id) LIMIT 1`);
 
   const vistas = new Map<string, number>(); // filas de un mismo mensaje: cada una con su número de aparición

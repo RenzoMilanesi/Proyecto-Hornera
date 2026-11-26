@@ -141,6 +141,7 @@ en la LAN (fase 5d), que sigue a testear.
    con el gasto que lo incluye (solo si el importe coincide ±$1; a mano varios consumos a un gasto, también de los dos resúmenes),
    con un gasto personal, ignorado con motivo, o se carga desde ahí ya vinculado. El lector controla que lo leído sume el total a
    pagar. Importar el Excel avisa si una fila tiene el importe de un gasto cargado desde la tarjeta. Esquema 26.
+   v0.58.2: un gasto cargado desde la tarjeta queda marcado (`origen` tarjeta:…) y no se desvincula: se anula en su pantalla (plan 081).
    Octubre: 25 de 255 consumos cruzan solos (v0.58.1: solo pares únicos; lo ambiguo queda pendiente, plan 080); los Uber de Visa y Master cierran exacto con el "Uber" del Excel.
 6. **Facturación ARCA** — **Testeado** (las 8 etapas hechas: esquema, transporte ARCA, emisores y certificados en Datos → Emisores, datos fiscales en Datos → Propietarios, factura al pagar en Transferencias, nota de crédito al anular el pago, PDF de la factura con QR, y la pantalla Mes → Comprobantes del plan 035) (`plans/031-facturacion-arca.md`): facturar los honorarios
    al pagar cada liquidación, con emisor Lautaro o Amancay. Antes de probar en producción, cada uno
