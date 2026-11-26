@@ -146,6 +146,8 @@ en la LAN (fase 5d), que sigue a testear.
 6. **Facturación ARCA** — **Testeado** (las 8 etapas hechas: esquema, transporte ARCA, emisores y certificados en Datos → Emisores, datos fiscales en Datos → Propietarios, factura al pagar en Transferencias, nota de crédito al anular el pago, PDF de la factura con QR, y la pantalla Mes → Comprobantes del plan 035) (`plans/031-facturacion-arca.md`): facturar los honorarios
    al pagar cada liquidación, con emisor Lautaro o Amancay. Antes de probar en producción, cada uno
    tiene que hacer el trámite del certificado y del punto de venta Web Services (manual de Roble).
+   **A testear** (v0.59.1): Transferencias → "Facturar pagos del mes" factura en lote, de a una, los pagos sin factura con un emisor;
+   quedan afuera (con motivo) los propietarios sin datos fiscales o con facturas hechas por fuera en ARCA ([plan 082](plans/082-facturacion-masiva.md)).
 
 ## Checklist de prueba (próxima sesión)
 

@@ -193,6 +193,13 @@ Lo hace cada uno con su clave fiscal; el detalle está en el manual del certific
     "Facturar este pago" la muestra: **Es esta** la vincula (el pago queda "por fuera n.º …") y **No es
     ninguna de estas** deja emitir igual. Importar el archivo de otro emisor tiene que rechazarse.
 
+### Facturar los pagos del mes en lote (plan 082)
+1. Transferencias → mes con varios pagos sin factura → **Facturar pagos del mes**.
+2. Con un emisor en homologación: la tabla lista los pagos sin factura con el importe propuesto; abajo, en
+   **Quedan afuera**, los de propietarios sin datos fiscales o con facturas hechas por fuera en ARCA, con el motivo.
+3. **Emitir N facturas**: salen de a una y cada fila muestra "prueba n.º …". Volver a abrir: ya no aparecen.
+4. Sin internet a mitad del lote: se detiene, lo emitido queda y el resto se reintenta después.
+
 ### Antes de la primera factura real (producción)
 1. Repetir el trámite con el certificado **de producción** y el punto de venta Web Services real.
 2. En Emisores, **Editar** → ambiente **Producción** (borra el certificado de homologación) → **Certificado**

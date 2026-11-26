@@ -25,7 +25,7 @@ async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     const cuerpo = await res.json().catch(() => null);
     if (res.status === 401 && cuerpo?.emparejar) globalThis.location?.reload(); // revocada: App vuelve a pedir el código
-    throw Object.assign(new Error(cuerpo?.error ?? `${res.status} ${res.statusText}`), { cuerpo }); // el cuerpo, por si trae más que el error
+    throw Object.assign(new Error(cuerpo?.error ?? `${res.status} ${res.statusText}`), { cuerpo, status: res.status }); // el cuerpo, por si trae más que el error
   }
   return res.json();
 }

@@ -6,7 +6,8 @@ import { mesVisto } from './Asistente.tsx';
 import type { TableColumnsType } from 'antd';
 import type { FacturaDePago, FacturaExterna, Transferencia } from '../server/liquidacion/pagos.ts';
 import type { FacturaExterna as Externa } from '../server/misComprobantes.ts';
-import { descargarPdfComprobante, entradaPlata, enviar, get, hoy, pesos, red, simbolo, useUnaVez } from './api.ts';
+import type { LoteAFacturar } from '../server/facturacion.ts';
+import { descargarPdfComprobante, entradaPlata, enviar, fecha, get, hoy, pesos, red, simbolo, useUnaVez } from './api.ts';
 
 interface Periodo { mes: string; estado: string; fecha_pago: string }
 interface Cuenta { id: number; nombre: string; moneda: 'ARS' | 'USD'; activo: number }
@@ -212,6 +213,111 @@ export function FormFactura({ a, alCerrar }: { a?: AFacturar; alCerrar: (cambio:
   );
 }
 
+// Facturar en lote los pagos del mes sin factura (plan 082). Emite de a uno con la ruta de un pago: el servidor
+// no encola dos a la vez. Sin conexión con ARCA (o con el servidor) corta: el resto fallaría igual.
+type FilaLote = LoteAFacturar['incluidos'][number] & { marcada: boolean; importe: number; emisor_id?: number; resultado?: { ok: boolean; texto: string } };
+export function FormLoteFacturas({ mes, alCerrar }: { mes?: string; alCerrar: (cambio: boolean) => void }) {
+  const [emisores, setEmisores] = useState<EmisorLista[]>([]);
+  const [emisorId, setEmisorId] = useState<number>();
+  const [filas, setFilas] = useState<FilaLote[]>();
+  const [excluidos, setExcluidos] = useState<LoteAFacturar['excluidos']>([]);
+  const [emitiendo, setEmitiendo] = useState(false);
+  const [emitido, setEmitido] = useState(false);
+  const [error, setError] = useState<string>();
+  useEffect(() => {
+    if (!mes) return;
+    setError(undefined); setEmitido(false); setFilas(undefined); setEmisorId(undefined);
+    get<EmisorLista[]>('emisores').then((es) => {
+      const activos = es.filter((e) => e.activo && e.certificado && e.tiene_clave);
+      setEmisores(activos);
+      setEmisorId(activos[0]?.id);
+    }, (e) => setError(String(e)));
+  }, [mes]);
+  useEffect(() => {
+    if (!mes || !emisorId) return;
+    get<LoteAFacturar>(`facturas/a-facturar?mes=${mes}&emisor=${emisorId}`).then((l) => {
+      setFilas(l.incluidos.map((x) => ({ ...x, marcada: !x.aviso, importe: x.propuesto / 100, emisor_id: emisorId })));
+      setExcluidos(l.excluidos);
+    }, (e) => setError(e instanceof Error ? e.message : String(e)));
+  }, [mes, emisorId]);
+  const cambiar = (pagoId: number, c: Partial<FilaLote>) => setFilas((fs) => fs?.map((f) => (f.pagoId === pagoId ? { ...f, ...c } : f)));
+  const marcadas = (filas ?? []).filter((f) => f.marcada && !f.resultado?.ok);
+  const emitir = async () => {
+    if (marcadas.some((f) => !f.importe || f.importe <= 0 || !f.emisor_id)) return setError('Cada factura marcada necesita emisor e importe mayor que 0.');
+    setError(undefined); setEmitiendo(true);
+    let ok = 0;
+    for (const f of marcadas) {
+      try {
+        const r = await enviar<{ puntoVenta: number; numero: number }>(`pagos/${f.pagoId}/factura`, 'POST', { emisor_id: f.emisor_id, importe: Math.round(f.importe * 100) });
+        const prueba = emisores.find((e) => e.id === f.emisor_id)?.ambiente === 'homologacion';
+        cambiar(f.pagoId, { resultado: { ok: true, texto: `${prueba ? 'prueba' : 'emitida'} n.º ${numeroCbte(r.puntoVenta, r.numero)}` } });
+        ok++;
+      } catch (e) {
+        const { status, cuerpo } = e as { status?: number; cuerpo?: { revisar?: number } };
+        cambiar(f.pagoId, { marcada: !cuerpo?.revisar, resultado: { ok: false, texto: cuerpo?.revisar ? `Revisar en ARCA: ${(e as Error).message}` : (e as Error).message } });
+        if (!status || status === 502) {
+          setError(`Sin conexión: se emitieron ${ok} de ${marcadas.length}. Lo que falta se factura después, desde acá o de a uno.`);
+          break;
+        }
+      }
+    }
+    setEmitiendo(false); setEmitido(true);
+  };
+  const columnas: TableColumnsType<FilaLote> = [
+    { title: '', key: 'm', width: 32, render: (_: unknown, f) => <Checkbox checked={f.marcada} disabled={emitiendo || !!f.resultado?.ok} onChange={(e) => cambiar(f.pagoId, { marcada: e.target.checked })} /> },
+    { title: 'Depto', dataIndex: 'codigo', render: (v: string) => <b>{v}</b> },
+    { title: 'Propietario', dataIndex: 'propietario', ellipsis: true },
+    { title: 'Pago', dataIndex: 'fecha_pago', render: (v: string) => fecha(v) },
+    {
+      title: 'Importe', key: 'importe', width: 156, render: (_: unknown, f) => (
+        <InputNumber {...entradaPlata} prefix="$" size="small" style={{ width: 140 }} value={f.importe} disabled={emitiendo || !!f.resultado?.ok}
+          status={f.aviso ? 'warning' : undefined} title={f.aviso ?? undefined} onChange={(v) => cambiar(f.pagoId, { importe: v ?? 0 })} />
+      ),
+    },
+    {
+      title: 'Emisor', key: 'emisor', width: 220, render: (_: unknown, f) => (
+        <Select size="small" style={{ width: '100%' }} value={f.emisor_id} disabled={emitiendo || !!f.resultado?.ok} onChange={(v) => cambiar(f.pagoId, { emisor_id: v })}
+          options={emisores.map((e) => ({ value: e.id, label: e.ambiente === 'produccion' ? e.nombre : `${e.nombre} (homologación)` }))} />
+      ),
+    },
+    { title: 'Resultado', key: 'r', width: 200, render: (_: unknown, f) => f.resultado && <Typography.Text type={f.resultado.ok ? 'success' : 'danger'} style={{ width: 200 }} ellipsis={{ tooltip: f.resultado.texto }}>{f.resultado.texto}</Typography.Text> },
+  ];
+  return (
+    <Modal open={!!mes} title={mes && `Facturar los pagos de ${mes}`} width={1040} destroyOnHidden closable={!emitiendo} maskClosable={false}
+      okText={emitido && !marcadas.length ? 'Cerrar' : `Emitir ${marcadas.length} ${marcadas.length === 1 ? 'factura' : 'facturas'}`} cancelText="Cancelar"
+      onOk={emitido && !marcadas.length ? () => alCerrar(true) : emitir} onCancel={() => alCerrar(emitido)} confirmLoading={emitiendo}
+      okButtonProps={{ disabled: !emitido && !marcadas.length }} cancelButtonProps={{ disabled: emitiendo }}>
+      <dl className="ficha">
+        <dt>Mes</dt><dd><b>{mes}</b></dd>
+        <dt>Emisor</dt>
+        <dd>
+          <Select size="small" style={{ width: 220 }} value={emisorId} onChange={setEmisorId} disabled={emitiendo || emitido} placeholder="Quién factura"
+            options={emisores.map((e) => ({ value: e.id, label: e.ambiente === 'produccion' ? e.nombre : `${e.nombre} (homologación)` }))} />
+          {!emisores.length && <Typography.Text type="secondary"> Ningún emisor tiene el certificado cargado (Hornera → Emisores).</Typography.Text>}
+        </dd>
+      </dl>
+      <Typography.Text strong>Pagos sin factura</Typography.Text>
+      <Typography.Paragraph type="secondary" style={{ margin: '0 0 8px' }}>
+        La parte de los honorarios de cada pago, como en "Facturar este pago". Los que pasan los honorarios del mes quedan sin marcar.
+      </Typography.Paragraph>
+      <Table<FilaLote> size="small" pagination={false} rowKey="pagoId" loading={!!emisorId && !filas} dataSource={filas} columns={columnas}
+        locale={{ emptyText: 'No quedan pagos para facturar con este emisor.' }} style={{ marginBottom: 12 }} />
+      {excluidos.length > 0 && (
+        <>
+          <Typography.Text strong>Quedan afuera</Typography.Text>
+          <Typography.Paragraph type="secondary" style={{ margin: '0 0 8px' }}>Se facturan de a uno desde su pago, una vez resuelto el motivo.</Typography.Paragraph>
+          <Table size="small" pagination={false} rowKey="pagoId" dataSource={excluidos} style={{ marginBottom: 12 }} columns={[
+            { title: 'Depto', dataIndex: 'codigo', render: (v: string) => <b>{v}</b> },
+            { title: 'Propietario', dataIndex: 'propietario' },
+            { title: 'Motivo', dataIndex: 'motivo' },
+          ]} />
+        </>
+      )}
+      {error && <Alert type="error" showIcon title={error} />}
+    </Modal>
+  );
+}
+
 // Factura de un pago anulado que sigue vigente: la anula una nota de crédito (plan 031).
 export type FacturaNC = Pick<FacturaDePago, 'id' | 'punto_venta' | 'importe' | 'ambiente' | 'emisor'> & { numero: number };
 
@@ -292,6 +398,7 @@ export function Transferencias() {
   const [saldando, setSaldando] = useState<Saldar>();
   const [facturando, setFacturando] = useState<AFacturar>();
   const [nc, setNc] = useState<{ factura: FacturaNC; codigo: string }>();
+  const [lote, setLote] = useState<string>();
   const [soloPendientes, setSoloPendientes] = useState(false);
   const [error, setError] = useState<string>();
   const [version, setVersion] = useState(0);
@@ -360,6 +467,7 @@ export function Transferencias() {
         <Space wrap size="large">
           <Select style={{ width: 160 }} value={mes} onChange={setMes} placeholder="Mes cerrado" options={periodos.map((p) => ({ value: p.mes, label: p.mes }))} />
           <Button disabled={!mes} onClick={exportar}>Exportar a Excel</Button>
+          <Button disabled={!mes} onClick={() => setLote(mes)}>Facturar pagos del mes</Button>
           <Space><Switch size="small" checked={soloPendientes} onChange={setSoloPendientes} /> Solo pendientes</Space>
           {filas && <Typography.Text>Pendiente: <b>{pesos(totales('ARS'))}</b> · <b>{pesos(totales('USD'), 'USD')}</b> ({aPagar.length} deptos)</Typography.Text>}
           {mes && <Button onClick={() => setSaldando({ hasta: mes, cantidad: (filas ?? []).filter(saldable).length })}>Saldar por fuera hasta {mes}</Button>}
@@ -400,6 +508,7 @@ export function Transferencias() {
         }} />
       <FormSaldado s={saldando} alCerrar={(guardado) => { setSaldando(undefined); if (guardado) setVersion((v) => v + 1); }} />
       <FormFactura a={facturando} alCerrar={(cambio) => { setFacturando(undefined); if (cambio) setVersion((v) => v + 1); }} />
+      <FormLoteFacturas mes={lote} alCerrar={(cambio) => { setLote(undefined); if (cambio) setVersion((v) => v + 1); }} />
       <FormNotaCredito nc={nc} alCerrar={(cambio) => { setNc(undefined); if (cambio) setVersion((v) => v + 1); }} />
     </Space>
   );
