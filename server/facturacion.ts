@@ -67,6 +67,37 @@ export function propuesta(db: DatabaseSync, movimientoId: number, emisorId: numb
   };
 }
 
+const faltanDatosFiscales = (p: Pago) =>
+  p.fiscal_razon_social && p.fiscal_doc_tipo && p.fiscal_doc_nro && p.fiscal_condicion_iva && p.fiscal_domicilio ? null
+    : `Faltan los datos fiscales de ${p.propietario}: completalos en Propietarios → Datos fiscales.`;
+
+/**
+ * Facturar en lote (plan 082): los pagos vigentes de `mes` sin factura vigente en el ambiente del emisor, con su
+ * propuesta. Sin datos fiscales o con facturas por fuera del propietario en ARCA quedan afuera con el motivo (se
+ * resuelven de a uno). Se emite con la ruta de un pago, de a uno: `exclusivo` no encola.
+ * ponytail: una `propuesta` por pago (unas consultas cada uno); alcanza para decenas de pagos por mes.
+ */
+export function aFacturar(db: DatabaseSync, mes: string, emisorId: number) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) throw new Error('El mes va como AAAA-MM.');
+  const e = db.prepare('SELECT ambiente FROM emisor WHERE id = ?').get(emisorId) as { ambiente: string } | undefined;
+  if (!e) throw new Error('No existe ese emisor.');
+  const ids = db.prepare(`SELECT m.id FROM movimiento m JOIN periodo p ON p.id = m.periodo_id JOIN depto d ON d.id = m.depto_id
+      WHERE p.mes = ? AND m.tipo = 'liquidacion' AND m.estado = 'vigente' ORDER BY d.codigo, m.id`).all(mes) as { id: number }[];
+  const conFactura = db.prepare(`SELECT 1 FROM comprobante c WHERE movimiento_id = ? AND ambiente = ? AND ${SQL_FACTURA_VIGENTE}`);
+  const incluidos = [], excluidos = [];
+  for (const { id } of ids) {
+    const pr = propuesta(db, id, emisorId);
+    if (!pr.ofrece || conFactura.get(id, e.ambiente)) continue;
+    const fila = { pagoId: id, codigo: pr.codigo, propietario: pr.propietario };
+    const motivo = faltanDatosFiscales(leerPago(db, id))
+      ?? (pr.externas.length ? `En ARCA hay facturas a ${pr.propietario} hechas por fuera de Hornera: facturalo de a uno.` : null);
+    if (motivo) excluidos.push({ ...fila, motivo });
+    else incluidos.push({ ...fila, fecha_pago: pr.fecha_pago, importe_pago: pr.importe_pago, propuesto: pr.propuesto, aviso: pr.aviso });
+  }
+  return { incluidos, excluidos };
+}
+export type LoteAFacturar = ReturnType<typeof aFacturar>;
+
 /** Pedido de reintento cuando ARCA pudo haber autorizado el comprobante anterior (plan 033, regla 3). */
 export class ErrorRevisar extends Error {
   numero: number;
@@ -135,11 +166,10 @@ async function emitirSinCandado(db: DatabaseSync, claves: AlmacenClaves | undefi
   const { e, keyPem } = emisorConClave(db, claves, Number(b.emisor_id));
   if (!e.activo) throw new Error(`${e.nombre} no está activo como emisor.`);
 
+  const faltan = faltanDatosFiscales(p);
+  if (faltan) throw new Error(faltan);
   const r = { razon_social: p.fiscal_razon_social, doc_tipo: p.fiscal_doc_tipo, doc_nro: p.fiscal_doc_nro,
     condicion_iva: p.fiscal_condicion_iva as CondicionIva | null, domicilio: p.fiscal_domicilio };
-  if (!r.razon_social || !r.doc_tipo || !r.doc_nro || !r.condicion_iva || !r.domicilio) {
-    throw new Error(`Faltan los datos fiscales de ${p.propietario}: completalos en Propietarios → Datos fiscales.`);
-  }
   const vigente = db.prepare(`SELECT punto_venta, numero FROM comprobante c WHERE movimiento_id = ? AND ambiente = ? AND ${SQL_FACTURA_VIGENTE}`)
     .get(movimientoId, e.ambiente) as { punto_venta: number; numero: number } | undefined;
   if (vigente) throw new Error(`Este pago ya tiene la factura ${numeroCbte(vigente.punto_venta, vigente.numero)}.`);

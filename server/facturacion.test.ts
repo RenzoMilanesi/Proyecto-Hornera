@@ -125,6 +125,52 @@ test('propuesta: proporcional al pago, avisa al pasar los honorarios y sin saldo
   assert.equal(propuesta(db, 1).ofrece, false);
 });
 
+test('a facturar (plan 082): pagos sin factura del mes; afuera sin datos fiscales o con facturas por fuera', async () => {
+  const falso = arcaFalso();
+  await conApi(async (llamar, db) => {
+    // BBB sin datos fiscales, CCC con una factura por fuera en ARCA, DDD de Hornera, EEE pago anulado, FFF último intento
+    // rechazado, GGG normal. AAA ya facturado en homologación.
+    db.exec(`
+      INSERT INTO propietario(nombre, cbu) VALUES ('Sin Fiscal', '0000000000000000000002');
+      INSERT INTO propietario(nombre, cbu, fiscal_razon_social, fiscal_doc_tipo, fiscal_doc_nro, fiscal_condicion_iva, fiscal_domicilio)
+        VALUES ('Con Externa', '0000000000000000000003', 'CON EXTERNA', 80, '20333333331', 'consumidor_final', 'Calle 1');
+      INSERT INTO propietario(nombre, cbu, es_hornera) VALUES ('Nosotros', '0000000000000000000004', 1);
+      INSERT INTO depto(codigo, nombre, propietario_id) VALUES ('BBB', 'B', 2), ('CCC', 'C', 3), ('DDD', 'D', 4), ('EEE', 'E', 1), ('FFF', 'F', 1), ('GGG', 'G', 1);
+      INSERT INTO comprobante_arca(emisor_id, fecha, cbte_tipo, punto_venta, numero, numero_hasta, doc_tipo, doc_nro, importe, importado_en)
+        VALUES (1, '2026-05-20', 11, 1, 1, 1, 80, '20333333331', 50000, 'x');
+      INSERT INTO emisor(nombre, razon_social, cuit, condicion_iva, punto_venta, ambiente) VALUES ('Emisor Prod', 'PROD', '20999999995', 'monotributista', 4, 'produccion');`);
+    const cols = (db.prepare('PRAGMA table_info(liquidacion)').all() as { name: string }[]).map((c) => c.name)
+      .filter((n) => !['id', 'depto_id', 'propietario_id'].includes(n)).join(', ');
+    db.exec(`INSERT INTO liquidacion(depto_id, propietario_id, ${cols}) SELECT d.id, d.propietario_id, ${cols.split(', ').map((c) => `l.${c}`).join(', ')}
+      FROM liquidacion l, depto d WHERE l.id = 1 AND d.id > 1 ORDER BY d.id`);
+    const pagos = [];
+    for (let liq = 1; liq <= 7; liq++) pagos.push((await llamar('POST', `liquidaciones/${liq}/pagar`, { cuenta_id: 1, fecha: hoyLocal(), importe: 1000000 })).body.id as number);
+    const [aaa, , , , eee, fff, ggg] = pagos;
+    assert.equal((await llamar('POST', `pagos/${aaa}/factura`, { emisor_id: 1, importe: 100000 })).status, 200);
+    await llamar('POST', `movimientos/${eee}/anular`, {});
+    falso.estado.cae = 'rechazo';
+    assert.equal((await llamar('POST', `pagos/${fff}/factura`, { emisor_id: 1, importe: 100000 })).status, 400);
+    falso.estado.cae = 'ok';
+
+    const lote = (await llamar('GET', 'facturas/a-facturar?mes=2026-05&emisor=1')).body;
+    assert.deepEqual(lote.incluidos.map((x: any) => [x.codigo, x.pagoId, x.propuesto]), [['FFF', fff, 100000], ['GGG', ggg, 100000]]);
+    assert.deepEqual(lote.excluidos.map((x: any) => x.codigo), ['BBB', 'CCC']);
+    assert.match(lote.excluidos[0].motivo, /datos fiscales/);
+    assert.match(lote.excluidos[1].motivo, /por fuera/);
+    // La factura de homologación de AAA no cuenta para un emisor de producción.
+    assert.deepEqual((await llamar('GET', 'facturas/a-facturar?mes=2026-05&emisor=2')).body.incluidos.map((x: any) => x.codigo), ['AAA', 'FFF', 'GGG']);
+
+    // El lote se emite de a uno, con números consecutivos, y después no queda nada.
+    const numeros = [];
+    for (const x of lote.incluidos) numeros.push((await llamar('POST', `pagos/${x.pagoId}/factura`, { emisor_id: 1, importe: x.propuesto })).body.numero);
+    assert.deepEqual(numeros, [9, 10]);
+    assert.deepEqual((await llamar('GET', 'facturas/a-facturar?mes=2026-05&emisor=1')).body.incluidos, []);
+
+    assert.match((await llamar('GET', 'facturas/a-facturar?mes=mayo&emisor=1')).body.error, /mes/);
+    assert.match((await llamar('GET', 'facturas/a-facturar?mes=2026-05&emisor=99')).body.error, /emisor/i);
+  }, falso.fetchArca);
+});
+
 test('emitir: Concepto 2 con el mes liquidado, FchVtoPago = CbteFch aunque el último autorizado sea posterior al pago', async () => {
   const falso = arcaFalso();
   falso.estado.fechaUltimo = restarDias(1);

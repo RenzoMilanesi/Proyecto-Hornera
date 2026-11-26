@@ -86,6 +86,7 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 079 | [La tolerancia de "Comparar con el Excel" solo se guarda si cambió](079-tolerancia-sin-guardados-de-mas.md) | P3 | S | — | HECHO |
 | 080 | [El cruce automático de la tarjeta solo vincula pares únicos](080-cruce-tarjeta-solo-pares-unicos.md) | P1 | S | — | HECHO (v0.58.1) |
 | 081 | [Los gastos cargados desde la tarjeta quedan marcados y no se duplican al desvincular](081-gasto-de-tarjeta-marcado.md) | P2 | S | — | HECHO (v0.58.2) |
+| 082 | [Facturar en lote los pagos del mes que no tienen factura](082-facturacion-masiva.md) | P2 | M | 031, 033, 036 | PENDIENTE |
 
 Planes 062–065: revisión `improve deep` de los pasos 0–4 del plan 061 (`fba59f6`, 2026-10-23), a hacer antes del paso 5. Descartado: `dbstat` (solo tamaños de páginas, no datos), `sqlite_dbpage` (no está compilado), `pragma_table_info` y `load_extension` (bloqueados por el authorizer, probado); claves de deptos guardadas en `conversacion_ia` (ya están en la misma base, en `depto_clave`); el esquema de `consulta_sql` se arma en cada pregunta (unas 60 consultas a `sqlite_master`, despreciable); tercera copia del patrón `safeStorage` en `electron/main.ts` (no vale abstraerlo).
 

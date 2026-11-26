@@ -24,7 +24,7 @@ import { elasticidadDelMes, evolucion, resumenDelMes, resumenHornera } from './r
 import { borrarEmisor, cargarCertificado, crearEmisor, editarEmisor, listarEmisores, probarEmisor, type AlmacenClaves } from './emisores.ts';
 import { ErrorArca } from './arca.ts';
 import { desvincular, importarMisComprobantes, listarMisComprobantes, vincular } from './misComprobantes.ts';
-import { datosComprobante, detalleComprobante, emitir, ErrorRevisar, facturaVigente, listarComprobantes, notaCredito, propuesta } from './facturacion.ts';
+import { aFacturar, datosComprobante, detalleComprobante, emitir, ErrorRevisar, facturaVigente, listarComprobantes, notaCredito, propuesta } from './facturacion.ts';
 import { datosDePago, datosFiscales, guardarDatosDePago, guardarDatosFiscales, padronDePropietario } from './propietarios.ts';
 import { rutasBackup, type Sistema } from './backup.ts';
 import { calcularAvisos } from './avisos.ts';
@@ -612,6 +612,8 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     }
   };
   app.post('/api/pagos/:id/factura', (req, res) => conArca(res, () => emitir(db, claves, Number(req.params.id), req.body, fetchArca)));
+  // Facturar en lote (plan 082): qué pagos del mes entran; la UI los emite de a uno con la ruta de arriba.
+  app.get('/api/facturas/a-facturar', (req, res) => intentar(res, () => aFacturar(db, String(req.query.mes ?? ''), Number(req.query.emisor))));
   // Pantalla Comprobantes: los de homologación solo con la app sin instalar.
   // Lo emitido en ARCA por cualquier medio: CSV de Mis Comprobantes (plan 036). Texto aparte: un año pasa el límite del JSON.
   app.post('/api/emisores/:id/mis-comprobantes', express.text({ type: 'text/csv', limit: '20mb' }), (req, res) =>
