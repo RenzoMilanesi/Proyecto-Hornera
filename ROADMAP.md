@@ -135,8 +135,13 @@ en la LAN (fase 5d), que sigue a testear.
 4. **Variables operativas** administrables — **Testeado**: Liquidación → "Variables del mes"
    (tarifas de limpieza, lavandería, tramos, channel manager, descuento del dólar) y Deptos → "Variables"
    (comisión y tarifas propias). Solo el mes abierto; queda en la auditoría.
-5. **Tarjetas**: vincular los gastos de la tarjeta con el costo que representan en cada depto. Hoy
-   usan un Excel; falta recibir esa información.
+5. **Tarjetas** — **A testear** (v0.58.0; pedido 2026-11-26): Hornera → Tarjetas importa el PDF del resumen de Galicia
+   (Visa o Mastercard) y lo cruza con los gastos. Es un control, no una fuente: el Excel de gastos varios ya trae lo pagado
+   con tarjeta (a veces sumado: "Uber" = 138 viajes), así que cargar la tarjeta como gastos contaba doble. Cada consumo queda
+   con el gasto que lo incluye (solo si el importe coincide ±$1; a mano varios consumos a un gasto, también de los dos resúmenes),
+   con un gasto personal, ignorado con motivo, o se carga desde ahí ya vinculado. El lector controla que lo leído sume el total a
+   pagar. Importar el Excel avisa si una fila tiene el importe de un gasto cargado desde la tarjeta. Esquema 26.
+   Octubre: 30 de 255 consumos cruzan solos; los Uber de Visa y Master cierran exacto con el "Uber" del Excel.
 6. **Facturación ARCA** — **Testeado** (las 8 etapas hechas: esquema, transporte ARCA, emisores y certificados en Datos → Emisores, datos fiscales en Datos → Propietarios, factura al pagar en Transferencias, nota de crédito al anular el pago, PDF de la factura con QR, y la pantalla Mes → Comprobantes del plan 035) (`plans/031-facturacion-arca.md`): facturar los honorarios
    al pagar cada liquidación, con emisor Lautaro o Amancay. Antes de probar en producción, cada uno
    tiene que hacer el trámite del certificado y del punto de venta Web Services (manual de Roble).

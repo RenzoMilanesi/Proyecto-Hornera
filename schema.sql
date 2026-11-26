@@ -386,6 +386,40 @@ BEGIN
     SELECT RAISE(ABORT, 'periodo cerrado: reabrirlo para modificar gastos ajenos');
 END;
 
+-- Resúmenes de tarjeta de crédito (PDF de Galicia, Visa y Mastercard): un control, no una fuente de gastos.
+-- Cada consumo queda con el gasto que lo incluye (varios consumos pueden ir a un mismo gasto del Excel),
+-- con un gasto personal o ignorado con su motivo. Así nada se cuenta dos veces ni queda afuera.
+CREATE TABLE tarjeta_resumen (
+    id           INTEGER PRIMARY KEY,
+    tarjeta      TEXT    NOT NULL CHECK (tarjeta IN ('VISA','MASTERCARD')),
+    numero       TEXT    NOT NULL,                      -- "Resumen N°" del banco
+    cierre       TEXT    NOT NULL CHECK (date(cierre) IS cierre),
+    importado_en TEXT    NOT NULL,
+    CONSTRAINT uq_tarjeta_resumen UNIQUE (tarjeta, numero)
+) STRICT;
+CREATE TABLE consumo_tarjeta (
+    id             INTEGER PRIMARY KEY,
+    resumen_id     INTEGER NOT NULL,
+    fecha          TEXT    NOT NULL CHECK (date(fecha) IS fecha),
+    detalle        TEXT    NOT NULL,
+    cuota          TEXT,                                -- "05/06"
+    comprobante    TEXT,
+    titular        TEXT,                                -- el de la tarjeta (adicionales: Nehuen, Lautaro)
+    importe_ars    INTEGER NOT NULL DEFAULT 0,          -- centavos, negativo = devolución
+    importe_usd    INTEGER NOT NULL DEFAULT 0,
+    movimiento_id  INTEGER,                             -- el gasto que lo incluye
+    gasto_ajeno_id INTEGER,                             -- o el gasto personal
+    ignorado       TEXT,                                -- o por qué no va como gasto
+    CONSTRAINT ck_consumo_importe CHECK (importe_ars <> 0 OR importe_usd <> 0),
+    CONSTRAINT ck_consumo_un_destino CHECK ((movimiento_id IS NOT NULL) + (gasto_ajeno_id IS NOT NULL) + (ignorado IS NOT NULL) <= 1),
+    CONSTRAINT fk_consumo_resumen FOREIGN KEY (resumen_id) REFERENCES tarjeta_resumen(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_consumo_mov FOREIGN KEY (movimiento_id) REFERENCES movimiento(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_consumo_ajeno FOREIGN KEY (gasto_ajeno_id) REFERENCES gasto_ajeno(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) STRICT;
+CREATE INDEX ix_consumo_resumen ON consumo_tarjeta(resumen_id);
+CREATE INDEX ix_consumo_mov ON consumo_tarjeta(movimiento_id);
+CREATE INDEX ix_consumo_ajeno ON consumo_tarjeta(gasto_ajeno_id);
+
 -- Limpieza (plan 057): tareas importadas del Google Form "Horas Cargadas" y lo liquidado a la coordinadora.
 -- Control interno de la empresa: no tocan las liquidaciones de los deptos.
 CREATE TABLE tarea_limpieza (

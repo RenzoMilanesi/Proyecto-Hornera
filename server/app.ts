@@ -6,6 +6,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { importarExcel } from './importador/excel.ts';
 import { importarGastos } from './importador/gastos.ts';
 import { anularGastoAjeno, crearGastoAjeno, editarGastoAjeno, listarGastosAjenos } from './gastosAjenos.ts';
+import * as tarjeta from './tarjeta.ts';
 import { importarHoras } from './importador/limpieza.ts';
 import * as limpieza from './limpieza.ts';
 import { crearClienteStays, URL_STAYS, type Credenciales } from './stays/cliente.ts';
@@ -438,6 +439,27 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   app.post('/api/gastos-ajenos', (req, res) => intentar(res, () => ({ id: crearGastoAjeno(db, { ...req.body, origen: null }) })));
   app.put('/api/gastos-ajenos/:id', (req, res) => intentar(res, () => editarGastoAjeno(db, Number(req.params.id), req.body ?? {})));
   app.post('/api/gastos-ajenos/:id/anular', (req, res) => intentar(res, () => { anularGastoAjeno(db, Number(req.params.id)); return { ok: true }; }));
+
+  // Resúmenes de tarjeta (control de gastos, sin conteo doble).
+  app.post('/api/tarjeta/importar', express.raw({ type: 'application/octet-stream', limit: '20mb' }), async (req, res) => {
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) { res.status(400).json({ error: 'Falta el PDF del resumen.' }); return; }
+    try {
+      res.json(await tarjeta.importarResumen(db, new Uint8Array(req.body)));
+    } catch (e) {
+      res.status(400).json({ error: mensaje(e) });
+    }
+  });
+  app.get('/api/tarjeta', (_req, res) => { res.json(tarjeta.listarResumenes(db)); });
+  app.get('/api/tarjeta/:id', (req, res) => intentar(res, () => tarjeta.verResumen(db, Number(req.params.id))));
+  app.post('/api/tarjeta/:id/cruzar', (req, res) => intentar(res, () => {
+    const vinculados = tarjeta.cruzar(db, Number(req.params.id));
+    if (vinculados) auditar(db, 'tarjeta', Number(req.params.id), 'modificacion', null, { accion: 'cruzar', vinculados });
+    return { vinculados };
+  }));
+  app.post('/api/tarjeta/vincular', (req, res) => intentar(res, () => tarjeta.vincular(db, req.body?.consumos, req.body ?? {})));
+  app.post('/api/tarjeta/ignorar', (req, res) => intentar(res, () => tarjeta.ignorar(db, req.body?.consumos, req.body?.motivo)));
+  app.post('/api/tarjeta/desvincular', (req, res) => intentar(res, () => tarjeta.desvincular(db, req.body?.consumos)));
+  app.post('/api/tarjeta/cargar', (req, res) => intentar(res, () => ({ id: tarjeta.cargar(db, req.body ?? {}) })));
 
   // Limpieza (plan 057): horas del Form, liquidaciones a la coordinadora y reglas del plus.
   app.post('/api/importar/limpieza', express.raw({ type: 'application/octet-stream', limit: '50mb' }), (req, res) => {

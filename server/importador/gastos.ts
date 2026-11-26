@@ -45,6 +45,9 @@ export function importarGastos(db: DatabaseSync, archivo: Buffer): ReporteGastos
   };
   const ajenoYaEsta = db.prepare('SELECT 1 FROM gasto_ajeno WHERE origen = ?'); // vigente o anulado: lo de la app manda
   const yaEsta = db.prepare('SELECT 1 FROM movimiento WHERE origen = ?'); // vigente o anulado: un anulado no vuelve
+  const desdeTarjeta = db.prepare(`SELECT m.detalle FROM movimiento m JOIN periodo p ON p.id = m.periodo_id
+    WHERE p.mes = ? AND m.estado = 'vigente' AND m.origen IS NULL AND m.detalle LIKE 'Tarjeta:%' AND abs(-m.importe_ars - ?) <= 100
+      AND EXISTS (SELECT 1 FROM consumo_tarjeta c WHERE c.movimiento_id = m.id) LIMIT 1`);
 
   const vistas = new Map<string, number>(); // filas de un mismo mensaje: cada una con su número de aparición
   const texto = (v: unknown) => (v == null ? '' : String(v).trim());
@@ -92,6 +95,9 @@ export function importarGastos(db: DatabaseSync, archivo: Buffer): ReporteGastos
       .filter(Boolean).join(' · ') || null;
 
     if (yaEsta.get(origen)) { r.repetidos++; return; }
+    // Conteo doble: el mismo importe ya se cargó desde un resumen de tarjeta. Entra igual (puede ser otro gasto) y se avisa.
+    const deTarjeta = desdeTarjeta.get(mes, monto) as { detalle: string } | undefined;
+    if (deTarjeta) r.avisos.push(`Fila ${fila}: "${descripcion}" tiene el mismo importe que un gasto cargado desde la tarjeta (${deTarjeta.detalle}): si es el mismo, anular uno.`);
     // ponytail: una transacción por fila (la de crearMovimiento); si algo corta a mitad, reimportar completa sin duplicar.
     crearMovimiento(db, {
       mes, fecha, depto, tipo, concepto: adelanto ? 'Adelanto' : 'Gastos varios', detalle,

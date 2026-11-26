@@ -6,6 +6,7 @@ import { Stays } from './Stays.tsx';
 import { Liquidacion } from './Liquidacion.tsx';
 import { Movimientos } from './Movimientos.tsx';
 import { GastosAjenos } from './GastosAjenos.tsx';
+import { Tarjetas } from './Tarjetas.tsx';
 import { Limpieza } from './Limpieza.tsx';
 import { Cuentas } from './Cuentas.tsx';
 import { Transferencias } from './Transferencias.tsx';
@@ -35,6 +36,7 @@ const secciones = {
   comprobantes: { grupo: 'Hornera', titulo: 'Comprobantes', ayuda: 'Facturas y notas de crédito emitidas en ARCA, por mes de emisión.', vista: <Comprobantes /> },
   emisores: { grupo: 'Hornera', titulo: 'Emisores', ayuda: 'Quién factura los honorarios en ARCA y su certificado.', vista: <Emisores /> },
   gastosAjenos: { grupo: 'Hornera', titulo: 'Gastos personales', ayuda: 'Gastos de Amancay, Lautaro, la Casa del Estudiante y la casa. No son de Hornera: no entran en liquidaciones ni en el resultado.', vista: <GastosAjenos /> },
+  tarjetas: { grupo: 'Hornera', titulo: 'Tarjetas', ayuda: 'Resúmenes de Visa y Mastercard contra los gastos: cada consumo con su gasto, personal o ignorado, para que nada se cuente dos veces ni quede afuera.', vista: <Tarjetas /> },
   deptos: { grupo: 'Datos', titulo: 'Deptos', ayuda: 'Los deptos que administra Hornera, con su dueño y estado. En Ficha: servicios, claves, contactos y notas.', vista: <Deptos /> },
   liquidacion: { grupo: 'Datos/Propiedades', titulo: 'Liquidación', ayuda: 'Lo que le corresponde a cada propietario. Al cerrar el mes queda guardado.', vista: <Liquidacion /> },
   transferencias: { grupo: 'Datos/Propiedades', titulo: 'Transferencias', ayuda: 'Qué se le paga a cada propietario de un mes cerrado y la lista para el banco.', vista: <Transferencias /> },

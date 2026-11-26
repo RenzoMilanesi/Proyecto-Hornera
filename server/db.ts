@@ -380,6 +380,37 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
   // 24 → 25: v0.57.0 creó pago_directo_revisado y se revirtió; el número queda ocupado para que una base que llegó a
   // esa versión no se saltee las migraciones que siguen.
   `DROP TABLE IF EXISTS pago_directo_revisado;`,
+  // 25 → 26: resúmenes de tarjeta de crédito y sus consumos (control contra los gastos).
+  `CREATE TABLE tarjeta_resumen (
+       id           INTEGER PRIMARY KEY,
+       tarjeta      TEXT    NOT NULL CHECK (tarjeta IN ('VISA','MASTERCARD')),
+       numero       TEXT    NOT NULL,
+       cierre       TEXT    NOT NULL CHECK (date(cierre) IS cierre),
+       importado_en TEXT    NOT NULL,
+       CONSTRAINT uq_tarjeta_resumen UNIQUE (tarjeta, numero)
+   ) STRICT;
+   CREATE TABLE consumo_tarjeta (
+       id             INTEGER PRIMARY KEY,
+       resumen_id     INTEGER NOT NULL,
+       fecha          TEXT    NOT NULL CHECK (date(fecha) IS fecha),
+       detalle        TEXT    NOT NULL,
+       cuota          TEXT,
+       comprobante    TEXT,
+       titular        TEXT,
+       importe_ars    INTEGER NOT NULL DEFAULT 0,
+       importe_usd    INTEGER NOT NULL DEFAULT 0,
+       movimiento_id  INTEGER,
+       gasto_ajeno_id INTEGER,
+       ignorado       TEXT,
+       CONSTRAINT ck_consumo_importe CHECK (importe_ars <> 0 OR importe_usd <> 0),
+       CONSTRAINT ck_consumo_un_destino CHECK ((movimiento_id IS NOT NULL) + (gasto_ajeno_id IS NOT NULL) + (ignorado IS NOT NULL) <= 1),
+       CONSTRAINT fk_consumo_resumen FOREIGN KEY (resumen_id) REFERENCES tarjeta_resumen(id) ON DELETE CASCADE ON UPDATE CASCADE,
+       CONSTRAINT fk_consumo_mov FOREIGN KEY (movimiento_id) REFERENCES movimiento(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+       CONSTRAINT fk_consumo_ajeno FOREIGN KEY (gasto_ajeno_id) REFERENCES gasto_ajeno(id) ON DELETE RESTRICT ON UPDATE CASCADE
+   ) STRICT;
+   CREATE INDEX ix_consumo_resumen ON consumo_tarjeta(resumen_id);
+   CREATE INDEX ix_consumo_mov ON consumo_tarjeta(movimiento_id);
+   CREATE INDEX ix_consumo_ajeno ON consumo_tarjeta(gasto_ajeno_id);`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

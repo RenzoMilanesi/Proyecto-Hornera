@@ -226,7 +226,7 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
   // ni lo importado de Mis Comprobantes (10 → 11) ni el origen de los gastos importados (11 → 12) ni la moneda de la liquidación (12 → 13)
   // ni la marca de saldado por fuera (16 → 17) ni los gastos ajenos (17 → 18) ni la ficha del depto (18 → 19) ni la limpieza (19 → 20)
   // ni las conversaciones del asistente (20 → 21) ni sus propuestas, los adjuntos y la marca "con IA" (22 → 23)
-  // ni el % de comisión estimada del medio de pago (23 → 24).
+  // ni el % de comisión estimada del medio de pago (23 → 24) ni los resúmenes de tarjeta (25 → 26).
   const actual = readFileSync(new URL('../schema.sql', import.meta.url), 'utf8');
   const v1 = actual
     .replace(/^\s*(-- Datos para facturarle|-- que vienen del Excel en texto libre|fiscal_).*\r?\n/gm, '')
@@ -248,6 +248,7 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
     .replace(/^\s*moneda .*-- en la que liquidaba el dueño al cerrar\r?\n/m, '')
     .replace(/^\s*(-- Saldado por fuera|saldado_fuera(_nota)? ).*\r?\n/gm, '')
     .replace(/CREATE TABLE gasto_ajeno \([^;]*;|CREATE INDEX ix_ajeno_periodo[^;]*;|CREATE TRIGGER tr_ajeno_[\s\S]*?END;/g, '')
+    .replace(/CREATE TABLE (tarjeta_resumen|consumo_tarjeta) \([^;]*;|CREATE INDEX ix_consumo_[^;]*;/g, '') // 25 → 26
     .replace(/CREATE TABLE (tarea_limpieza|liquidacion_limpieza|liquidacion_limpieza_operaria) \([^;]*;|CREATE INDEX ix_(tarea_limpieza|liq_limpieza)_[^;]*;|CREATE TRIGGER tr_(liq_limpieza_pisa|mov_anulado_libera_liq_limpieza)[\s\S]*?END;/g, '')
     .replace(/CREATE TABLE (conversacion_ia|respuesta_ia|propuesta_ia|adjunto) \([^;]*;|CREATE INDEX ix_(conversacion|respuesta|propuesta)_ia[^;]*;|CREATE INDEX ix_adjunto_[^;]*;/g, '')
     .replace(/despues_json TEXT,\s*\r?\n\s*con_ia .*\r?\n/, 'despues_json TEXT\n')
@@ -602,9 +603,9 @@ test('ficha del depto y vencimientos por la API', () => {
 test('migración 21 → 22: los sellos pasan a ISO con offset y los UTC a hora local', (t) => {
   const ruta = join(temporal(t), 'vieja.db');
   const vieja = new DatabaseSync(ruta);
-  // El esquema 21 es el actual sin lo de la migración 22 → 23 (propuestas, adjuntos y la marca "con IA").
+  // El esquema 21 es el actual sin lo de la migración 22 → 23 (propuestas, adjuntos y la marca "con IA") ni las tarjetas (25 → 26).
   vieja.exec(readFileSync(new URL('../schema.sql', import.meta.url), 'utf8')
-    .replace(/CREATE TABLE (propuesta_ia|adjunto) \([^;]*;|CREATE INDEX ix_(propuesta_ia|adjunto)_[^;]*;/g, '')
+    .replace(/CREATE TABLE (propuesta_ia|adjunto|tarjeta_resumen|consumo_tarjeta) \([^;]*;|CREATE INDEX ix_(propuesta_ia|adjunto|consumo)_[^;]*;/g, '')
     .replace(/despues_json TEXT,\s*\r?\n\s*con_ia .*\r?\n/, 'despues_json TEXT\n')
     .replace(/^\s*comision_pct\s+REAL .*-- estimada.*\r?\n/m, '')
     .replace(/CREATE VIEW v_pago_liquidable AS[\s\S]*?\) x;/, ''));

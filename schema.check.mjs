@@ -213,6 +213,16 @@ assert.equal(db.prepare(`SELECT count(*) n FROM propuesta_ia`).get().n, 0);
 const adj = (tipo) => `INSERT INTO adjunto(nombre, tipo, datos, bytes, creado_en) VALUES ('ticket', '${tipo}', x'00', 1, 'x')`;
 falla(adj('text/html'), 'CHECK');
 run(adj('application/pdf'));
+
+// Tarjeta: un resumen por número; cada consumo va a un solo destino (gasto, personal o ignorado)
+run(`INSERT INTO tarjeta_resumen(tarjeta, numero, cierre, importado_en) VALUES ('VISA', 'VI1', '2026-10-22', 'x')`);
+falla(`INSERT INTO tarjeta_resumen(tarjeta, numero, cierre, importado_en) VALUES ('VISA', 'VI1', '2026-10-22', 'y')`, 'UNIQUE');
+falla(`INSERT INTO tarjeta_resumen(tarjeta, numero, cierre, importado_en) VALUES ('AMEX', 'A1', '2026-10-22', 'x')`, 'CHECK');
+const consumo = (extra) => `INSERT INTO consumo_tarjeta(resumen_id, fecha, detalle, importe_ars, ignorado, gasto_ajeno_id)
+  VALUES ((SELECT id FROM tarjeta_resumen WHERE numero = 'VI1'), '2026-10-01', 'UBER', ${extra})`;
+run(consumo(`100, 'personal de otro', NULL`));
+falla(consumo(`0, NULL, NULL`), 'CHECK');
+falla(consumo(`100, 'x', 1`), 'CHECK');
 falla(`INSERT INTO auditoria(fecha, pc, tabla, accion, con_ia) VALUES ('x', 'PC', 't', 'alta', 2)`, 'CHECK');
 
 console.log('schema OK');

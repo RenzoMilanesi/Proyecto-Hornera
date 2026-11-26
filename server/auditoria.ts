@@ -48,7 +48,7 @@ const TIPOS: Record<string, string> = {
   comprobante_arca: 'Comprobante de ARCA', stays: 'Traer mes de Stays', excel: 'Excel mensual', gastos: 'Gastos varios',
   gasto_ajeno: 'Gasto personal', liquidacion: 'Saldado por fuera', terminal: 'Terminal', depto_clave: 'Clave del depto',
   depto_servicio: 'Servicio del depto', depto_contacto: 'Contacto del depto', liquidacion_limpieza: 'Limpieza',
-  tarea_limpieza: 'Horas de limpieza', configuracion: 'Configuración',
+  tarea_limpieza: 'Horas de limpieza', configuracion: 'Configuración', tarjeta: 'Resumen de tarjeta',
 };
 const ACCIONES: Record<Accion, string> = {
   alta: 'Alta', modificacion: 'Modificación', anulacion: 'Anulación', cierre: 'Cierre', reapertura: 'Reapertura', importacion: 'Importación',
