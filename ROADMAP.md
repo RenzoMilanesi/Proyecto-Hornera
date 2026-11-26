@@ -148,6 +148,7 @@ en la LAN (fase 5d), que sigue a testear.
    tiene que hacer el trámite del certificado y del punto de venta Web Services (manual de Roble).
    **A testear** (v0.59.1): Transferencias → "Facturar pagos del mes" factura en lote, de a una, los pagos sin factura con un emisor;
    quedan afuera (con motivo) los propietarios sin datos fiscales o con facturas hechas por fuera en ARCA ([plan 082](plans/082-facturacion-masiva.md)).
+   v0.60.0: los datos fiscales del Excel se guardan solos (sin "Guardar"); el domicilio es opcional; el aviso dice qué dato falta.
 
 ## Checklist de prueba (próxima sesión)
 

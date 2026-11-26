@@ -67,9 +67,12 @@ export function propuesta(db: DatabaseSync, movimientoId: number, emisorId: numb
   };
 }
 
-const faltanDatosFiscales = (p: Pago) =>
-  p.fiscal_razon_social && p.fiscal_doc_tipo && p.fiscal_doc_nro && p.fiscal_condicion_iva && p.fiscal_domicilio ? null
-    : `Faltan los datos fiscales de ${p.propietario}: completalos en Propietarios → Datos fiscales.`;
+// El domicilio no viaja a ARCA (solo va al PDF si está): no hace falta para facturar.
+function faltanDatosFiscales(p: Pago) {
+  const faltan = [!p.fiscal_razon_social && 'razón social', !(p.fiscal_doc_tipo && p.fiscal_doc_nro) && 'CUIT o DNI',
+    !p.fiscal_condicion_iva && 'condición frente al IVA'].filter(Boolean);
+  return faltan.length ? `Faltan datos fiscales de ${p.propietario} (${faltan.join(', ')}): completalos en Propietarios → Datos fiscales.` : null;
+}
 
 /**
  * Facturar en lote (plan 082): los pagos vigentes de `mes` sin factura vigente en el ambiente del emisor, con su
@@ -130,7 +133,7 @@ export const emitir = (db: DatabaseSync, claves: AlmacenClaves | undefined, movi
 export const notaCredito = (db: DatabaseSync, claves: AlmacenClaves | undefined, comprobanteId: number, cuerpo: unknown, f?: Fetch) =>
   exclusivo(() => notaCreditoSinCandado(db, claves, comprobanteId, cuerpo, f));
 
-interface Receptor { razon_social: string; doc_tipo: number; doc_nro: string; condicion_iva: CondicionIva; domicilio: string }
+interface Receptor { razon_social: string; doc_tipo: number; doc_nro: string; condicion_iva: CondicionIva; domicilio: string | null }
 interface Factura {
   id: number; periodo_id: number; depto_id: number; propietario_id: number; movimiento_id: number; emisor_id: number; cbte_tipo: number;
   punto_venta: number; numero: number; fecha: string; serv_desde: string; serv_hasta: string; importe: number; receptor_json: string; ambiente: string;

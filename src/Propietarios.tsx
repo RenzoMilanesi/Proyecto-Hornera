@@ -91,7 +91,7 @@ function FormFiscal({ p, alCerrar }: { p?: Propietario; alCerrar: () => void }) 
         )}
         <Row gutter={12}>
           <Col span={12}><Form.Item label="Condición frente al IVA" name="condicion_iva"><Select allowClear options={CONDICIONES} /></Form.Item></Col>
-          <Col span={12}><Form.Item label="Domicilio" name="domicilio"><Input /></Form.Item></Col>
+          <Col span={12}><Form.Item label="Domicilio" name="domicilio" extra="Opcional: sale en el PDF de la factura."><Input /></Form.Item></Col>
         </Row>
       </Form>
       {error && <Alert type="error" showIcon title={error} />}

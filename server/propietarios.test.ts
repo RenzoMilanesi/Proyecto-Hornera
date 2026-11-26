@@ -21,16 +21,26 @@ const llamar = async (base: string, metodo: string, ruta: string, cuerpo?: unkno
   return { status: r.status, body: await r.json() };
 };
 
-test('datos fiscales: propone lo del Excel, valida el CUIT y guarda', async () => {
+test('datos fiscales: lo del Excel se guarda solo al arrancar, valida el CUIT y guarda', async () => {
   const db = abrirDb(':memory:');
   db.exec(`INSERT INTO propietario(nombre, documento, cuit, categoria_fiscal) VALUES
     ('Pérez, Ana', 'DNI N°11.111.111 / otro', '20-11111111-2', 'RM'),
-    ('Gómez, Luis', 'DNI N°22.222.222', NULL, 'CF')`);
+    ('Gómez, Luis', 'DNI N°22.222.222', NULL, 'CF'),
+    ('Sin Categoría', 'DNI N°33.333.333', NULL, 'NI'),
+    ('Inscripto Con DNI', 'DNI N°44.444.444', NULL, 'RI'),
+    ('Ya Cargado', NULL, '20-11111111-2', 'RM')`);
+  db.exec(`UPDATE propietario SET fiscal_razon_social = 'CARGADO A MANO' WHERE id = 5`);
   await conApi(db, async (base) => {
+    // Con documento y condición se guardaron al arrancar la API, sin confirmar.
     const uno = (await llamar(base, 'GET', 'propietarios/1/fiscal')).body;
-    assert.deepEqual([uno.propuesto, uno.razon_social, uno.doc_tipo, uno.doc_nro, uno.condicion_iva], [true, 'Pérez, Ana', 80, '20111111112', 'monotributista']);
+    assert.deepEqual([uno.propuesto, uno.razon_social, uno.doc_tipo, uno.doc_nro, uno.condicion_iva], [false, 'Pérez, Ana', 80, '20111111112', 'monotributista']);
     const dos = (await llamar(base, 'GET', 'propietarios/2/fiscal')).body;
-    assert.deepEqual([dos.doc_tipo, dos.doc_nro, dos.condicion_iva], [96, '22222222', 'consumidor_final']);
+    assert.deepEqual([dos.propuesto, dos.doc_tipo, dos.doc_nro, dos.condicion_iva], [false, 96, '22222222', 'consumidor_final']);
+    // Sin condición, o una que no valida (inscripto con DNI), queda como propuesta; lo cargado a mano no se pisa.
+    assert.deepEqual([3, 4].map((id) => (db.prepare('SELECT fiscal_doc_tipo t FROM propietario WHERE id = ?').get(id) as { t: number | null }).t), [null, null]);
+    assert.equal((await llamar(base, 'GET', 'propietarios/3/fiscal')).body.propuesto, true);
+    assert.deepEqual({ ...db.prepare('SELECT fiscal_razon_social r, fiscal_doc_tipo t FROM propietario WHERE id = 5').get() }, { r: 'CARGADO A MANO', t: null });
+    db.exec(`DELETE FROM auditoria`);
 
     const datos = { razon_social: 'PEREZ ANA', doc_tipo: 80, doc_nro: '20-11111111-3', condicion_iva: 'monotributista', domicilio: 'Calle Falsa 123' };
     assert.match((await llamar(base, 'PUT', 'propietarios/1/fiscal', datos)).body.error, /CUIT no es válido/);

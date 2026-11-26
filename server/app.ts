@@ -25,7 +25,7 @@ import { borrarEmisor, cargarCertificado, crearEmisor, editarEmisor, listarEmiso
 import { ErrorArca } from './arca.ts';
 import { desvincular, importarMisComprobantes, listarMisComprobantes, vincular } from './misComprobantes.ts';
 import { aFacturar, datosComprobante, detalleComprobante, emitir, ErrorRevisar, facturaVigente, listarComprobantes, notaCredito, propuesta } from './facturacion.ts';
-import { datosDePago, datosFiscales, guardarDatosDePago, guardarDatosFiscales, padronDePropietario } from './propietarios.ts';
+import { datosDePago, datosFiscales, guardarDatosDePago, guardarDatosFiscales, guardarFiscalesDelExcel, padronDePropietario } from './propietarios.ts';
 import { rutasBackup, type Sistema } from './backup.ts';
 import { calcularAvisos } from './avisos.ts';
 import { agregar, borrar, editar, ficha, guardarNotas, vencimientos } from './ficha.ts';
@@ -109,6 +109,7 @@ function hostPermitido(host: string) {
 export function crearApp(db: DatabaseSync, version: string, opciones: { credenciales?: AlmacenCredenciales; urlStays?: string; pdf?: GeneradorPdf; fetchDolar?: Fetch; claves?: AlmacenClaves; fetchArca?: Fetch; desarrollo?: boolean; carpetaBackups?: string; sistema?: Sistema; claveIa?: AlmacenClaveIa; clienteIa?: ClienteIa } = {}) {
   const app = express();
   purgarAdjuntos(db);
+  guardarFiscalesDelExcel(db);  // lo que el Excel trae de los propietarios sin datos fiscales, sin pedir Guardar
   const { credenciales, urlStays = URL_STAYS, pdf, fetchDolar = fetch, claves, fetchArca, desarrollo = false, carpetaBackups, sistema, claveIa, clienteIa } = opciones;
   app.use((req, res, next) => {
     if (hostPermitido(req.headers.host ?? '')) return next();
@@ -156,6 +157,7 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     }
     try {
       const r = importarExcel(db, req.body);
+      guardarFiscalesDelExcel(db);
       const { avisos, ...resumen } = r;
       auditar(db, 'excel', null, 'importacion', null, { ...resumen, avisos: avisos.length });
       res.json(r);

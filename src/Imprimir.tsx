@@ -83,7 +83,7 @@ function Comprobante({ c }: { c: DatosComprobante }) {
         </div>
         <div className="cbte-seccion">
           <div><span className="etiqueta">{c.receptor.doc_tipo === 80 ? 'CUIT' : 'DNI'}:</span> {c.receptor.doc_nro} · <span className="etiqueta">Apellido y nombre / Razón social:</span> <b>{c.receptor.razon_social}</b></div>
-          <div><span className="etiqueta">Condición frente al IVA:</span> {CONDICION[c.receptor.condicion_iva]} · <span className="etiqueta">Domicilio:</span> {c.receptor.domicilio}</div>
+          <div><span className="etiqueta">Condición frente al IVA:</span> {CONDICION[c.receptor.condicion_iva]}{c.receptor.domicilio && <> · <span className="etiqueta">Domicilio:</span> {c.receptor.domicilio}</>}</div>
           {c.asociado && <div><span className="etiqueta">Comprobante asociado:</span> {c.asociado.tipo} {c.asociado.numero} del {fecha(c.asociado.fecha)}</div>}
         </div>
         <table>

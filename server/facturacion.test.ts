@@ -206,16 +206,21 @@ test('rechazo de ARCA: queda el intento rechazado, el pago intacto y el ticket d
   assert.equal(listarTransferencias(db, '2026-05')[0].pendiente, 0);
 });
 
-test('sin datos fiscales del propietario no se emite ni se guarda nada', async () => {
+test('sin datos fiscales del propietario no se emite ni se guarda nada; el domicilio es opcional', async () => {
   const { fetchArca, pedidos } = arcaFalso();
-  const db = await conApi(async (llamar) => {
-    const p = await pagar(llamar, 1000000);
-    const { body } = await llamar('PUT', 'propietarios/1/fiscal', { razon_social: 'PROPIETARIO UNO', doc_tipo: 80, doc_nro: '27222222228', condicion_iva: 'consumidor_final' });
-    assert.equal(body.error, undefined);
-    assert.match((await llamar('POST', `pagos/${p}/factura`, { emisor_id: 1, importe: 100000 })).body.error, /Faltan los datos fiscales de Propietario Uno/);
+  const db = await conApi(async (llamar, base) => {
+    const p = await pagar(llamar, 500000);
+    assert.equal((await llamar('PUT', 'propietarios/1/fiscal', { razon_social: 'PROPIETARIO UNO', doc_tipo: 80, doc_nro: '27222222228' })).status, 200);
+    assert.match((await llamar('POST', `pagos/${p}/factura`, { emisor_id: 1, importe: 50000 })).body.error,
+      /Faltan datos fiscales de Propietario Uno \(condición frente al IVA\)/);
+    assert.equal(pedidos.length, 0);
+    assert.equal(base.prepare('SELECT count(*) n FROM comprobante').get()!.n, 0);
+
+    // Sin domicilio se factura (no viaja a ARCA) y el receptor queda sin él.
+    await llamar('PUT', 'propietarios/1/fiscal', { razon_social: 'PROPIETARIO UNO', doc_tipo: 80, doc_nro: '27222222228', condicion_iva: 'consumidor_final' });
+    assert.equal((await llamar('POST', `pagos/${p}/factura`, { emisor_id: 1, importe: 50000 })).status, 200);
   }, fetchArca);
-  assert.equal(pedidos.length, 0);
-  assert.equal(db.prepare('SELECT count(*) n FROM comprobante').get()!.n, 0);
+  assert.equal(JSON.parse((db.prepare('SELECT receptor_json FROM comprobante').get() as any).receptor_json).domicilio, null);
 });
 
 test('CAE perdido: timeout al pedir el CAE y la numeración avanzó → no se pide otro sin revisar', async () => {

@@ -45,6 +45,26 @@ export function datosFiscales(db: DatabaseSync, id: number) {
     condicion_iva: DE_CATEGORIA[p.categoria_fiscal ?? ''] ?? null, domicilio: null };
 }
 
+/**
+ * Guarda lo que propone el Excel (CUIT o DNI y condición) en los propietarios que todavía no tienen nada guardado,
+ * sin pedir confirmación. Solo propuestas con documento y condición; una que no valida (p. ej. inscripto con DNI)
+ * queda como propuesta. Nunca pisa lo cargado a mano. Corre al arrancar y después de cada importación del Excel.
+ */
+export function guardarFiscalesDelExcel(db: DatabaseSync): number {
+  const ids = db.prepare(`SELECT id FROM propietario WHERE es_hornera = 0 AND fiscal_razon_social IS NULL AND fiscal_doc_tipo IS NULL
+      AND fiscal_condicion_iva IS NULL AND fiscal_domicilio IS NULL`).all() as { id: number }[];
+  let n = 0;
+  for (const { id } of ids) {
+    const p = datosFiscales(db, id);
+    if (!p.doc_tipo || !p.condicion_iva) continue;
+    try {
+      guardarDatosFiscales(db, id, p);
+      n++;
+    } catch { /* no valida: queda como propuesta para cargarlo a mano */ }
+  }
+  return n;
+}
+
 /** Se puede guardar incompleto (sin todo no se factura), pero lo que se carga tiene que ser válido. */
 export function guardarDatosFiscales(db: DatabaseSync, id: number, cuerpo: unknown) {
   const antes = leer(db, id);
