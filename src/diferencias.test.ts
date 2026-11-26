@@ -21,16 +21,6 @@ test('solo con diferencias: sin hoja primero, después el saldo de mayor a menor
   assert.deepEqual(soloConDiferencias(deptos, comparacion, 1000).map((d) => d.codigo), ['EEE', 'CCC', 'BBB', 'DDD']);
 });
 
-test('solo con diferencias: un posible pago directo sin revisar entra aunque dé igual al Excel', () => {
-  const deptos = [
-    { codigo: 'AAA', moneda: 'ARS' as const, pagoDirecto: { revisado: false } }, // igual, sin revisar: entra al final
-    { codigo: 'BBB', moneda: 'ARS' as const, pagoDirecto: { revisado: true } },  // igual y revisado: se oculta
-    { codigo: 'CCC', moneda: 'ARS' as const, pagoDirecto: null },
-  ];
-  const comparacion = new Map([c('AAA', 'igual', 0), c('BBB', 'igual', 0), c('CCC', 'distinto', 100)]);
-  assert.deepEqual(soloConDiferencias(deptos, comparacion, 1000).map((d) => d.codigo), ['CCC', 'AAA']);
-});
-
 test('dif. de saldo en pesos: los USD al cambio; sin comparación, null', () => {
   assert.equal(difSaldoEnPesos({ codigo: 'X', moneda: 'USD' }, c('X', 'distinto', -250)[1], 1200), -300_000);
   assert.equal(difSaldoEnPesos({ codigo: 'X', moneda: 'ARS' }, c('X', 'distinto', -250)[1], 1200), -250);

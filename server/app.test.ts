@@ -226,7 +226,7 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
   // ni lo importado de Mis Comprobantes (10 → 11) ni el origen de los gastos importados (11 → 12) ni la moneda de la liquidación (12 → 13)
   // ni la marca de saldado por fuera (16 → 17) ni los gastos ajenos (17 → 18) ni la ficha del depto (18 → 19) ni la limpieza (19 → 20)
   // ni las conversaciones del asistente (20 → 21) ni sus propuestas, los adjuntos y la marca "con IA" (22 → 23)
-  // ni el % de comisión estimada del medio de pago (23 → 24) ni el pago directo revisado (24 → 25).
+  // ni el % de comisión estimada del medio de pago (23 → 24).
   const actual = readFileSync(new URL('../schema.sql', import.meta.url), 'utf8');
   const v1 = actual
     .replace(/^\s*(-- Datos para facturarle|-- que vienen del Excel en texto libre|fiscal_).*\r?\n/gm, '')
@@ -253,7 +253,6 @@ test('una base del esquema 1 migrada queda igual que una base nueva', (t) => {
     .replace(/despues_json TEXT,\s*\r?\n\s*con_ia .*\r?\n/, 'despues_json TEXT\n')
     .replace(/^\s*comision_pct\s+REAL .*-- estimada.*\r?\n/m, '') // 23 → 24 (y rehace v_pago_liquidable)
     .replace(/CREATE VIEW v_pago_liquidable AS[\s\S]*?\) x;/, '')
-    .replace(/CREATE TABLE pago_directo_revisado \([^;]*;/, '') // 24 → 25
     .replace(/saldo_final_ars\s+INTEGER NOT NULL,\s*\r?\n\s*saldo_final_usd\s+INTEGER NOT NULL,/, 'saldo_final INTEGER NOT NULL,');
   assert.notEqual(v1, actual);
   const ruta = join(temporal(t), 'v1.db');
@@ -523,42 +522,6 @@ test('variables operativas del mes y del depto: validan, solo mes abierto y qued
   });
 });
 
-test('pago directo: qué plataformas por depto y la marca de revisado del mes, validadas y en la auditoría', () => {
-  const db = abrirDb(':memory:');
-  periodo(db, '2026-04', '2026-04-01', '2026-05-01');
-  periodo(db, '2026-05', '2026-05-01', '2026-06-01');
-  db.exec(`UPDATE periodo SET estado = 'cerrado' WHERE mes = '2026-04';
-    INSERT INTO propietario(nombre) VALUES ('Propietario Uno');
-    INSERT INTO depto(codigo, nombre, propietario_id) VALUES ('AAA', 'Depto A', 1);
-    INSERT INTO plataforma(nombre_stays, nombre, codigo, gestiona_pago) VALUES ('Canal Uno', 'Canal Uno', 'X', 1);`);
-  const canal = (db.prepare(`SELECT id FROM plataforma WHERE nombre = 'Canal Uno'`).get() as { id: number }).id;
-  return conApi(db, async (base) => {
-    const enviar = (ruta: string, cuerpo: unknown) => fetch(`${base}/api/${ruta}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
-    const auditorias = () => (db.prepare(`SELECT count(*) n FROM auditoria`).get() as { n: number }).n;
-
-    assert.ok((await (await fetch(`${base}/api/plataformas`)).json()).some((p: any) => p.id === canal));
-    for (const malo of [{}, { plataformas: 'x' }, { plataformas: [9999] }, { plataformas: [1.5] }, { plataformas: [null] }]) {
-      assert.equal((await enviar('deptos/1/pago-directo', malo)).status, 400, JSON.stringify(malo));
-    }
-    assert.equal((await enviar('deptos/99/pago-directo', { plataformas: [] })).status, 400);
-    assert.equal((await enviar('deptos/1/pago-directo', { plataformas: [canal, canal] })).status, 200);
-    assert.equal((await enviar('deptos/1/pago-directo', { plataformas: [canal] })).status, 200); // igual: no audita
-    assert.deepEqual((await (await fetch(`${base}/api/deptos`)).json())[0].pago_directo, [canal]);
-    assert.equal(auditorias(), 1);
-
-    for (const malo of [{}, { revisado: 'si' }, { revisado: 1 }]) assert.equal((await enviar('liquidacion/2026-05/pago-directo/1', malo)).status, 400);
-    assert.match((await (await enviar('liquidacion/2026-04/pago-directo/1', { revisado: true })).json()).error, /cerrado/);
-    assert.equal((await enviar('liquidacion/2030-01/pago-directo/1', { revisado: true })).status, 400);
-    assert.equal((await enviar('liquidacion/2026-05/pago-directo/99', { revisado: true })).status, 400);
-    assert.equal((await enviar('liquidacion/2026-05/pago-directo/1', { revisado: true })).status, 200);
-    assert.equal((await enviar('liquidacion/2026-05/pago-directo/1', { revisado: true })).status, 200); // ya estaba: no audita
-    assert.equal((db.prepare(`SELECT count(*) n FROM pago_directo_revisado`).get() as { n: number }).n, 1);
-    assert.equal((await enviar('liquidacion/2026-05/pago-directo/1', { revisado: false })).status, 200);
-    assert.equal((db.prepare(`SELECT count(*) n FROM pago_directo_revisado`).get() as { n: number }).n, 0);
-    assert.equal(auditorias(), 3);
-  });
-});
-
 test('cotización: "Pedir a la API" pisa la manual; API caída da 502', () => {
   const db = abrirDb(':memory:');
   periodo(db, '2026-05', '2026-05-01', '2026-06-01');
@@ -644,8 +607,7 @@ test('migración 21 → 22: los sellos pasan a ISO con offset y los UTC a hora l
     .replace(/CREATE TABLE (propuesta_ia|adjunto) \([^;]*;|CREATE INDEX ix_(propuesta_ia|adjunto)_[^;]*;/g, '')
     .replace(/despues_json TEXT,\s*\r?\n\s*con_ia .*\r?\n/, 'despues_json TEXT\n')
     .replace(/^\s*comision_pct\s+REAL .*-- estimada.*\r?\n/m, '')
-    .replace(/CREATE VIEW v_pago_liquidable AS[\s\S]*?\) x;/, '')
-    .replace(/CREATE TABLE pago_directo_revisado \([^;]*;/, ''));
+    .replace(/CREATE VIEW v_pago_liquidable AS[\s\S]*?\) x;/, ''));
   vieja.exec(`
     INSERT INTO periodo(mes, fecha_inicio, fecha_cierre_reservas, fecha_corte_gastos, fecha_pago, costo_hora_limpieza, servicio_limpieza,
       servicio_lavanderia, prestamo_blanqueria, gestion_operativa, mantenimiento, tarifa_base, adicional_huesped, cargo_tramo_1, cargo_tramo_2, cm_fee_usd)

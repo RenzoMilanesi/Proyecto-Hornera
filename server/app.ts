@@ -312,31 +312,6 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
     if (!d) throw new Error('No existe el depto');
     return actualizar(db, 'depto', d, validar(VARIABLES_DEPTO, req.body));
   }));
-  // Plataformas que pueden pagarle directo al propietario de este depto (co-host Airbnb).
-  app.get('/api/plataformas', (_req, res) => { res.json(db.prepare('SELECT id, nombre FROM plataforma WHERE activo = 1 ORDER BY nombre').all()); });
-  app.put('/api/deptos/:id/pago-directo', (req, res) => intentar(res, () => {
-    const id = Number(req.params.id);
-    if (!db.prepare('SELECT 1 FROM depto WHERE id = ?').get(id)) throw new Error('No existe el depto');
-    const nuevas = req.body?.plataformas;
-    const existe = db.prepare('SELECT 1 FROM plataforma WHERE id = ?');
-    if (!Array.isArray(nuevas) || !nuevas.every((p) => Number.isInteger(p) && existe.get(p))) throw new Error('Plataformas inválidas.');
-    const antes = (db.prepare('SELECT plataforma_id FROM depto_pago_directo WHERE depto_id = ? ORDER BY plataforma_id').all(id) as { plataforma_id: number }[])
-      .map((x) => x.plataforma_id);
-    const despues = [...new Set(nuevas as number[])].sort((a, b) => a - b);
-    if (antes.join() === despues.join()) return { plataformas: despues };
-    db.exec('BEGIN');
-    try {
-      db.prepare('DELETE FROM depto_pago_directo WHERE depto_id = ?').run(id);
-      const alta = db.prepare('INSERT INTO depto_pago_directo(depto_id, plataforma_id) VALUES (?, ?)');
-      for (const p of despues) alta.run(id, p);
-      auditar(db, 'depto_pago_directo', id, 'modificacion', { plataformas: antes }, { plataformas: despues });
-      db.exec('COMMIT');
-    } catch (e) {
-      db.exec('ROLLBACK');
-      throw e;
-    }
-    return { plataformas: despues };
-  }));
 
   // ---- Ficha del depto y vencimientos (plan 049)
   app.get('/api/deptos/:id/ficha', (req, res) => intentar(res, () => ficha(db, Number(req.params.id))));
@@ -348,21 +323,6 @@ export function crearApp(db: DatabaseSync, version: string, opciones: { credenci
   app.get('/api/avisos', (req, res) => intentar(res, () => calcularAvisos(db, { pc: pcActual.getStore() ?? nombrePc(db), local: esLocal(req), desarrollo })));
 
   app.get('/api/liquidacion', (req, res) => intentar(res, () => liquidacionDelMes(db, String(req.query.mes ?? ''))));
-  // Marca de pago directo revisado (o la saca), en un mes abierto.
-  app.put('/api/liquidacion/:mes/pago-directo/:depto', (req, res) => intentar(res, () => {
-    const p = db.prepare('SELECT id, estado FROM periodo WHERE mes = ?').get(req.params.mes) as { id: number; estado: string } | undefined;
-    if (!p) throw new Error('No existe el período');
-    if (p.estado !== 'abierto') throw new Error('El período está cerrado');
-    const depto = Number(req.params.depto);
-    if (!db.prepare('SELECT 1 FROM depto WHERE id = ?').get(depto)) throw new Error('No existe el depto');
-    const revisado = req.body?.revisado;
-    if (typeof revisado !== 'boolean') throw new Error('Falta indicar si está revisado.');
-    const cambio = revisado
-      ? db.prepare('INSERT OR IGNORE INTO pago_directo_revisado(periodo_id, depto_id, revisado_en) VALUES (?, ?, ?)').run(p.id, depto, sello())
-      : db.prepare('DELETE FROM pago_directo_revisado WHERE periodo_id = ? AND depto_id = ?').run(p.id, depto);
-    if (cambio.changes) auditar(db, 'pago_directo_revisado', depto, 'modificacion', { mes: req.params.mes, revisado: !revisado }, { mes: req.params.mes, revisado });
-    return { revisado };
-  }));
 
   app.get('/api/auditoria', (req, res) => intentar(res, () => listarAuditoria(db, String(req.query.mes ?? ''))));
 

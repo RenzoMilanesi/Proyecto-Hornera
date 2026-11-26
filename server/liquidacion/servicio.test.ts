@@ -126,38 +126,3 @@ test('avisa si el saldo se arrastra desde un mes que no es el anterior', () => {
   periodo(db, '2026-12', '2026-12-01', '2027-01-01', 'cerrado', 1000);
   assert.ok(!liquidarPeriodo(db, '2027-01').avisos.some((a) => a.startsWith('Se arrastra')));
 });
-
-test('pago directo: avisa en las reservas que llegan en el mes de un depto + plataforma marcados, hasta revisarlo', () => {
-  const db = abrirDb(':memory:');
-  const mayo = periodo(db, '2026-05', '2026-05-01', '2026-06-01', 'abierto', 1000).id;
-  db.exec(`
-    INSERT INTO propietario(nombre) VALUES ('Propietario Uno');
-    INSERT INTO depto(codigo, nombre, propietario_id) VALUES ('AAA', 'Depto A', 1), ('BBB', 'Depto B', 1);
-    INSERT INTO plataforma(nombre_stays, nombre, codigo, gestiona_pago) VALUES ('Canal Uno', 'Canal Uno', 'X', 1), ('Canal Dos', 'Canal Dos', 'Y', 1);
-    INSERT INTO reserva(codigo, depto_id, plataforma_id, llegada, salida, huespedes, moneda, precio_compra, raw_json, sincronizada_en) VALUES
-      ('R1', 1, (SELECT id FROM plataforma WHERE nombre = 'Canal Uno'), '2026-05-10', '2026-05-15', 2, 'USD', 44866, '{}', 'x'),
-      ('R2', 1, (SELECT id FROM plataforma WHERE nombre = 'Canal Uno'), '2026-04-28', '2026-05-03', 2, 'USD', 10000, '{}', 'x'),
-      ('R5', 1, (SELECT id FROM plataforma WHERE nombre = 'Canal Uno'), '2026-04-30', '2026-05-04', 2, 'USD', 20000, '{}', 'x'),
-      ('R6', 1, (SELECT id FROM plataforma WHERE nombre = 'Canal Uno'), '2026-05-31', '2026-06-03', 2, 'USD', 30000, '{}', 'x'),
-      ('R3', 1, (SELECT id FROM plataforma WHERE nombre = 'Canal Dos'), '2026-05-20', '2026-05-22', 2, 'ARS', 900000, '{}', 'x'),
-      ('R4', 2, (SELECT id FROM plataforma WHERE nombre = 'Canal Uno'), '2026-05-20', '2026-05-22', 2, 'USD', 5000, '{}', 'x');
-    INSERT INTO depto_pago_directo(depto_id, plataforma_id) SELECT 1, id FROM plataforma WHERE nombre = 'Canal Uno';`);
-
-  const l = liquidarPeriodo(db, '2026-05');
-  const [a, b] = l.deptos;
-  // La plataforma paga al día siguiente de la llegada, entera: R5 (llega el 30/04) cobra el 1/05 y va en mayo;
-  // R2 cobró en abril y R6 (31/05) cobra en junio. R3 es de otra plataforma y BBB no está marcado.
-  assert.deepEqual(a.pagoDirecto, { reservas: ['R5', 'R1'], sugerido: { ars: 0, usd: 64866 }, revisado: false });
-  assert.equal(b.pagoDirecto, null);
-  assert.ok(l.avisos.some((x) => /pago directo.*sin revisar: AAA\./.test(x)));
-  // Solo avisa: no descuenta nada de lo cobrado (cambia solo la columna informativa "Pago x plataforma" del PDF).
-  db.exec(`DELETE FROM depto_pago_directo`);
-  const sin = liquidarPeriodo(db, '2026-05').deptos[0].resultado;
-  assert.deepEqual([sin.ingresos, sin.saldo], [a.resultado.ingresos, a.resultado.saldo]);
-  db.exec(`INSERT INTO depto_pago_directo(depto_id, plataforma_id) SELECT 1, id FROM plataforma WHERE nombre = 'Canal Uno'`);
-
-  db.prepare(`INSERT INTO pago_directo_revisado(periodo_id, depto_id, revisado_en) VALUES (?, 1, 'x')`).run(mayo);
-  const revisado = liquidarPeriodo(db, '2026-05');
-  assert.equal(revisado.deptos[0].pagoDirecto?.revisado, true);
-  assert.ok(!revisado.avisos.some((x) => /pago directo/.test(x)));
-});

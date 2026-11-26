@@ -28,13 +28,9 @@ export interface LiquidacionDepto {
     // Lo que pagó el huésped según Stays ("Total de factura de hospedaje"), en la moneda de la reserva.
     moneda: 'ARS' | 'USD'; total_factura: number | null;
   }[];
-  // Reservas que llegan en el período de un depto + plataforma que puede pagarle directo al propietario
-  // (Deptos → Variables). Stays no lo informa: se avisa hasta que alguien lo revisa. `sugerido`: el precio de
-  // compra de Stays, entero en el mes en que la plataforma paga (llegada + 1 día). null si no hay o si el mes está cerrado.
-  pagoDirecto: { reservas: string[]; sugerido: Importe; revisado: boolean } | null;
   resultado: ResultadoLiquidacion;
   cuenta: CuentaLiquidacion;
-  redondeo: number;                          // saldo − (valor final + saldo anterior), ±$ 1; 0 si liquida en USD
+  redondeo: number;                           // saldo − (valor final + saldo anterior), ±$ 1; 0 si liquida en USD
 }
 
 export interface LiquidacionPeriodo {
@@ -111,8 +107,6 @@ export function liquidarPeriodo(db: DatabaseSync, mes: string): LiquidacionPerio
   const nochesBloqueadas = db.prepare(`
     SELECT COALESCE(SUM(MAX(0, julianday(MIN(hasta, :cierre)) - julianday(MAX(desde, :inicio)))), 0) AS n
     FROM bloqueo WHERE depto_id = :depto AND estado = 'vigente'`);
-  const revisados = new Set((db.prepare('SELECT depto_id FROM pago_directo_revisado WHERE periodo_id = ?').all(p.id) as { depto_id: number }[])
-    .map((x) => x.depto_id));
 
   const resultado: LiquidacionDepto[] = [];
   for (const d of deptos) {
@@ -131,14 +125,6 @@ export function liquidarPeriodo(db: DatabaseSync, mes: string): LiquidacionPerio
     const comisionDe = (x: any): Importe => (x.llegada >= p.fecha_inicio && x.llegada < p.fecha_cierre_reservas
       ? { ars: x.ajuste_comision_ars, usd: x.ajuste_comision_usd } : CERO);
     const comisiones = reservas.reduce((s, x) => sumar(s, comisionDe(x)), { ars: 0, usd: fee });
-    // La plataforma paga al día siguiente de la llegada (Airbnb): una que llega el último día va al mes siguiente.
-    const diaDePago = (llegada: string) => new Date(Date.parse(`${llegada}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
-    const directas = reservas.filter((x) => x.pago_directo && diaDePago(x.llegada) >= p.fecha_inicio && diaDePago(x.llegada) < p.fecha_cierre_reservas);
-    const pagoDirecto = directas.length === 0 ? null : {
-      reservas: directas.map((x) => x.codigo as string),
-      sugerido: directas.reduce((s, x) => sumar(s, x.moneda === 'USD' ? { ars: 0, usd: x.precio_compra ?? 0 } : { ars: x.precio_compra ?? 0, usd: 0 }), CERO),
-      revisado: revisados.has(d.id),
-    };
     const nochesNoDisponibles = Math.round((nochesBloqueadas.get({ depto: d.id, inicio: p.fecha_inicio, cierre: p.fecha_cierre_reservas }) as { n: number }).n);
 
     const r = liquidar({
@@ -171,13 +157,9 @@ export function liquidarPeriodo(db: DatabaseSync, mes: string): LiquidacionPerio
         comision_medio_ars: x.comision_medio_ars, comision_medio_usd: x.comision_medio_usd, comision_estimada: x.comision_estimada,
         moneda: x.moneda, total_factura: x.total_factura,
       })),
-      pagoDirecto, resultado: r, cuenta,
+      resultado: r, cuenta,
       redondeo: d.moneda_liquidacion === 'ARS' ? redondeoCuenta(cuenta, saldoAnterior, r.saldo.ars, cambio) : 0,
     });
-  }
-  const sinRevisar = resultado.filter((d) => d.pagoDirecto && !d.pagoDirecto.revisado).map((d) => d.codigo);
-  if (sinRevisar.length) {
-    avisos.push(`Posible pago directo de la plataforma al propietario, sin revisar: ${sinRevisar.join(', ')}. Abrí el depto para ver las reservas.`);
   }
   return { ...base, cambio, avisos, deptos: resultado };
 }
@@ -236,7 +218,6 @@ export function liquidacionGuardada(db: DatabaseSync, mes: string): LiquidacionP
         observacion: x.observacion, comision_medio_ars: 0, comision_medio_usd: 0, comision_estimada: 0,
         moneda: x.moneda, total_factura: x.total_factura,
       })),
-      pagoDirecto: null, // ponytail: el mes cerrado ya se liquidó; la marca solo sirve mientras está abierto
       resultado, cuenta,
       redondeo: l.moneda === 'ARS' ? redondeoCuenta(cuenta, saldoAnterior, l.saldo_final_ars, l.cambio) : 0,
     };

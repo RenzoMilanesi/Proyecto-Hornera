@@ -122,11 +122,7 @@ en la LAN (fase 5d), que sigue a testear.
    Esquema 24. El saldo de las cuentas no cambia (sigue con la comisión de Stays).
    v0.56.1: las reservas del detalle del depto muestran también "Precio (Stays)" (total de factura de hospedaje) y
    "Descuento" (precio − cobrado: plataforma, medio de pago y ajustes), prorrateados por noches; sin descuento si se cobró en otra moneda.
-   v0.57.0: posible pago directo de la plataforma al propietario (co-host Airbnb; ej. octubre: PH01J y QK02J en ALV, PJ02J en GUE,
-   PI04J, PM01J y QD03J en R64). En Deptos → Variables se eligen las plataformas que le pueden pagar directo; Liquidación avisa
-   (etiqueta en el depto y en sus reservas, aviso del mes, entra en "Solo con diferencias") con el precio de compra de Stays como
-   referencia, entero en el mes en que la plataforma paga (llegada + 1 día), hasta marcarlo "Revisado". No descuenta solo: el monto
-   real se carga como movimiento "Cobro directo por plataforma".
+   v0.57.0 avisaba el posible pago directo de la plataforma al propietario; se revirtió en v0.57.1: el punto quedó de lado (2026-11-26).
 3. **Auditoría por usuario** — **A testear** (v0.31.0; definida con grill-me el 2026-10-21; pulido en planes 043 y 044): registrar los movimientos que hace cada usuario, sobre todo los de dinero.
    - Usuario = la PC: solo Lautaro y Amancay, una PC cada uno (servidor y terminal). Sin login ni PIN.
    - Terminales → "Nombre de esta PC" en el servidor (se guarda en `configuracion`); reemplaza al nombre de Windows en la auditoría.

@@ -377,15 +377,9 @@ LEFT JOIN (SELECT cuenta_id, MIN(fecha) AS desde FROM movimiento
        AND NOT (lower(COALESCE(p.descripcion, '')) LIKE 'res. fee%'
              OR lower(COALESCE(p.descripcion, '')) LIKE '%res. security deposit%')
    ) x;`,
-  // 24 → 25: marca de pago directo revisado por depto y mes (Liquidación).
-  `CREATE TABLE pago_directo_revisado (
-       periodo_id       INTEGER NOT NULL,
-       depto_id         INTEGER NOT NULL,
-       revisado_en      TEXT    NOT NULL,
-       CONSTRAINT pk_pago_directo_revisado PRIMARY KEY (periodo_id, depto_id),
-       CONSTRAINT fk_pdr_periodo FOREIGN KEY (periodo_id) REFERENCES periodo(id) ON DELETE CASCADE ON UPDATE CASCADE,
-       CONSTRAINT fk_pdr_depto FOREIGN KEY (depto_id) REFERENCES depto(id) ON DELETE CASCADE ON UPDATE CASCADE
-   ) STRICT, WITHOUT ROWID;`,
+  // 24 → 25: v0.57.0 creó pago_directo_revisado y se revirtió; el número queda ocupado para que una base que llegó a
+  // esa versión no se saltee las migraciones que siguen.
+  `DROP TABLE IF EXISTS pago_directo_revisado;`,
 ];
 export const VERSION_ESQUEMA = MIGRACIONES.length + 1;
 

@@ -49,7 +49,6 @@ const TIPOS: Record<string, string> = {
   gasto_ajeno: 'Gasto personal', liquidacion: 'Saldado por fuera', terminal: 'Terminal', depto_clave: 'Clave del depto',
   depto_servicio: 'Servicio del depto', depto_contacto: 'Contacto del depto', liquidacion_limpieza: 'Limpieza',
   tarea_limpieza: 'Horas de limpieza', configuracion: 'Configuración',
-  depto_pago_directo: 'Pago directo del depto', pago_directo_revisado: 'Pago directo revisado',
 };
 const ACCIONES: Record<Accion, string> = {
   alta: 'Alta', modificacion: 'Modificación', anulacion: 'Anulación', cierre: 'Cierre', reapertura: 'Reapertura', importacion: 'Importación',
@@ -64,7 +63,7 @@ const CAMPOS: Record<string, string> = {
   eliminadas: 'Borradas', medios: 'Medios de pago', comision_cobro_usd_pct: 'Comisión de cobro', moneda_liquidacion: 'Liquida en',
   cbu: 'CBU/CVU', mails: 'Mails', saldado_fuera: 'Saldado el', direccion: 'Dirección', razon_social: 'Razón social', doc_nro: 'Documento', condicion_iva: 'Condición IVA',
   precio_hora: 'Precio por hora', plus_json: 'Plus', 'limpieza.plus': 'Reglas del plus', ajuste_nota: 'Nota del ajuste',
-  movimiento_id: 'Pago', plataformas: 'Plataformas', revisado: 'Revisado', porOperaria: 'Por chica', operaria: 'Chica', adjunto_id: 'Comprobante n.º',
+  movimiento_id: 'Pago', porOperaria: 'Por chica', operaria: 'Chica', adjunto_id: 'Comprobante n.º',
 };
 // En altas e importaciones no se muestra el mes (ya está en el filtro de la pantalla).
 const SIN_MOSTRAR = new Set(['mes', 'periodo_id']);

@@ -1,13 +1,13 @@
 // Deptos: buscador, filtro por estado y tabla con fotos (vienen de Stays, "traer mes").
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Col, Drawer, Form, Image, Input, InputNumber, Modal, Row, Segmented, Select, Space, Table, Tag, Typography, theme } from 'antd';
+import { Alert, Button, Col, Drawer, Form, Image, Input, InputNumber, Modal, Row, Segmented, Space, Table, Tag, Typography, theme } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { entradaPlata, enviar, get, pesos, useUnaVez } from './api.ts';
 import { Historial } from './Historial.tsx';
 import { Ficha } from './Ficha.tsx';
 
 interface Depto { id: number; codigo: string; nombre: string; direccion: string | null; estado: string; comision_pct: number; propietario: string; fotos: string[];
-  tarifa_base_override: number | null; adicional_huesped_override: number | null; cm_fee_usd_override: number | null; pago_directo: number[] }
+  tarifa_base_override: number | null; adicional_huesped_override: number | null; cm_fee_usd_override: number | null }
 
 // Orden de la tabla y del filtro: lo operativo primero.
 const estados: Record<string, { label: string; color: string }> = {
@@ -107,13 +107,10 @@ const OVERRIDES = ['tarifa_base_override', 'adicional_huesped_override', 'cm_fee
 function VariablesDepto({ depto, alCerrar }: { depto?: Depto; alCerrar: (guardado: boolean) => void }) {
   const [form] = Form.useForm();
   const [error, setError] = useState<string>();
-  const [plataformas, setPlataformas] = useState<{ id: number; nombre: string }[]>([]);
   useEffect(() => {
     if (!depto) return;
     setError(undefined);
-    get<{ id: number; nombre: string }[]>('plataformas').then(setPlataformas, (e) => setError(String(e)));
     form.setFieldsValue({
-      pago_directo: depto.pago_directo,
       comision_pct: Math.round(depto.comision_pct * 10000) / 100,
       ...Object.fromEntries(OVERRIDES.map((c) => [c, depto[c] == null ? null : depto[c]! / 100])),
     });
@@ -126,7 +123,6 @@ function VariablesDepto({ depto, alCerrar }: { depto?: Depto; alCerrar: (guardad
         comision_pct: v.comision_pct / 100,
         ...Object.fromEntries(OVERRIDES.map((c) => [c, v[c] == null ? null : Math.round(v[c] * 100)])),
       });
-      await enviar(`deptos/${depto!.id}/pago-directo`, 'PUT', { plataformas: v.pago_directo ?? [] });
       alCerrar(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -166,13 +162,6 @@ function VariablesDepto({ depto, alCerrar }: { depto?: Depto; alCerrar: (guardad
           <Col span={12}>{tarifa('adicional_huesped_override', 'Por cada par de huéspedes extra')}</Col>
           <Col span={12}>{tarifa('cm_fee_usd_override', 'Channel manager por mes', 'US$')}</Col>
         </Row>
-        <Typography.Text strong>Pago directo</Typography.Text>
-        <Typography.Paragraph type="secondary" style={{ margin: '0 0 8px' }}>
-          Plataformas que a veces le pagan directo al propietario (co-host). Stays no lo informa: Liquidación avisa en sus reservas hasta marcarlo revisado.
-        </Typography.Paragraph>
-        <Form.Item name="pago_directo" label="Le pueden pagar directo">
-          <Select mode="multiple" allowClear placeholder="Ninguna" options={plataformas.map((p) => ({ value: p.id, label: p.nombre }))} />
-        </Form.Item>
       </Form>
       {error && <Alert type="error" showIcon title={error} />}
     </Modal>
