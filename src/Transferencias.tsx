@@ -283,9 +283,9 @@ export function FormLoteFacturas({ mes, alCerrar }: { mes?: string; alCerrar: (c
     { title: 'Resultado', key: 'r', width: 200, render: (_: unknown, f) => f.resultado && <Typography.Text type={f.resultado.ok ? 'success' : 'danger'} style={{ width: 200 }} ellipsis={{ tooltip: f.resultado.texto }}>{f.resultado.texto}</Typography.Text> },
   ];
   return (
-    <Modal open={!!mes} title={mes && `Facturar los pagos de ${mes}`} width={1040} destroyOnHidden closable={!emitiendo} maskClosable={false}
+    <Modal open={!!mes} title={mes && `Facturar los pagos de ${mes}`} width={1040} destroyOnHidden closable={!emitiendo} keyboard={!emitiendo} maskClosable={false}
       okText={emitido && !marcadas.length ? 'Cerrar' : `Emitir ${marcadas.length} ${marcadas.length === 1 ? 'factura' : 'facturas'}`} cancelText="Cancelar"
-      onOk={emitido && !marcadas.length ? () => alCerrar(true) : emitir} onCancel={() => alCerrar(emitido)} confirmLoading={emitiendo}
+      onOk={emitido && !marcadas.length ? () => alCerrar(true) : emitir} onCancel={() => { if (!emitiendo) alCerrar(emitido); }} confirmLoading={emitiendo}
       okButtonProps={{ disabled: !emitido && !marcadas.length }} cancelButtonProps={{ disabled: emitiendo }}>
       <dl className="ficha">
         <dt>Mes</dt><dd><b>{mes}</b></dd>
