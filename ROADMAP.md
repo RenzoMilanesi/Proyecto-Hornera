@@ -151,6 +151,7 @@ en la LAN (fase 5d), que sigue a testear.
    v0.60.0: los datos fiscales del Excel se guardan solos (sin "Guardar"); el domicilio es opcional; el aviso dice qué dato falta.
 7. **Mails a los propietarios** — **A testear** con la cuenta de Gmail real ([plan 084](plans/084-envio-mails.md)): Transferencias → "Enviar por mail" manda en lote, por Gmail,
    la liquidación y la factura de cada propietario. v0.61.0: tabla `envio_mail` (esquema 27). v0.61.1: rutas `/api/mails/*` y envío por Gmail (nodemailer).
+   v0.61.3: plan 085 (la ventana de la cuenta ya no se reabre sola; mails del Excel separados y validados; letra real de la factura en el adjunto; el límite diario de Gmail corta el lote).
    v0.61.2: botón y ventanas en Transferencias (lote, cuenta de Gmail y texto del mail); guía en `GUIA-PRUEBAS.md` §9 y manual §8.
 
 ## Checklist de prueba (próxima sesión)

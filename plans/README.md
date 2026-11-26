@@ -89,7 +89,7 @@ sobre el commit `7ca8b0e` + el scaffold de la fase 2 todavía sin commitear.
 | 082 | [Facturar en lote los pagos del mes que no tienen factura](082-facturacion-masiva.md) | P2 | M | 031, 033, 036 | A TESTEAR (v0.59.1) |
 | 083 | [Esc no cierra el lote de facturas mientras emite](083-lote-facturas-esc.md) | P2 | S | 082 | HECHO (v0.59.2) |
 | 084 | [Mandar por mail, en lote, la liquidación y la factura de cada propietario](084-envio-mails.md) | P2 | M | 082 | A TESTEAR (v0.61.2) |
-| 085 | [Ajustes del envío de mails (ventana de la cuenta en bucle, mails del Excel, letra, límite de Gmail)](085-mails-ajustes.md) | P1 | S | 084 | PENDIENTE |
+| 085 | [Ajustes del envío de mails (ventana de la cuenta en bucle, mails del Excel, letra, límite de Gmail)](085-mails-ajustes.md) | P1 | S | 084 | HECHO (v0.61.3) |
 
 Planes 062–065: revisión `improve deep` de los pasos 0–4 del plan 061 (`fba59f6`, 2026-10-23), a hacer antes del paso 5. Descartado: `dbstat` (solo tamaños de páginas, no datos), `sqlite_dbpage` (no está compilado), `pragma_table_info` y `load_extension` (bloqueados por el authorizer, probado); claves de deptos guardadas en `conversacion_ia` (ya están en la misma base, en `depto_clave`); el esquema de `consulta_sql` se arma en cada pregunta (unas 60 consultas a `sqlite_master`, despreciable); tercera copia del patrón `safeStorage` en `electron/main.ts` (no vale abstraerlo).
 

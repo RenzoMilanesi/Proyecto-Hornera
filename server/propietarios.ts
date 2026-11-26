@@ -138,7 +138,7 @@ const bloqueCbu = (b: string, pesos: number[]) =>
 export const esCbu = (v: string) => /^\d{22}$/.test(v)
   && bloqueCbu(v.slice(0, 8), [7, 1, 3, 9, 7, 1, 3]) && bloqueCbu(v.slice(8), [3, 9, 7, 1, 3, 9, 7, 1, 3, 9, 7, 1, 3]);
 const esAlias = (v: string) => /^[a-z0-9.-]{6,20}$/i.test(v) && !/^\d+$/.test(v);
-const esMail = (v: string) => /^[^\s@;]+@[^\s@;]+\.[^\s@;]+$/.test(v);
+export const esMail = (v: string) => /^[^\s@;]+@[^\s@;]+\.[^\s@;]+$/.test(v);
 
 export function datosDePago(db: DatabaseSync, id: number) {
   const p = db.prepare('SELECT cbu, es_hornera, mails, moneda_liquidacion, comision_cobro_usd_pct FROM propietario WHERE id = ?').get(id);

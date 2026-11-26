@@ -389,11 +389,12 @@ export function FormLoteMails({ mes, alCerrar }: { mes?: string; alCerrar: () =>
   const [editarCuenta, setEditarCuenta] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string>();
-  const cargarCuenta = () => get<CuentaMail>('mails/cuenta').then((c) => { setCuenta(c.usuario); if (!c.usuario) setEditarCuenta(true); }, (e) => setError(String(e)));
+  const cargarCuenta = () => get<CuentaMail>('mails/cuenta').then((c) => { setCuenta(c.usuario); return c.usuario; }, (e) => { setError(String(e)); return null; });
   useEffect(() => {
     if (!mes) return;
     setError(undefined); setFilas(undefined); setCuenta(undefined);
-    cargarCuenta();
+    // Sin cuenta, la ventana de la cuenta se abre sola al entrar, una vez: cancelada, queda el lote sin poder enviar.
+    cargarCuenta().then((u) => { if (!u) setEditarCuenta(true); });
     get<AEnviar>(`mails/a-enviar?mes=${mes}`).then((l) => {
       setFilas(l.incluidos.map((x) => ({ ...x, marcada: !x.enviado })));
       setExcluidos(l.excluidos);

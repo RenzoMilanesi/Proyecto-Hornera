@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
 import { abrirDb } from './db.ts';
 import { crearApp } from './app.ts';
-import type { CuentaMail, Mensaje } from './mails.ts';
+import { aEnviar, errorDeGmail, listaDeMails, nombreFactura, type CuentaMail, type Mensaje } from './mails.ts';
 
 // Mayo cerrado. Uno: AAA (pagado y facturado en producción) y BBB. Dos: CCC (factura solo de prueba). Tres: DDD sin mail.
 // HHH es de Hornera.
@@ -160,4 +160,23 @@ test('cuenta: valida mail y contraseña de aplicación, no la devuelve nunca y "
   }, { cuenta: null });
   assert.deepEqual(cuenta(), { usuario: 'oficina@ejemplo.com', clave: 'abcdefghijklmnop' });
   assert.deepEqual(enviados[0].to, ['oficina@ejemplo.com']);
+});
+
+test('mails del Excel en texto libre: se separan por coma o espacio; uno mal escrito deja al propietario afuera (plan 085)', () => {
+  const db = base();
+  db.exec(`UPDATE propietario SET mails = 'luis@ejemplo.com, otro@ejemplo.com' WHERE id = 2;
+    UPDATE propietario SET mails = 'ana@ejemplo / ana2@ejemplo.com' WHERE id = 1`);
+  const { incluidos, excluidos } = aEnviar(db, '2026-05');
+  assert.deepEqual(incluidos.map((i) => [i.propietario, i.mails]), [['Gómez, Luis', 'luis@ejemplo.com; otro@ejemplo.com']]);
+  assert.deepEqual(excluidos.map((e) => [e.propietario, e.motivo.split(':')[0]]), [['Pérez, Ana', 'Mail inválido ("ana@ejemplo")'], ['Sin Mail', 'Sin mail']]);
+  assert.deepEqual(listaDeMails(' a@x.com;b@y.com  c@z.com '), { validos: ['a@x.com', 'b@y.com', 'c@z.com'], invalidos: [] });
+});
+
+test('adjunto con la letra de la factura y el límite diario de Gmail corta el lote (plan 085)', () => {
+  assert.equal(nombreFactura({ cbte_tipo: 6, punto_venta: 3, numero: 12 }), 'Factura B 0003-00000012.pdf');
+  assert.equal(nombreFactura({ cbte_tipo: 1, punto_venta: 12, numero: 1 }), 'Factura A 0012-00000001.pdf');
+  const limite = Object.assign(new Error('550 5.4.5 Daily user sending limit exceeded'), { code: 'EMESSAGE', responseCode: 550 });
+  assert.deepEqual([errorDeGmail(limite).corta, /límite de la cuenta/.test(errorDeGmail(limite).mensaje)], [true, true]);
+  assert.equal(errorDeGmail(Object.assign(new Error('421 4.7.0 Try again later'), { responseCode: 421 })).corta, true);
+  assert.equal(errorDeGmail(Object.assign(new Error('550 5.1.1 no existe'), { code: 'EENVELOPE', responseCode: 550 })).corta, false);
 });
