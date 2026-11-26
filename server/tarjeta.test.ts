@@ -102,6 +102,24 @@ test('cruce: cada consumo en pesos va solo al gasto del mismo importe (±$1) que
   assert.equal((db.prepare('SELECT count(*) n FROM consumo_tarjeta').get() as { n: number }).n, 5);
 });
 
+test('cruce: con importes repetidos (en consumos o en gastos) no adivina, queda pendiente; el par único se vincula', () => {
+  const db = base();
+  gasto(db, 700000, 'OVL', '2026-10-07');               // dos consumos de $7.000 y dos gastos de $7.000
+  gasto(db, 700000, null, '2026-10-07');
+  gasto(db, 500000);                                    // un consumo de $5.000 y dos gastos de $5.000
+  gasto(db, 500000, null);
+  const unico = gasto(db, 900000);                      // único en las dos direcciones
+  const consumo = (fecha: string, detalle: string, importe_ars: number) =>
+    ({ fecha, detalle, cuota: null, comprobante: null, titular: null, importe_ars, importe_usd: 0 });
+  const rep = guardarResumen(db, { tarjeta: 'VISA', numero: 'VI0002', cierre: '2026-10-22', aviso: null, consumos: [
+    consumo('2026-09-25', 'VIANDAS DEMO', 700000), consumo('2026-10-07', 'FERRETERIA DEMO', 700000),
+    consumo('2026-10-08', 'KIOSCO DEMO', 500000), consumo('2026-10-09', 'PILAS DEMO', 900000),
+  ] });
+  assert.equal(rep.vinculados, 1);
+  assert.deepEqual(estados(db, rep.resumen_id), ['pendiente', 'pendiente', 'pendiente', 'gasto']);
+  assert.equal((verResumen(db, rep.resumen_id).consumos as any[])[3].movimiento_id, unico);
+});
+
 test('varios consumos a un gasto sumado del Excel; personal, ignorar y desvincular; un gasto anulado deja el consumo pendiente', () => {
   const db = base();
   const { resumen_id: id } = guardarResumen(db, interpretarResumen(VISA));

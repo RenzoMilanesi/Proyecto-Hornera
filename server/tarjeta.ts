@@ -148,7 +148,9 @@ const DIAS_VENTANA = 45;
 const TOLERANCIA = 100; // centavos: el Excel a veces redondea ($20.617 contra $20.617,52)
 
 // Vincula solo cada consumo en pesos pendiente con un gasto (o gasto personal) del mismo importe que todavía no tiene
-// consumo, cerca de la fecha del consumo o del cierre (las cuotas son de compras viejas). Si hay varios, el más cercano.
+// consumo, cerca de la fecha del consumo o del cierre (las cuotas son de compras viejas). Si hay más de un candidato en
+// cualquiera de las dos direcciones (importes redondos: $7.000 de viandas y $7.000 de ferretería), queda pendiente
+// para elegirlo a mano: un vínculo equivocado nadie lo revisa.
 // ponytail: uno a uno; los sumados (Uber, viandas) y los de dólares se vinculan a mano.
 export function cruzar(db: DatabaseSync, resumenId: number): number {
   const r = db.prepare('SELECT cierre FROM tarjeta_resumen WHERE id = ?').get(resumenId) as { cierre: string } | undefined;
@@ -157,24 +159,28 @@ export function cruzar(db: DatabaseSync, resumenId: number): number {
     ORDER BY c.fecha`).all(resumenId) as { id: number; fecha: string; importe_ars: number }[];
   const cerca = `(abs(julianday(x.fecha) - julianday(:fecha)) <= ${DIAS_VENTANA} OR abs(julianday(x.fecha) - julianday(:cierre)) <= ${DIAS_VENTANA})`;
   const candidato = db.prepare(`
-    SELECT 'mov' AS tipo, x.id, abs(julianday(x.fecha) - julianday(:fecha)) AS dist FROM movimiento x
+    SELECT 'mov' AS tipo, x.id FROM movimiento x
      WHERE x.estado = 'vigente' AND x.tipo IN ('gasto', 'pre_liquidacion') AND abs(-x.importe_ars - :importe) <= ${TOLERANCIA} AND ${cerca}
        AND NOT EXISTS (SELECT 1 FROM consumo_tarjeta c WHERE c.movimiento_id = x.id)
     UNION ALL
-    SELECT 'ajeno', x.id, abs(julianday(x.fecha) - julianday(:fecha)) FROM gasto_ajeno x
+    SELECT 'ajeno', x.id FROM gasto_ajeno x
      WHERE x.estado = 'vigente' AND abs(x.importe - :importe) <= ${TOLERANCIA} AND ${cerca}
        AND NOT EXISTS (SELECT 1 FROM consumo_tarjeta c WHERE c.gasto_ajeno_id = x.id)
-    ORDER BY dist LIMIT 1`);
+  `);
   const ponerMov = db.prepare('UPDATE consumo_tarjeta SET movimiento_id = ?, gasto_ajeno_id = NULL, ignorado = NULL WHERE id = ?');
   const ponerAjeno = db.prepare('UPDATE consumo_tarjeta SET gasto_ajeno_id = ?, movimiento_id = NULL, ignorado = NULL WHERE id = ?');
+  // Candidatos de cada consumo y de cuántos consumos es candidato cada gasto: solo los pares únicos en las dos direcciones.
+  const candidatos = pendientes.map((c) => (candidato.all({ fecha: c.fecha, cierre: r.cierre, importe: c.importe_ars }) as { tipo: string; id: number }[]));
+  const veces = new Map<string, number>();
+  for (const g of candidatos.flat()) veces.set(`${g.tipo}:${g.id}`, (veces.get(`${g.tipo}:${g.id}`) ?? 0) + 1);
   return enTransaccion(db, () => {
     let n = 0;
-    for (const c of pendientes) {
-      const g = candidato.get({ fecha: c.fecha, cierre: r.cierre, importe: c.importe_ars }) as { tipo: string; id: number } | undefined;
-      if (!g) continue;
+    pendientes.forEach((c, i) => {
+      const [g, otro] = candidatos[i];
+      if (!g || otro || veces.get(`${g.tipo}:${g.id}`) !== 1) return;
       (g.tipo === 'mov' ? ponerMov : ponerAjeno).run(g.id, c.id);
       n++;
-    }
+    });
     return n;
   });
 }
